@@ -14,7 +14,7 @@ def listar_materiais(
     search: Optional[str] = Query(None, description='Termo de busca'),
     categoria: Optional[str] = Query(None, description='Filtrar por categoria'),
     empresa: Optional[str] = Query(None, description='Filtrar por empresa'),
-    status: Optional[str] = Query('Ativo', description='Filtrar por status'),
+    status: Optional[str] = Query('ativo', description='Filtrar por status'),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0)
 ):
