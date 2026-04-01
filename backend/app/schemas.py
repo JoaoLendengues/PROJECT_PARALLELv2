@@ -58,3 +58,41 @@ class MaquinaResponse(MaquinaBase):
 
     class Config:
         from_attributes = True
+
+
+class ManutencaoBase(BaseModel):
+    maquina_id: int
+    tipo: str # preventiva, corretiva, emergencial
+    descricao: str
+    data_inicio: date
+    data_fim: Optional[date] = None
+    data_proxima: Optional[date] = None
+    responsavel: Optional[str] = None
+    status: str = "pedente" # pedente, andamento, concluida,cancelada
+    custo: Optional[float] = None
+    observaçoes: Optional[str] = None
+
+
+class ManutencaoCreate(ManutencaoBase):
+    pass
+
+
+class ManutencaoUpdate(BaseModel):
+    tipo: Optional[str] = None
+    descricao: Optional[str] = None
+    data_fim: Optional[date] = None
+    data_proxima: Optional[date] = None
+    responsavel: Optional[str] = None
+    status: Optional[str] = None 
+    custo: Optional[float] = None
+    observaçoes: Optional[str] = None
+
+
+class ManutencaoResponse(ManutencaoBase):
+    id: int
+    criado_em: datetime
+    atualizado_em: datetime
+    maquina_nome: Optional[str] = None # Para exibir o nome da máquina
+
+    class Config:
+        from_attributes = True
