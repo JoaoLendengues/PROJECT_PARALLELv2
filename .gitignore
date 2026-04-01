@@ -1,0 +1,71 @@
+# Ambientes virtuais
+venv/
+env/
+ENV/
+.venv/
+env.bak/
+venv.bak/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+__pycache__/
+
+# IDEs e editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.vscode/
+.idea/
+
+# Arquivos de logs e bancos de dados
+*.log
+*.sql
+*.sqlite
+*.db
+
+# Arquivos de ambiente e configurações
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.crt
+
+# Arquivos de teste e cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Arquivos de pacotes
+*.pyc
+*.pyo
+*.pyd
+*.whl
+*.tar.gz
+
+# Arquivos do sistema
+Thumbs.db
+ehthumbs.db
+Desktop.ini
