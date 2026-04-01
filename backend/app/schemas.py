@@ -97,3 +97,7 @@ class ManutencaoResponse(ManutencaoBase):
 
     class Config:
         from_attributes = True
+
+
+class MovimentacaoBase(BaseModel):
+    ...
