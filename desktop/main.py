@@ -12,7 +12,7 @@ from widgets.main_window import MainWindow
 # Carregar variáveis de ambiente
 load_dotenv()
 
-def main():
+def main(): 
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
 
