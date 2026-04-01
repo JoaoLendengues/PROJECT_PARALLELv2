@@ -99,6 +99,7 @@ class ManutencaoResponse(ManutencaoBase):
         from_attributes = True
 
 
+
 class MovimentacaoBase(BaseModel):
     material_id: int
     tipo: str # entrada, saida
@@ -112,7 +113,6 @@ class MovimentacaoBase(BaseModel):
 
 class MovimentacaoCreate(MovimentacaoBase):
     pass
-
 
 
 class MovimentacaoUpdate(BaseModel):
