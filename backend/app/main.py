@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from app.database import engine, Base, get_db, test_connection
-from app.routers import materiais
+from app.routers import materiais, maquinas
 from sqlalchemy import text
 from datetime import datetime
 
@@ -19,6 +19,7 @@ app = FastAPI(
 
 # Incluir routers
 app.include_router(materiais.router)
+app.include_router(maquinas.router)
 
 @app.get("/")
 def read_root():

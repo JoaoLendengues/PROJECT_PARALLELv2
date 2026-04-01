@@ -30,3 +30,31 @@ class MaterialResponse(MaterialBase):
     class Config:
         from_attributes = True
         
+
+
+class MaquinaBase(BaseModel):
+    nome: str
+    modelo: Optional[str] = None
+    empresa: str
+    departamento: Optional[str] = None
+    status: str = 'ativo'
+    observacoes: Optional[str] = None
+
+class MaquinaCreate(MaquinaBase):
+    pass
+
+class MaquinaUpdate(BaseModel):
+    nome: Optional[str] = None
+    modelo: Optional[str] = None
+    empresa: Optional[str] = None
+    departamento: Optional[str] = None
+    status: Optional[str] = None
+    observacoes: Optional[str] = None
+
+class MaquinaResponse(MaquinaBase):
+    id: int
+    criado_em: datetime
+    atualizado_em: datetime
+
+    class Config:
+        from_attributes = True
