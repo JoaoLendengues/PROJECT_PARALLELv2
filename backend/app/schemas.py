@@ -100,4 +100,37 @@ class ManutencaoResponse(ManutencaoBase):
 
 
 class MovimentacaoBase(BaseModel):
-    ...
+    material_id: int
+    tipo: str # entrada, saida
+    quantidade: int
+    empresa: str
+    destinatario: Optional[str] = None
+    observacao: Optional[str] = None
+    assinatura_digital: Optional[str] = None
+    ip_origem: Optional[str] = None
+
+
+class MovimentacaoCreate(MovimentacaoBase):
+    pass
+
+
+
+class MovimentacaoUpdate(BaseModel):
+    destinatario: Optional[str] = None
+    observacao: Optional[str] = None
+    assinatura_digital: Optional[str] = None
+
+
+class MovimentacaoReponse(MovimentacaoBase):
+    id: int
+    usuario_id: Optional[int] = None
+    data_hora: datetime
+    material_nome: Optional[str] = None
+    usuario_nome: Optional[str] = None
+
+
+    class Config:
+        from_attributes = True
+ 
+    
+
