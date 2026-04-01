@@ -31,17 +31,17 @@ class Material(Base):
 
 
 class Maquina(Base):
-    __tablename__ = 'maquinas'
-
+    __tablename__ = "maquinas"
+    
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String(100), nullable=False)
     modelo = Column(String(100))
     empresa = Column(String(100), nullable=False)
     departamento = Column(String(100))
-    status = Column(String(20),default="ativo")
+    status = Column(String(20), default="ativo")
     observacoes = Column(Text)
     criado_em = Column(DateTime, server_default=func.now())
-    atualizado_em = Column(DateTime, server_default=func.now(), onupdate=func.now)
+    atualizado_em = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
 class Movimentacao(Base):

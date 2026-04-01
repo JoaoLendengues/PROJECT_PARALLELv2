@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
+from datetime import datetime, date
 
 # Schemas para Material
 class MaterialBase(BaseModel):
@@ -70,7 +71,7 @@ class ManutencaoBase(BaseModel):
     responsavel: Optional[str] = None
     status: str = "pedente" # pedente, andamento, concluida,cancelada
     custo: Optional[float] = None
-    observaçoes: Optional[str] = None
+    observacoes: Optional[str] = None
 
 
 class ManutencaoCreate(ManutencaoBase):
