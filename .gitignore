@@ -43,9 +43,6 @@ __pycache__/
 *.db
 
 # Arquivos de ambiente e configurações
-.env
-.env.local
-.env.*.local
 *.pem
 *.key
 *.crt
