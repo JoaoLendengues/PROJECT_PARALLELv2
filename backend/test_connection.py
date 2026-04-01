@@ -1,17 +1,17 @@
-from app.database import test_connection
+from sqlalchemy import create_engine, text
+from dotenv import load_dotenv
+import os
 
-if __name__ == '__main__':
-    print('=' * 50)
-    print('Teste de Conexão com PostgreSQL')
-    print('=' * 50)
+load_dotenv()
 
-    success = test_connection()
+DATABASE_URL = os.getenv("DATABASE_URL")
+print(f"Conectando a: {DATABASE_URL}")
 
-    if success:
-        print('\n✅ Banco de dados configurado corretamente')
-        print('📍 IP: 10.1.1.151')
-        print('📦 Banco: project_parallel')
-    else:
-        print('\n❌ Verifique as configurações no arquivo .env')
-        print('DATABASE_URL=postgresql://usuario:senha@10.1.1.151:5432/project_parallel')
-        
+engine = create_engine(DATABASE_URL)
+
+with engine.connect() as conn:
+    result = conn.execute(text("SELECT * FROM materiais"))
+    rows = result.fetchall()
+    print(f"Total de materiais: {len(rows)}")
+    for row in rows:
+        print(row)

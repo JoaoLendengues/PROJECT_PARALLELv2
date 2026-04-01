@@ -18,6 +18,7 @@ def listar_materiais(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0)
 ):
+    print("🔍 Endpoint GET /api/materiais foi chamado!")
     """Lista todos os materiais com filtros opcionais"""
 
     query = db.query(models.Material)
