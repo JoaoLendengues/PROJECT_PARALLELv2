@@ -82,7 +82,7 @@ def criar_movimentacao(
     db: Session = Depends(get_db),
     usuario_id: int = Query(1, description='ID do usuário logado')
 ):
-    """Registra uma movimentação de entrada ou saída (atualiza estoque automaticamente)"""
+    """Registra uma movimentação de entrada ou saída"""
     
     # Verificar se o material existe
     material = db.query(models.Material).filter(models.Material.id == movimentacao.material_id).first()
@@ -93,7 +93,7 @@ def criar_movimentacao(
     if movimentacao.tipo not in ['entrada', 'saida']:
         raise HTTPException(status_code=400, detail='Tipo inválido. Use "entrada" ou "saida"')
     
-    # Para saída, verificar estoque
+    # Para saída, verificar estoque (com material já verificado)
     if movimentacao.tipo == 'saida':
         if material.quantidade < movimentacao.quantidade:
             raise HTTPException(
@@ -105,22 +105,24 @@ def criar_movimentacao(
     nova_movimentacao = models.Movimentacao(
         **movimentacao.model_dump(),
         usuario_id=usuario_id,
-        ip_origem="127.0.0.1"  # Em produção, pegar do request
+        ip_origem="127.0.0.1"
     )
     db.add(nova_movimentacao)
     
-    # Atualizar estoque - O TRIGGER no banco fará isso automaticamente
-    # Por isso não precisamos atualizar manualmente aqui
+    # ATUALIZAR ESTOQUE MANUALMENTE (temporário)
+    if movimentacao.tipo == 'entrada':
+        material.quantidade += movimentacao.quantidade
+    else:
+        material.quantidade -= movimentacao.quantidade
     
     db.commit()
     db.refresh(nova_movimentacao)
     
-    # Buscar o material atualizado
-    material_atualizado = db.query(models.Material).filter(models.Material.id == movimentacao.material_id).first()
+    # Buscar usuário
     usuario = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
     
     print(f"✅ Movimentação de {movimentacao.tipo} registrada: {movimentacao.quantidade} x {material.nome}")
-    print(f"📦 Novo estoque: {material_atualizado.quantidade}")
+    print(f"📦 Novo estoque: {material.quantidade}")
     
     result = {
         **{key: getattr(nova_movimentacao, key) for key in nova_movimentacao.__dict__.keys() if not key.startswith('_')},
