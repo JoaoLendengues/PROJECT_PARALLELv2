@@ -101,12 +101,14 @@ def criar_movimentacao(
                 detail=f'Estoque insuficiente. Disponível: {material.quantidade}'
             )
     
-    # Criar movimentação
-    nova_movimentacao = models.Movimentacao(
-        **movimentacao.model_dump(),
-        usuario_id=usuario_id,
-        ip_origem="127.0.0.1"
-    )
+     # Criar dicionário com os dados
+    dados_movimentacao = movimentacao.model_dump()
+    # Adicionar campos extras
+    dados_movimentacao['usuario_id'] = usuario_id
+    dados_movimentacao['ip_origem'] = "127.0.0.1"
+    
+    # Criar movimentação (usando **dados_movimentacao uma única vez)
+    nova_movimentacao = models.Movimentacao(**dados_movimentacao)
     db.add(nova_movimentacao)
     
     # ATUALIZAR ESTOQUE MANUALMENTE (temporário)
