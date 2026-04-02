@@ -19,7 +19,7 @@ def login(
     if not usuario:
         raise HTTPException(
             status_code=401,
-            detail="codigo ou senha inválidos"
+            detail="código ou senha inválidos"
         )
     
     # Criar token
@@ -45,7 +45,7 @@ def trocar_senha(
     if not usuario:
         raise HTTPException(status_code=404,detail="Usuário não encontrado")
     
-    # Vereficar senha atual 
+    # Verificar senha atual 
     if not auth.verificar_senha(dados.senha_atual, usuario.senha_hash):
         raise HTTPException(status_code=401, detail="Senha atual incorreta")
     
@@ -82,3 +82,4 @@ def primeiro_acesso(
     db.commit()
     
     return {"message": "Senha alterada com sucesso. Faça login novamente."}
+
