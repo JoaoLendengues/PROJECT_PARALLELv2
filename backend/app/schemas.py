@@ -133,4 +133,33 @@ class MovimentacaoReponse(MovimentacaoBase):
         from_attributes = True
  
     
+class PedidoBase(BaseModel):
+    material_id: int
+    quantidade: int
+    solicitante: str
+    empresa: str
+    departamento: Optional[str] = None
+    data_conclusao: Optional[date] = None
+    status: str = 'pendente'
+    observacao: Optional[str] = None
+
+class PedidoCreate(PedidoBase):
+    pass
+
+class PedidoUpdate(BaseModel):
+    quantidade: Optional[int] = None
+    solicitante: Optional[str] = None
+    departamento: Optional[str] = None
+    data_conclusao: Optional[date] = None
+    status: Optional[str] = None
+    observacao: Optional[str] = None
+
+class PedidoResponse(PedidoBase):
+    id: int
+    data_solicitacao: date
+    criado_em: datetime
+    material_nome: Optional[str] = None
+
+    class Config:
+        from_attributes = True
 
