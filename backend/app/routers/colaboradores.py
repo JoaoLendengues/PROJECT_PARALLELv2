@@ -70,15 +70,14 @@ def criar_colaborador(
             response_model=schemas.ColaboradorResponse)
 def atualizar_colaborador(
     colaborador_id: int,
-    colaborador: scheamas.ColaboradorUpadate,
-    db: Session = Depensds(get_db),
+    colaborador: schemas.ColaboradorUpadate,
+    db: Session = Depends(get_db),
     admin: models.UsuarioSistema = Depends(auth.verificar_admin)
 ):
     
     """Atualizar um colaborador (apenas administrador)"""
 
-    colaborador_existente = 
-db.query(models.Colaborador).filter(models.Colaborador.id == colaborador_id).first()
+    colaborador_existente = db.query(models.Colaborador).filter(models.Colaborador.id == colaborador_id).first()
 
     if not colaborador_existente:
         raise HTTPException(status_code=404, detail='Colaborador não encontrado')
@@ -96,9 +95,9 @@ db.query(models.Colaborador).filter(models.Colaborador.id == colaborador_id).fir
 
 @router.delete('/{colaborador-id}')
 def deletar_colaborador(
-    dolaborador_id: int, 
-    db: Session = depends(get_db),
-    admin: UsuarioSistema = Depends(auth,verificar_admin)
+    colaborador_id: int, 
+    db: Session = Depends(get_db),
+    admin: models.UsuarioSistema = Depends(auth.verificar_admin)
 ):
     
     """Remove um colavorador(apenas administradores)"""
