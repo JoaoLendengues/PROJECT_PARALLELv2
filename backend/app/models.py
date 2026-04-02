@@ -108,3 +108,33 @@ class LogAuditoria(Base):
     dados_novos = Column(JSON)
     ip_origem = Column(String(45))
     data_hora = Column(DateTime, server_default=func.now())
+
+
+class UsuarioSistema(Base):
+    __tablename__ = "usuarios_sistema"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    codigo = Column(String(20), unique=True, nullable=False)
+    nome = Column(String(100), nullable=False)
+    senha_hash = Column(String(255), nullable=False)
+    cargo = Column(String(50))
+    empresa = Column(String(100))
+    nivel_acesso = Column(String(20), default="usuario")
+    primeiro_acesso = Column(Boolean, default=True)
+    ativo = Column(Boolean, default=True)
+    criado_em = Column(DateTime, server_default=func.now())
+    atualizado_em = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class Colaborador(Base):
+    __tablename__ = "colaboradores"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String(100), nullable=False)
+    cargo = Column(String(50))
+    departamento = Column(String(100))
+    empresa = Column(String(100))
+    ativo = Column(Boolean, default=True)
+    criado_em = Column(DateTime, server_default=func.now())
+    atualizado_em = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    

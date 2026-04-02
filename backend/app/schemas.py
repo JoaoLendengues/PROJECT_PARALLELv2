@@ -163,3 +163,83 @@ class PedidoResponse(PedidoBase):
     class Config:
         from_attributes = True
 
+# =====================================================
+# Schemas para Usuários do Sistema (login)
+# =====================================================
+
+class UsuarioSistemaBase(BaseModel):
+    codigo: str
+    nome: str
+    cargo: str
+    empresa: str
+    nivel_acesso: str = 'usuario' # admin, gerente, usuario
+    ativo: bool = True
+
+class UsuarioSistemaCreate(UsuarioSistemaBase):
+    senha: str # Senha em texto plano, será hasheada
+
+class UsuarioSistemaUpdate(BaseModel):
+    nome: Optional[str] = None
+    cargo: Optional[str] = None
+    empresa: Optional[str] = None
+    nivel_acesso: Optional[str] = None
+    ativo: Optional[bool] = None
+
+class UsuarioSistemaResponse(UsuarioSistemaBase):
+    id: int
+    primeiro_acesso: bool
+    criado_em: datetime
+    atualizado_em: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# =====================================================
+# Schemas para Login
+# =====================================================
+
+class LoginRequest(BaseModel):
+    codigo: str
+    senha: str
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str
+    usuario: UsuarioSistemaResponse
+
+class TrocarSenhaRequest(BaseModel):
+    codigo: str
+    senha_atual: str
+    nova_senha: str
+
+
+# =====================================================
+# Schemas para Colaboradores
+# =====================================================
+
+class ColaboradorBase(BaseModel):
+    nome: str
+    cargo: Optional[str] = None
+    departamento: Optional[str] = None
+    empresa: str
+    ativo: bool = True
+
+class ColaboradorCreate(ColaboradorBase):
+    pass
+
+class ColaboradorUpdate(BaseModel):
+    nome: Optional[str] = None
+    cargo: Optional[str] = None
+    departamento: Optional[str] = None
+    empresa: Optional[str] = None
+    ativo: Optional[bool] = None
+
+class ColaboradorResponse(ColaboradorBase):
+    id: int
+    criado_em: datetime
+    atualizado_em: datetime
+
+    class Config:
+        from_attributes = True
+        
