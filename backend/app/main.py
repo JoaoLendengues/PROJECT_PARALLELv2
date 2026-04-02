@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends
+from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from app.database import engine, Base, get_db, test_connection
 from app.routers import (materiais, maquinas, manutencoes, movimentacoes, pedidos,
@@ -17,6 +18,9 @@ app = FastAPI(
     description="Sistema de Controle de Estoque e Manutenções",
     version="1.0.0"
 )
+
+# Configurar segurança para o Swagger
+security = HTTPBearer()
 
 # Incluir routers
 app.include_router(materiais.router)

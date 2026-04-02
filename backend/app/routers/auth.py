@@ -4,7 +4,7 @@ from app.database import get_db
 from app import models, schemas, auth
 
 
-router = APIRouter(prefix='api/auth', tags=['Autenticação'])
+router = APIRouter(prefix='/api/auth', tags=['Autenticação'])
 
 
 

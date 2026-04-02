@@ -15,7 +15,7 @@ def listar_colaboradores(
     ativo: Optional[bool] = Query  (None, description='filtrar por ativo'),
     empresa: Optional[str] = Query(None, description='filtrar por empresa'),
     limit: int = Query(100, ge=1, le=500),
-    offset: set = Query(0, ge=0)
+    offset: int = Query(0, ge=0)
 ):
     
     """Lista todos os colaboradores (usuários logados)"""
@@ -28,14 +28,14 @@ def listar_colaboradores(
     if empresa:
         query = query.filter(models.Colaborador.empresa == empresa)
 
-    colaboradores = query.order_py(models.Colaborador.nome).offset(offset).limit(limit).all()
+    colaboradores = query.order_by(models.Colaborador.nome).offset(offset).limit(limit).all()
 
 
     return listar_colaboradores
 
 
 @router.get('/{colaborador_id}',
-response_model=schemas.listar_colaboradoresResponse)
+response_model=schemas.ColaboradorResponse)
 def obter_colaborador(
     colaborador_id: int,
     db: Session = Depends(get_db),
@@ -46,7 +46,7 @@ def obter_colaborador(
     colaborador = db.query(models.Colaborador). filter(models.Colaborador.id == colaborador_id).first()
 
     if not colaborador: 
-        raise HTTPException(status_code=404, datail="Colaborador não encotrado")
+        raise HTTPException(status_code=404, detail="Colaborador não encotrado")
     
     return colaborador
 
@@ -70,7 +70,7 @@ def criar_colaborador(
             response_model=schemas.ColaboradorResponse)
 def atualizar_colaborador(
     colaborador_id: int,
-    colaborador: schemas.ColaboradorUpadate,
+    colaborador: schemas.ColaboradorUpdate,
     db: Session = Depends(get_db),
     admin: models.UsuarioSistema = Depends(auth.verificar_admin)
 ):
