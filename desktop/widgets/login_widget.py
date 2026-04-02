@@ -1,5 +1,5 @@
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, Qlabel, QLineEdit, QPushButton, QFrame, QMessageBox)
-from PySide6.QtCore import Qt, Qtimer 
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFrame, QMessageBox)
+from PySide6.QtCore import Qt, QTimer 
 from PySide6.QtGui import QFont, QPixmap 
 
 
@@ -23,8 +23,8 @@ class LoginWidget(QWidget):
         card_layout.setContentsMargins(40, 40, 40, 40)
 
         # Logo
-        logo = Qlabel("📦 Project Parallel")
-        logo.setFont(Qfont("Segoe UI", 20, QFont.Weight.Bold))
+        logo = QLabel("📦 Project Parallel")
+        logo.setFont(QFont("Segoe UI", 20, QFont.Weight.Bold))
         logo.setAlignment(Qt.AlignCenter)
         logo.setStyleSheet("color: #2c7da0;")
         card_layout.addWidget(logo)
@@ -32,16 +32,16 @@ class LoginWidget(QWidget):
         card_layout.addSpacing(20)
 
         # Título
-        title = Qlabel("Acesso ao Sistema")
-        title.setFont(Qfont("Segoe Ui", 14))
+        title = QLabel("Acesso ao Sistema")
+        title.setFont(QFont("Segoe Ui", 14))
         title.setAlignment("color: #1e293b;")
         card_layout.addWidget(title)
 
         card_layout.addSpacing(10)
 
         # Campo Código
-        label_codigo = Qlabel("Código")
-        label_codigo.setFont(Qfont("Segoe Ui", 12))
+        label_codigo = QLabel("Código")
+        label_codigo.setFont(QFont("Segoe Ui", 12))
         card_layout.addWidget(label_codigo)
 
         self.codigo_input = QLineEdit()
