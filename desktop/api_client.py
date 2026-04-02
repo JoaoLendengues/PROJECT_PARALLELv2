@@ -31,17 +31,27 @@ class APIClient:
     def login(self, codigo, senha):
         """Realiza login e armazena o token"""
         response = requests.post(
-            f'{self.base_url}/api/auth/login',
-            json={'codigo': codigo, 'senha': senha},
-            headers={'Content-Type': 'aplication/json'}
-        )
-
+            f"{self.base_url}/api/auth/login",
+            json={"codigo": codigo, "senha": senha},
+            headers={"Content-Type": "application/json"}
+    )
+    
         if response.status_code == 200:
             data = response.json()
-            self.set_token(data['access_token'])
-            return {'success': True, 'usuario': data['usuario']}
+            self.set_token(data["access_token"])
+            return {"success": True, "usuario": data["usuario"]}
         else:
-            return {'success': False, 'error': response.json().get('detail', 'Erro no login')}
+            # Tentar extrair mensagem de erro corretamente
+            try:
+                error_data = response.json()
+                if "detail" in error_data:
+                    error_msg = error_data["detail"]
+                else:
+                    error_msg = str(error_data)
+            except:
+                error_msg = response.text if response.text else "Erro no login"
+        
+        return {"success": False, "error": error_msg}
         
     def trocar_senha(self, codigo, senha_atual, nova_senha):
         """Troca a senha do usuário"""

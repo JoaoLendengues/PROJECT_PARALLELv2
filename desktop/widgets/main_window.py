@@ -1,21 +1,25 @@
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                                 QTabWidget, QPushButton, QLabel, QFrame, QStackedWidget)
-from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QFont, QIcon, QAction
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QFont
+from datetime import datetime
 import os
 
 from widgets.home_widget import HomeWidget
 from widgets.materiais_widget import MateriaisWidget
 from widgets.maquinas_widget import MaquinasWidget
 from widgets.movimentacoes_widget import MovimentacoesWidget
+from widgets.manutencoes_widget import ManutencoesWidget
 from widgets.pedidos_widget import PedidosWidget
 from widgets.usuarios_widget import UsuariosWidget
 from widgets.parametros_widget import ParametrosWidget
 
+
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, usuario):
         super().__init__()
-        self.setWindowTitle('Project Parallel - Sistema de Controle de Estoque')
+        self.usuario = usuario
+        self.setWindowTitle(f"Project Parallel - Sistema de Controle de Estoque - {usuario['nome']}")
         self.setGeometry(100, 100, 1400, 800)
 
         # Widget central
@@ -27,7 +31,10 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # sidebar esquerda
+        # Área superior (header)
+        self.create_header()
+        
+        # Sidebar esquerda
         sidebar = self.create_sidebar()
         sidebar.setFixedWidth(250)
         main_layout.addWidget(sidebar)
@@ -41,8 +48,54 @@ class MainWindow(QMainWindow):
 
         # Selecionar home por padrão
         self.content_stack.setCurrentWidget(self.home_widget)
-    """Marca o menu como ativo visualmente"""
+    
+    def create_header(self):
+        """Cria o cabeçalho superior"""
+        header = QFrame()
+        header.setProperty("class", "header")
+        header.setFixedHeight(60)
+        
+        layout = QHBoxLayout(header)
+        layout.setContentsMargins(20, 0, 20, 0)
+        
+        # Título
+        title = QLabel("Project Parallel")
+        title.setProperty("class", "header-title")
+        title.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
+        layout.addWidget(title)
+        
+        layout.addStretch()
+        
+        # Data e hora
+        self.datetime_label = QLabel()
+        self.datetime_label.setProperty("class", "header-datetime")
+        layout.addWidget(self.datetime_label)
+        
+        # Usuário logado
+        user_label = QLabel(f"👤 {self.usuario['nome']} ({self.usuario['cargo']})")
+        user_label.setProperty("class", "header-user")
+        layout.addWidget(user_label)
+        
+        # Adicionar header ao layout principal
+        central_widget = self.centralWidget()
+        main_layout = central_widget.layout()
+        main_layout.insertWidget(0, header)
+        
+        # Atualizar data/hora
+        self.update_datetime()
+        
+        # Timer para atualizar relógio
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_datetime)
+        self.timer.start(1000)
+    
+    def update_datetime(self):
+        """Atualiza o relógio"""
+        now = datetime.now()
+        self.datetime_label.setText(now.strftime("%d/%m/%Y %H:%M:%S"))
+    
     def set_active_menu(self, button_index):
+        """Marca o menu como ativo visualmente"""
         for i, btn in enumerate(self.menu_buttons):
             if i == button_index:
                 btn.setProperty("active", True)
@@ -61,13 +114,13 @@ class MainWindow(QMainWindow):
         layout.setSpacing(0)
 
         # Logo
-        logo = QLabel('📦Project Parallel')
-        logo_font = QFont('Segoe Ui', 16, QFont.Weight.Bold)
+        logo = QLabel('📦 Project Parallel')
+        logo_font = QFont('Segoe UI', 16, QFont.Weight.Bold)
         logo_font.setWeight(QFont.Weight.Bold)
+        logo.setFont(logo_font)
         logo.setAlignment(Qt.AlignCenter)
         logo.setProperty('class', 'logo')
         layout.addWidget(logo)
-
 
         # Botões do menu
         menus = [
@@ -81,7 +134,7 @@ class MainWindow(QMainWindow):
             ("⚙️ Parâmetros", self.show_parametros)
         ]
 
-        self.menu_buttons = [] # Guardar referências dos botões
+        self.menu_buttons = []  # Guardar referências dos botões
         for idx, (text, callback) in enumerate(menus):
             btn = QPushButton(text)
             btn.setProperty("class", "menu-button")
@@ -107,7 +160,7 @@ class MainWindow(QMainWindow):
         self.materiais_widget = MateriaisWidget()
         self.maquinas_widget = MaquinasWidget()
         self.movimentacoes_widget = MovimentacoesWidget()
-        self.manutencoes_widget = MaquinasWidget()
+        self.manutencoes_widget = ManutencoesWidget()
         self.pedidos_widget = PedidosWidget()
         self.usuarios_widget = UsuariosWidget()
         self.parametros_widget = ParametrosWidget()
@@ -123,6 +176,7 @@ class MainWindow(QMainWindow):
 
     def show_home(self):
         self.content_stack.setCurrentWidget(self.home_widget)
+        self.home_widget.carregar_dados()
 
     def show_materiais(self):
         self.content_stack.setCurrentWidget(self.materiais_widget)

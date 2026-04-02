@@ -34,7 +34,8 @@ class LoginWidget(QWidget):
         # Título
         title = QLabel("Acesso ao Sistema")
         title.setFont(QFont("Segoe Ui", 14))
-        title.setAlignment("color: #1e293b;")
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("color: #1e293b;")  
         card_layout.addWidget(title)
 
         card_layout.addSpacing(10)
@@ -100,5 +101,12 @@ class LoginWidget(QWidget):
             self.login_btn.setEnabled(True)
             self.login_btn.setText("Entrar")
             self.status_label.setStyleSheet("color: #e76f51;")
-            self.status_label.setText(result["error"])
+            # tratar erro se for lista ou dicionário
+            error_msg = result['error']
+            if isinstance(error_msg, list):
+                error_msg = ', '.join(error_msg)
+            elif isinstance(error_msg,dict):
+                error_msg = str(error_msg)
+            self.status_label.setText(error_msg)
+            
 
