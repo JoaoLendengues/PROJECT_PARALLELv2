@@ -1,7 +1,8 @@
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from app.database import engine, Base, get_db, test_connection
-from app.routers import materiais, maquinas, manutencoes, movimentacoes, pedidos
+from app.routers import (materiais, maquinas, manutencoes, movimentacoes, pedidos,
+                         auth, usuarios_sistema, colaboradores)
 from sqlalchemy import text
 from datetime import datetime
 
@@ -23,6 +24,10 @@ app.include_router(maquinas.router)
 app.include_router(manutencoes.router)
 app.include_router(movimentacoes.router)
 app.include_router(pedidos.router)
+app.include_router(auth.router)
+app.include_router(usuarios_sistema.router)
+app.include_router(colaboradores.router)
+
 
 @app.get("/")
 def read_root():
