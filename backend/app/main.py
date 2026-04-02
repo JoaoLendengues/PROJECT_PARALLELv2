@@ -24,6 +24,10 @@ app.include_router(maquinas.router)
 app.include_router(manutencoes.router)
 app.include_router(movimentacoes.router)
 app.include_router(pedidos.router)
+app.include_router(auth.router)
+app.include_router(usuarios_sistema.router)
+app.include_router(colaboradores.router)
+
 
 @app.get("/")
 def read_root():
