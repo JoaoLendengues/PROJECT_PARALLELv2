@@ -94,7 +94,7 @@ class HomeWidget(QWidget):
         layout1.addWidget(value1)
         
         subtitle1 = QLabel("Atualmente em estoque.")
-        subtitle1.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        subtitle1.setStyleSheet("color: #94a3b8; font-size: 18px;")
         layout1.addWidget(subtitle1)
         
         layout1.addStretch()
@@ -124,13 +124,13 @@ class HomeWidget(QWidget):
         layout2.addWidget(value2)
         
         subtitle2 = QLabel("Máquinas em operação.")
-        subtitle2.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        subtitle2.setStyleSheet("color: #94a3b8; font-size: 18px;")
         layout2.addWidget(subtitle2)
         
         layout2.addStretch()
         
         link2 = QLabel("Clique para ver")
-        link2.setStyleSheet("color: #10b981; font-size: 12px; font-weight: 500; border-top: 1px solid #e2e8f0; padding-top: 10px;")
+        link2.setStyleSheet("color: #10b981; font-size: 14px; font-weight: 500; border-top: 1px solid #e2e8f0; padding-top: 10px;")
         layout2.addWidget(link2)
         
         # Card 3 - Manutenções
@@ -154,7 +154,7 @@ class HomeWidget(QWidget):
         layout3.addWidget(value3)
         
         subtitle3 = QLabel("Tarefas agendadas.")
-        subtitle3.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        subtitle3.setStyleSheet("color: #94a3b8; font-size: 18px;")
         layout3.addWidget(subtitle3)
         
         layout3.addStretch()
@@ -184,7 +184,7 @@ class HomeWidget(QWidget):
         layout4.addWidget(value4)
         
         subtitle4 = QLabel("Pedidos de compra e venda.")
-        subtitle4.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        subtitle4.setStyleSheet("color: #94a3b8; font-size: 18px;")
         layout4.addWidget(subtitle4)
         
         layout4.addStretch()
@@ -202,4 +202,3 @@ class HomeWidget(QWidget):
     def carregar_dados(self):
         """Carrega os dados do dashboard"""
         print("Carregando dashboard...")
-        
