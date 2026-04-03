@@ -79,36 +79,36 @@ class HomeWidget(QWidget):
         """Cria os cards de informações do dashboard"""
         cards_data = [
             {
-                "title": "Materiais em Estoque", 
-                "value": "0", 
-                "subtitle": "Atualmente em estoque.", 
-                "link": "Clique para gerenciar", 
-                "color": "#3b82f6", 
-                "icon": "📦"
+            "title": "Materiais em Estoque",
+            "value": "1.452",
+            "subtitle": "Atualmente em estoque.",
+            "link": "Clique para gerenciar",
+            "color": "#3b82f6",
+            "icon": "📦"
             },
             {
-                "title": "Máquinas Ativas", 
-                "value": "0", 
-                "subtitle": "Máquinas em operação.", 
-                "link": "Clique para ver", 
-                "color": "#10b981", 
-                "icon": "🖥️"
+            "title": "Máquinas Ativas",
+            "value": "18",
+            "subtitle": "Máquinas em operação.",
+            "link": "Clique para ver",
+            "color": "#10b981",
+            "icon": "🖥️"
             },
             {
-                "title": "Manutenções Pendentes", 
-                "value": "0", 
-                "subtitle": "Tarefas agendadas.", 
-                "link": "Ações necessárias", 
-                "color": "#f59e0b", 
-                "icon": "🔧"
+            "title": "Manutenções Pendentes",
+            "value": "7",
+            "subtitle": "Tarefas agendadas.",
+            "link": "Ações necessárias",
+            "color": "#f59e0b",
+            "icon": "🔧"
             },
             {
-                "title": "Pedidos Pendentes", 
-                "value": "0", 
-                "subtitle": "Pedidos de compra e venda.", 
-                "link": "Aguardando aprovação", 
-                "color": "#8b5cf6", 
-                "icon": "📋"
+            "title": "Pedidos Pendentes",
+            "value": "24",
+            "subtitle": "Pedidos de compra e venda.",
+            "link": "Aguardando aprovação",
+            "color": "#8b5cf6",
+            "icon": "📋"
             }
         ]
         
@@ -183,4 +183,3 @@ class HomeWidget(QWidget):
     def carregar_dados(self):
         """Carrega os dados do dashboard (será implementado com a API)"""
         print("Carregando dashboard...")
-        
