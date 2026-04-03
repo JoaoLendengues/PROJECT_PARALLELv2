@@ -131,7 +131,7 @@ class HomeWidget(QWidget):
     def create_card(self, data):
         """Cria um card individual"""
         card = QFrame()
-        card.setProperty('class', f'dashboard-card {data.get['class', '']}')
+        card.setProperty('class', f'dashboard-card {data.get('class', '')}')
         card.setFixedHeight(180)
 
         layout = QVBoxLayout(card)
@@ -166,7 +166,7 @@ class HomeWidget(QWidget):
         subtitle_label.setStyleSheet("color: #94a3b8; font-size: 12px;")
         layout.addWidget(subtitle_label)
 
-        layout.addStrech()
+        layout.addStretch()
 
         # Subtítulo
         subtitle_label = QLabel(data['subtitle'])
