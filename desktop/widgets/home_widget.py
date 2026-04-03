@@ -25,6 +25,7 @@ class HomeWidget(QWidget):
         self.saudacao_label = QLabel()
         self.saudacao_label.setFont(QFont("Segoe UI", 28, QFont.Weight.Bold))
         self.saudacao_label.setStyleSheet("color: #1e293b; margin-bottom: 10px;")
+        self.saudacao_label.setWordWrap(True)
         layout.addWidget(self.saudacao_label)
         
         # Data e hora
@@ -131,11 +132,12 @@ class HomeWidget(QWidget):
         """Cria um card individual"""
         card = QFrame()
         card.setProperty('class', f'dashboard-card {data.get('class', '')}')
-        card.setFixedHeight(180)
+        card.setMinimumHeight(180)  
+        card.setMaximumHeight(200)
         
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(8)
+        layout.setContentsMargins(20, 15, 20, 15)
+        layout.setSpacing(6)
         
         # Ícone
         icon_label = QLabel(data["icon"])
@@ -144,17 +146,19 @@ class HomeWidget(QWidget):
         
         # Título
         title_label = QLabel(data["title"])
-        title_label.setStyleSheet("color: #64748b; font-size: 14px; font-weight: 500;")
+        title_label.setStyleSheet("color: #64748b; font-size: 13px; font-weight: 500;")
+        title_label.setWordWrap(True)
         layout.addWidget(title_label)
         
-        # Valor
+         # Valor (número grande)
         value_label = QLabel(data["value"])
-        value_label.setStyleSheet(f"color: {data['color']}; font-size: 36px; font-weight: bold;")
+        value_label.setStyleSheet(f"color: {data['color']}; font-size: 32px; font-weight: bold;")
         layout.addWidget(value_label)
         
         # Subtítulo
         subtitle_label = QLabel(data["subtitle"])
-        subtitle_label.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        subtitle_label.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        subtitle_label.setWordWrap(True)
         layout.addWidget(subtitle_label)
 
         layout.addStretch()
@@ -170,7 +174,8 @@ class HomeWidget(QWidget):
         
         # Link
         link_label = QLabel(data["link"])
-        link_label.setStyleSheet(f"color: {data['color']}; font-size: 12px; font-weight: 500; border-top: 1px solid #e2e8f0; padding-top: 12px;")
+        link_label.setStyleSheet(f"color: {data['color']}; font-size: 11px; font-weight: 500; border-top: 1px solid #e2e8f0; padding-top: 10px;")
+        link_label.setWordWrap(True)
         layout.addWidget(link_label)
         
         return card
