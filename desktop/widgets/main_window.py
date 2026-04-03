@@ -31,15 +31,12 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # Área superior (header)
-        self.create_header()
-        
         # Sidebar esquerda
         sidebar = self.create_sidebar()
         sidebar.setFixedWidth(250)
         main_layout.addWidget(sidebar)
 
-        # Área de conteúdo
+        # Área de conteúdo (stacked widget)
         self.content_stack = QStackedWidget()
         main_layout.addWidget(self.content_stack)
 
@@ -48,51 +45,6 @@ class MainWindow(QMainWindow):
 
         # Selecionar home por padrão
         self.content_stack.setCurrentWidget(self.home_widget)
-    
-    def create_header(self):
-        """Cria o cabeçalho superior"""
-        header = QFrame()
-        header.setProperty("class", "header")
-        header.setFixedHeight(60)
-        
-        layout = QHBoxLayout(header)
-        layout.setContentsMargins(20, 0, 20, 0)
-        
-        # Título
-        title = QLabel("Project Parallel")
-        title.setProperty("class", "header-title")
-        title.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
-        layout.addWidget(title)
-        
-        layout.addStretch()
-        
-        # Data e hora
-        self.datetime_label = QLabel()
-        self.datetime_label.setProperty("class", "header-datetime")
-        layout.addWidget(self.datetime_label)
-        
-        # Usuário logado
-        user_label = QLabel(f"👤 {self.usuario['nome']} ({self.usuario['cargo']})")
-        user_label.setProperty("class", "header-user")
-        layout.addWidget(user_label)
-        
-        # Adicionar header ao layout principal
-        central_widget = self.centralWidget()
-        main_layout = central_widget.layout()
-        main_layout.insertWidget(0, header)
-        
-        # Atualizar data/hora
-        self.update_datetime()
-        
-        # Timer para atualizar relógio
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.update_datetime)
-        self.timer.start(1000)
-    
-    def update_datetime(self):
-        """Atualiza o relógio"""
-        now = datetime.now()
-        self.datetime_label.setText(now.strftime("%d/%m/%Y %H:%M:%S"))
     
     def set_active_menu(self, button_index):
         """Marca o menu como ativo visualmente"""
@@ -116,7 +68,6 @@ class MainWindow(QMainWindow):
         # Logo
         logo = QLabel('📦 Project Parallel')
         logo_font = QFont('Segoe UI', 16, QFont.Weight.Bold)
-        logo_font.setWeight(QFont.Weight.Bold)
         logo.setFont(logo_font)
         logo.setAlignment(Qt.AlignCenter)
         logo.setProperty('class', 'logo')
@@ -134,7 +85,7 @@ class MainWindow(QMainWindow):
             ("⚙️ Parâmetros", self.show_parametros)
         ]
 
-        self.menu_buttons = []  # Guardar referências dos botões
+        self.menu_buttons = []
         for idx, (text, callback) in enumerate(menus):
             btn = QPushButton(text)
             btn.setProperty("class", "menu-button")
@@ -157,6 +108,7 @@ class MainWindow(QMainWindow):
     def init_screens(self):
         """Inicializa todas as telas do sistema"""
         self.home_widget = HomeWidget()
+        self.home_widget.set_usuario(self.usuario['nome'])  # Passa o nome do usuário
         self.materiais_widget = MateriaisWidget()
         self.maquinas_widget = MaquinasWidget()
         self.movimentacoes_widget = MovimentacoesWidget()
@@ -204,3 +156,4 @@ class MainWindow(QMainWindow):
 
     def show_parametros(self):
         self.content_stack.setCurrentWidget(self.parametros_widget)
+        
