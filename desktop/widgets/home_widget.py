@@ -131,7 +131,7 @@ class HomeWidget(QWidget):
     def create_card(self, data):
         """Cria um card individual"""
         card = QFrame()
-        card.setProperty('class', f'dashboard-card {data['class']}')
+        card.setProperty('class', f'dashboard-card {data.get['class', '']}')
         card.setFixedHeight(180)
 
         layout = QVBoxLayout(card)
