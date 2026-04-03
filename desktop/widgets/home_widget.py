@@ -7,7 +7,13 @@ from datetime import datetime
 class HomeWidget(QWidget):
     def __init__(self):
         super().__init__()
+        self.usuario_nome = None
         self.init_ui()
+
+    def set_usuario(self, nome):
+        """Define o nome do usuário para a saudação"""
+        self.usuario_nome = nome
+        self.update_saudacao()
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -15,6 +21,11 @@ class HomeWidget(QWidget):
         layout.setSpacing(24)
 
         # Cabeçalho com saudação
+        self.saudacao_label = QLabel()
+        self.saudacao_label.setFont(QFont("Segoe UI", 28, QFont.Weight.Bold))
+        self.saudacao_label.setStyleSheet("color: #1e293b; margin-bottom: 10px;")
+        layout.addWidget(self.saudacao_label)
+
         header = QHBoxLayout()
 
         # Saudação
@@ -27,9 +38,10 @@ class HomeWidget(QWidget):
 
         # Data e Hora
         self.data_hora_label = QLabel()
-        self.data_hora_label.setFont(QFont('Segoe UI', 18))
-        self.data_hora_label.setStyleSheet('color: #64748b; background-color: #f1f5f9; padding 8px 16px; border-radius: 12px;')
+        self.data_hora_label.setFont(QFont('Segoe UI', 13))
+        self.data_hora_label.setStyleSheet(("color: #64748b; margin-bottom: 30px;"))
         self.data_hora_label.setAlignment(Qt.AlignRight)
+        layout.addWidget(self.data_hora_label)
         header.addWidget(self.data_hora_label)
 
         layout.addLayout(header)
@@ -55,58 +67,50 @@ class HomeWidget(QWidget):
     def update_datetime(self):
         """Atualiza a saudação e data/hora"""
         now = datetime.now()
+        self.data_hora_label.setText(now.strftime("%A, %d de %B de %Y - %H:%M"))
+        self.update_saudacao()
+
+    def update_saudacao(self):
+
+         """Atualiza a saudação com o nome do usuário"""
+         now = datetime.now()
+         hora = now.hour
+         if hora < 12:
+            saudacao = "Bom dia"
+         elif hora < 18:
+            saudacao = "Boa tarde"
+         else:
+            saudacao = "Boa noite"
+        
+         if self.usuario_nome:
+            self.saudacao_label.setText(f"{saudacao}, {self.usuario_nome}!")
+         else:
+            self.saudacao_label.setText(f"{saudacao}!")
 
         # Definir saudação baseada na hora
-        hora = now.hour
-        if hora < 12:
+         hora = now.hour
+         if hora < 12:
             saudacao = 'Bom dia'
-        elif hora < 18:
+         elif hora < 18:
             saudacao = 'Boa tarde'
-        else:
+         else:
             saudacao = 'Boa noite'
     
-        self.saudacao_label.setText(f'{saudacao}, pessoa!')
-        self.data_hora_label.setText(now.strftime('%d/%m/%Y • %H:%M'))
+         self.saudacao_label.setText(f'{saudacao}, pessoa!')
+         self.data_hora_label.setText(now.strftime('%d/%m/%Y • %H:%M'))
 
     def create_cards(self):
         """Cria os cards de informações do dashboard"""
         cards_data = [
-            {
-                "title": "Materiais em Estoque",
-                "value": "1,452",
-                "subtitle": "Atualmente em estoque.",
-                "link": "Clique para gerenciar",
-                "color": "#2c7da0",
-                "icon": "📦",
-                "class": "card-1"
-            },
-            {
-                "title": "Máquinas Ativas",
-                "value": "18",
-                "subtitle": "Máquinas em operação.",
-                "link": "Clique para ver",
-                "color": "#2a9d8f",
-                "icon": "🖥️",
-                "class": "card-2"
-            },
-            {
-                "title": "Manutenções Pendentes",
-                "value": "7",
-                "subtitle": "Tarefas agendadas.",
-                "link": "Ações necessárias",
-                "color": "#e76f51",
-                "icon": "🔧",
-                "class": "card-3"
-            },
-            {
-                "title": "Pedidos Pendentes",
-                "value": "24",
-                "subtitle": "Pedidos de compra e venda.",
-                "link": "Aguardando aprovação",
-                "color": "#f4a261",
-                "icon": "📋",
-                "class": "card-4"
-            }
+            {"title": "Materiais em Estoque", "value": "0", "subtitle": "Atualmente em estoque.", "link": 
+             "Clique para gerenciar", "color": "#3b82f6", "icon": "📦"},
+            {"title": "Máquinas Ativas", "value": "0", "subtitle": "Máquinas em operação.",
+              "link": "Clique para ver", "color": "#10b981", "icon": "🖥️"},
+            {"title": "Manutenções Pendentes", "value": "0", "subtitle": "Tarefas agendadas.",
+              "link": "Ações necessárias", "color": "#f59e0b", "icon": "🔧"},
+            {"title": "Pedidos Pendentes", "value": "0", "subtitle": "Pedidos de compra e venda.",
+              "link": "Aguardando aprovação", "color": "#8b5cf6", "icon": "📋"}
+              
         ]
 
         # Limpar layout existente
@@ -136,6 +140,11 @@ class HomeWidget(QWidget):
 
         # Cabeçalho do card do ícone
         header_layout = QHBoxLayout()
+        icon_label = QLabel(data['icon'])
+        icon_label.setFont(QFont("Segoe UI", 28))
+        header_layout.addWidget(icon_label)
+        header_layout.addStretch()
+        layout.addLayout(header_layout)
 
         # Ícone
         icon_label = QLabel(data['icon'])
@@ -148,19 +157,16 @@ class HomeWidget(QWidget):
 
         # Título
         title_label = QLabel(data['title'])
-        title_label.setProperty('class', 'card-title')
-        title_label.setFont(QFont('Segoe UI', 12, QFont.Weight.Medium))
-        title_label.setStyleSheet('Color: #64748b;')
+        title_label.setStyleSheet("color: #64748b; font-size: 14px; font-weight: 500;")
         layout.addWidget(title_label)
-
+        
 
         # Valor
-        value_label = QLabel(data['value'])
-        value_label.setProperty('class', 'card-value')
-        value_label.setFont(QFont('Segoe UI', 36, QFont.Weight.Bold))
-        value_label.setStyleSheet(f'color: {data['color']};')
-        layout.addWidget(value_label)
+        subtitle_label = QLabel(data['subtitle'])
+        subtitle_label.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        layout.addWidget(subtitle_label)
 
+        layout.addStrech()
 
         # Subtítulo
         subtitle_label = QLabel(data['subtitle'])
@@ -173,15 +179,12 @@ class HomeWidget(QWidget):
 
         # Link/Botão
         link_label = QLabel(data['link'])
-        link_label.setProperty('class', 'card-link')
-        link_label.setFont(QFont('Segoe UI', 11, QFont.Weight.Medium))
-        link_label.setStyleSheet(f'color: {data['color']}; border-top: 1px solid #e9ecef; padding-top: 12px')
-        link_label.setAlignment(Qt.AlignLeft)
+        link_label.setStyleSheet(f"color: {data['color']}; font-size: 12px; font-weight: 500; border-top: 1px solid #e2e8f0; padding-top: 12px;")
         layout.addWidget(link_label)
 
         return card
 
     def carregar_dados(self):
-        """Carrega os dados do dashboard (será implementado depois)"""
-        print('Carregando dados do dashboard...')
+        """Carrega os dados do dashboard"""
+        print("Carregando dashboard...")
     
