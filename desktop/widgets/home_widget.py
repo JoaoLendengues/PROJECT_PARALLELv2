@@ -10,6 +10,10 @@ class HomeWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.usuario_nome = None
+        self.valor_materiais = QLabel("0")
+        self.valor_maquinas = QLabel("0")
+        self.valor_manutencoes = QLabel("0")
+        self.valor_pedidos = QLabel("0")
         self.init_ui()
     
     def set_usuario(self, nome):
@@ -48,6 +52,9 @@ class HomeWidget(QWidget):
         
         # Criar cards manualmente um por um
         self.criar_cards_manualmente()
+
+        # Carregar dados da API com um pequeno delay para garantir que os cards foram criados
+        QTimer.singleShot(100, self.carregar_dados)
         
         layout.addStretch()
     
@@ -201,21 +208,22 @@ class HomeWidget(QWidget):
         self.cards_layout.addWidget(card4, 1, 1)
     
     def carregar_dados(self):
-        """Carrega os dados do dashboard"""
-        print("Carregando dashboard...")
-
-        try: 
+        """Carrega os dados do dashboard da API"""
+        print("Carregando dados do dashboard...")
+    
+        try:
             dados = api_client.get_dashboard_resumo()
-            resumo = dados.get('resumo', {})
-
+            resumo = dados.get("resumo", {})
+        
             # Atualizar valores nos cards
-            self.valor_materiais.setText(str(resumo.get('total_materiais', 0)))
-            self.valor_maquinas.setText(str(resumo.get('maquinas_ativas', 0)))
-            self.valor_manutencoes.setText(str(resumo.get('manutencoes_pendentes', 0)))
-            self.valor_pedidos.setText(str(resumo.get('pedidos_pendentes', 0)))
-
-            print(f'✅ Dashboard atualizado: Materiais={resumo.get('total_materiais', 0)}')
-
+            self.valor_materiais.setText(str(resumo.get("total_materiais", 0)))
+            self.valor_maquinas.setText(str(resumo.get("maquinas_ativas", 0)))
+            self.valor_manutencoes.setText(str(resumo.get("manutencoes_pendentes", 0)))
+            self.valor_pedidos.setText(str(resumo.get("pedidos_pendentes", 0)))
+            
+            print(f"✅ Dashboard atualizado: Materiais={resumo.get('total_materiais', 0)}")
+            
         except Exception as e:
-            print(f'❌ Erro ao carregar dashboard: {e}')
+            print(f"❌ Erro ao carregar dashboard: {e}")
+
             

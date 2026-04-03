@@ -354,10 +354,21 @@ class APIClient:
     def get_dashboard_resumo(self):
         """Obtém resumo para o dashboard"""
         response = requests.get(
-            f'{self.base_url}/api/dashboard/resumo',
+            f"{self.base_url}/api/dashboard/resumo",
             headers=self.get_headers()
         )
-        return response.json() if response.status_code == 200 else {}
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return {
+                "resumo": {
+                    "total_materiais": 0,
+                    "itens_baixo_estoque": 0,
+                    "maquinas_ativas": 0,
+                    "manutencoes_pendentes": 0,
+                    "pedidos_pendentes": 0
+                }
+            }
 
 
 # Instância global do cliente
