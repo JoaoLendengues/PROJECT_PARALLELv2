@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QComboBox, QSpinBox, QCheckBox, QGroupBox,
                                QTabWidget, QMessageBox, QTableWidget,
                                QTableWidgetItem, QHeaderView, QDialog,
-                               QDialogButtonBox, QListWidget, QListWidgetItem)
+                               QDialogButtonBox, QFrame, QScrollArea)
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont, QColor
 from api_client import api_client
@@ -240,6 +240,14 @@ class ParametrosWidget(QWidget):
         # Card de informações
         info_frame = QFrame()
         info_frame.setObjectName("infoCard")
+        info_frame.setStyleSheet("""
+            QFrame#infoCard {
+                background-color: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 16px;
+                padding: 20px;
+            }
+        """)
         info_layout = QVBoxLayout(info_frame)
         
         # Título
@@ -247,12 +255,14 @@ class ParametrosWidget(QWidget):
         titulo_servidor.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
         info_layout.addWidget(titulo_servidor)
         
+        info_layout.addSpacing(10)
+        
         # Status da API
         self.status_api = QLabel("Status da API: Verificando...")
         info_layout.addWidget(self.status_api)
         
         # Endereço do servidor
-        self.endereco_server = QLabel(f"Endereço: {self.get_ip_local()}")
+        self.endereco_server = QLabel(f"Endereço Local: {self.get_ip_local()}")
         info_layout.addWidget(self.endereco_server)
         
         # Porta
@@ -308,6 +318,7 @@ class ParametrosWidget(QWidget):
         dialog = QDialog(self)
         dialog.setWindowTitle("Adicionar Empresa")
         dialog.setModal(True)
+        dialog.setMinimumWidth(300)
         
         layout = QVBoxLayout(dialog)
         nome_edit = QLineEdit()
@@ -335,6 +346,7 @@ class ParametrosWidget(QWidget):
         dialog = QDialog(self)
         dialog.setWindowTitle("Adicionar Departamento")
         dialog.setModal(True)
+        dialog.setMinimumWidth(300)
         
         layout = QVBoxLayout(dialog)
         nome_edit = QLineEdit()
@@ -362,6 +374,7 @@ class ParametrosWidget(QWidget):
         dialog = QDialog(self)
         dialog.setWindowTitle("Adicionar Categoria")
         dialog.setModal(True)
+        dialog.setMinimumWidth(300)
         
         layout = QVBoxLayout(dialog)
         nome_edit = QLineEdit()
@@ -410,7 +423,7 @@ class ParametrosWidget(QWidget):
                 self.status_api.setText("❌ Status da API: Offline")
                 self.status_api.setStyleSheet("color: #e76f51;")
                 self.api_versao.setText("📦 Versão da API: Não disponível")
-        except:
+        except Exception as e:
             self.status_api.setText("❌ Status da API: Offline")
             self.status_api.setStyleSheet("color: #e76f51;")
             self.api_versao.setText("📦 Versão da API: Não disponível")
