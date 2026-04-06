@@ -406,12 +406,47 @@ class APIClient:
             json=usuario,
             headers=self.get_headers()
         )
-        return response.json() if response.status_code == 201 else None
+        if response.status_code == 201:
+            return response.json()
+        else:
+            print(f"Erro ao criar usuário: {response.status_code} - {response.text}")
+            return None
+        
+    def atualizar_usuario(self, usuario_id, usuario):
+        """Atualiza um usuário"""
+        response = requests.put(
+            f'{self.base_url}/api/usuarios/{usuario_id}',
+            json=usuario,
+            headers=self.get_headers()
+        )
+        return response.json() if response.status_code == 200 else None
     
-    def resetar_senha(self, usuario_id):
+    def deletar_usuario(self, usuario_id):
+        """Deleta um usuário"""
+        response = requests.delete(
+            f'{self.base_url}/api/usuarios/{usuario_id}',
+            headers=self.get_headers()
+        )
+        return response.status_code == 200
+    
+    def resetar_senha_usuario(self, usuario_id, nova_senha=None):
         """Reseta a senha de um usuário"""
+        data = {}
+        if nova_senha:
+            data["nova_senha"] = nova_senha
+        
         response = requests.post(
             f"{self.base_url}/api/usuarios/{usuario_id}/resetar-senha",
+            json=data if data else None,
+            headers=self.get_headers()
+        )
+        return response.status_code == 200
+    
+    def alterar_senha_usuario(self, usuario_id, nova_senha):
+        """Altera a senha de um usuário específico"""
+        response = requests.post(
+            f"{self.base_url}/api/usuarios/{usuario_id}/alterar-senha",
+            json={"nova_senha": nova_senha},
             headers=self.get_headers()
         )
         return response.status_code == 200

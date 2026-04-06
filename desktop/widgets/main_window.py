@@ -152,7 +152,7 @@ class MainWindow(QMainWindow):
 
     def show_usuarios(self):
         self.content_stack.setCurrentWidget(self.usuarios_widget)
-        self.usuarios_widget.carregar_dados()
+        self.usuarios_widget.carregar_usuarios()
 
     def show_parametros(self):
         self.content_stack.setCurrentWidget(self.parametros_widget)

@@ -1,98 +1,471 @@
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                               QPushButton, QTableWidget, QHeaderView,
-                               QMessageBox)
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
+                               QTableWidgetItem, QPushButton, QLabel, QLineEdit,
+                               QComboBox, QDialog, QFormLayout, QCheckBox,
+                               QMessageBox, QHeaderView)
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont, QColor
+from api_client import api_client
 
 
 class UsuariosWidget(QWidget):
     def __init__(self):
         super().__init__()
-        self.info_label = None
+        self.usuarios = []
         self.init_ui()
+        self.carregar_usuarios()
     
     def init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)
-        layout.setSpacing(20)
+        layout.setSpacing(15)
         
+        # Cabeçalho
         header = QHBoxLayout()
-        
-        titulo = QLabel("👥 Usuários")
+        titulo = QLabel("👥 Usuários do Sistema")
         titulo.setProperty("class", "page-title")
         header.addWidget(titulo)
-        
         header.addStretch()
         
-        self.btn_novo = QPushButton("+ Novo Usuário")
-        self.btn_novo.setFixedHeight(40)
-        self.btn_novo.clicked.connect(self.novo_usuario)
-        header.addWidget(self.btn_novo)
+        # Botão Novo Usuário
+        self.novo_btn = QPushButton("+ Novo Usuário")
+        self.novo_btn.setFixedHeight(40)
+        self.novo_btn.clicked.connect(self.novo_usuario)
+        header.addWidget(self.novo_btn)
         
-        self.btn_atualizar = QPushButton("🔄 Atualizar")
-        self.btn_atualizar.setFixedHeight(40)
-        self.btn_atualizar.clicked.connect(self.carregar_dados)
-        header.addWidget(self.btn_atualizar)
+        # Botão Atualizar
+        self.atualizar_btn = QPushButton("🔄 Atualizar")
+        self.atualizar_btn.setFixedHeight(40)
+        self.atualizar_btn.clicked.connect(self.carregar_usuarios)
+        header.addWidget(self.atualizar_btn)
         
         layout.addLayout(header)
         
+        # Filtros
+        filtros = QHBoxLayout()
+        
+        self.ativo_filter = QComboBox()
+        self.ativo_filter.addItems(["Todos", "Ativos", "Inativos"])
+        self.ativo_filter.currentTextChanged.connect(self.filtrar_usuarios)
+        filtros.addWidget(QLabel("Status:"))
+        filtros.addWidget(self.ativo_filter)
+        
+        self.nivel_filter = QComboBox()
+        self.nivel_filter.addItem("Todos os níveis")
+        self.nivel_filter.addItems(["admin", "gerente", "usuario"])
+        self.nivel_filter.currentTextChanged.connect(self.filtrar_usuarios)
+        filtros.addWidget(QLabel("Nível:"))
+        filtros.addWidget(self.nivel_filter)
+        
+        filtros.addStretch()
+        
+        layout.addLayout(filtros)
+        
+        # Tabela de usuários
         self.tabela = QTableWidget()
         self.tabela.setAlternatingRowColors(True)
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
+        self.tabela.setEditTriggers(QTableWidget.NoEditTriggers)
         
-        headers = ["ID", "Nome", "Email", "Cargo", "Empresa", "Status"]
+        headers = ["ID", "Código", "Nome", "Cargo", "Empresa", "Nível", "Status", "Primeiro Acesso"]
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
         
-        self.tabela.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.tabela.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
         
         layout.addWidget(self.tabela)
         
+        # Botões de ação
         acoes = QHBoxLayout()
         acoes.addStretch()
         
-        self.btn_editar = QPushButton("✏️ Editar")
-        self.btn_editar.clicked.connect(self.editar_usuario)
-        acoes.addWidget(self.btn_editar)
+        self.editar_btn = QPushButton("✏️ Editar")
+        self.editar_btn.clicked.connect(self.editar_usuario)
+        acoes.addWidget(self.editar_btn)
         
-        self.btn_desativar = QPushButton("⛔ Desativar")
-        self.btn_desativar.clicked.connect(self.desativar_usuario)
-        acoes.addWidget(self.btn_desativar)
+        self.alterar_senha_btn = QPushButton("🔐 Alterar Senha")
+        self.alterar_senha_btn.clicked.connect(self.alterar_senha)
+        acoes.addWidget(self.alterar_senha_btn)
+        
+        self.resetar_senha_btn = QPushButton("🔑 Resetar Senha")
+        self.resetar_senha_btn.clicked.connect(self.resetar_senha)
+        acoes.addWidget(self.resetar_senha_btn)
+        
+        self.deletar_btn = QPushButton("🗑️ Deletar")
+        self.deletar_btn.clicked.connect(self.deletar_usuario)
+        acoes.addWidget(self.deletar_btn)
         
         layout.addLayout(acoes)
+    
+    def carregar_usuarios(self):
+        """Carrega a lista de usuários do backend"""
+        try:
+            self.usuarios = api_client.listar_usuarios()
+            self.atualizar_tabela(self.usuarios)
+            print(f"✅ Usuários carregados: {len(self.usuarios)}")
+        except Exception as e:
+            print(f"❌ Erro ao carregar usuários: {e}")
+            QMessageBox.warning(self, "Erro", f"Erro ao carregar usuários: {e}")
+    
+    def filtrar_usuarios(self):
+        """Filtra os usuários com base nos filtros"""
+        status = self.ativo_filter.currentText().lower()
+        nivel = self.nivel_filter.currentText().lower()
         
-        self.mostrar_placeholder()
+        filtered = []
+        for usuario in self.usuarios:
+            # Filtro por status
+            if status == "ativos" and not usuario.get("ativo", True):
+                continue
+            if status == "inativos" and usuario.get("ativo", True):
+                continue
+            
+            # Filtro por nível
+            if nivel != "todos os níveis" and usuario.get("nivel_acesso", "").lower() != nivel:
+                continue
+            
+            filtered.append(usuario)
+        
+        self.atualizar_tabela(filtered)
     
-    def mostrar_placeholder(self):
-        self.tabela.setVisible(False)
-        self.info_label = QLabel("⏳ Aguardando conexão com o backend...")
-        self.info_label.setAlignment(Qt.AlignCenter)
-        self.info_label.setStyleSheet("color: #64748b; font-size: 14px; padding: 50px;")
-        layout = self.layout()
-        layout.addWidget(self.info_label)
-    
-    def remover_placeholder(self):
-        if self.info_label:
-            self.info_label.deleteLater()
-            self.info_label = None
-        self.tabela.setVisible(True)
+    def atualizar_tabela(self, usuarios):
+        """Atualiza a tabela com a lista de usuários"""
+        self.tabela.setRowCount(len(usuarios))
+        
+        for row, usuario in enumerate(usuarios):
+            self.tabela.setItem(row, 0, QTableWidgetItem(str(usuario.get("id", ""))))
+            self.tabela.setItem(row, 1, QTableWidgetItem(usuario.get("codigo", "")))
+            self.tabela.setItem(row, 2, QTableWidgetItem(usuario.get("nome", "")))
+            self.tabela.setItem(row, 3, QTableWidgetItem(usuario.get("cargo", "-")))
+            self.tabela.setItem(row, 4, QTableWidgetItem(usuario.get("empresa", "-")))
+            
+            nivel_item = QTableWidgetItem(usuario.get("nivel_acesso", "usuario").upper())
+            if usuario.get("nivel_acesso") == "admin":
+                nivel_item.setForeground(QColor(231, 111, 81))
+            elif usuario.get("nivel_acesso") == "gerente":
+                nivel_item.setForeground(QColor(244, 162, 97))
+            else:
+                nivel_item.setForeground(QColor(42, 157, 143))
+            self.tabela.setItem(row, 5, nivel_item)
+            
+            status_item = QTableWidgetItem("Ativo" if usuario.get("ativo", True) else "Inativo")
+            if not usuario.get("ativo", True):
+                status_item.setForeground(QColor(231, 111, 81))
+            else:
+                status_item.setForeground(QColor(42, 157, 143))
+            self.tabela.setItem(row, 6, status_item)
+            
+            primeiro_acesso = "Sim" if usuario.get("primeiro_acesso", False) else "Não"
+            self.tabela.setItem(row, 7, QTableWidgetItem(primeiro_acesso))
     
     def novo_usuario(self):
-        QMessageBox.information(self, "Em desenvolvimento", "Funcionalidade será implementada em breve!")
+        dialog = UsuarioDialog(parent=self)
+        if dialog.exec():
+            self.carregar_usuarios()
     
     def editar_usuario(self):
-        row = self.tabela.currentRow()
-        if row < 0:
+        current_row = self.tabela.currentRow()
+        if current_row < 0:
             QMessageBox.warning(self, "Atenção", "Selecione um usuário para editar")
             return
-        QMessageBox.information(self, "Em desenvolvimento", "Funcionalidade será implementada em breve!")
-    
-    def desativar_usuario(self):
-        row = self.tabela.currentRow()
-        if row < 0:
-            QMessageBox.warning(self, "Atenção", "Selecione um usuário para desativar")
-            return
-        QMessageBox.information(self, "Em desenvolvimento", "Funcionalidade será implementada em breve!")
-    
-    def carregar_dados(self):
-        print("Carregando usuários...")
         
+        usuario_id = int(self.tabela.item(current_row, 0).text())
+        usuario = next((u for u in self.usuarios if u["id"] == usuario_id), None)
+        
+        if usuario:
+            dialog = UsuarioDialog(usuario_data=usuario, parent=self)
+            if dialog.exec():
+                self.carregar_usuarios()
+    
+    def alterar_senha(self):
+        """Altera a senha do usuário selecionado (administrador pode alterar)"""
+        current_row = self.tabela.currentRow()
+        if current_row < 0:
+            QMessageBox.warning(self, "Atenção", "Selecione um usuário para alterar a senha")
+            return
+        
+        usuario_id = int(self.tabela.item(current_row, 0).text())
+        usuario_nome = self.tabela.item(current_row, 2).text()
+        usuario_codigo = self.tabela.item(current_row, 1).text()
+        
+        # Criar diálogo para digitar a nova senha
+        senha_dialog = QDialog(self)
+        senha_dialog.setWindowTitle("Alterar Senha")
+        senha_dialog.setModal(True)
+        senha_dialog.setMinimumWidth(400)
+        
+        layout = QVBoxLayout(senha_dialog)
+        
+        # Informação do usuário
+        info_label = QLabel(f"Alterando senha do usuário: <b>{usuario_nome}</b><br>Código: <b>{usuario_codigo}</b>")
+        info_label.setStyleSheet("margin-bottom: 15px;")
+        layout.addWidget(info_label)
+        
+        form_layout = QFormLayout()
+        
+        # Campo para nova senha
+        nova_senha_edit = QLineEdit()
+        nova_senha_edit.setEchoMode(QLineEdit.Password)
+        nova_senha_edit.setPlaceholderText("Digite a nova senha")
+        form_layout.addRow("Nova Senha:", nova_senha_edit)
+        
+        # Campo para confirmar senha
+        confirmar_senha_edit = QLineEdit()
+        confirmar_senha_edit.setEchoMode(QLineEdit.Password)
+        confirmar_senha_edit.setPlaceholderText("Confirme a nova senha")
+        form_layout.addRow("Confirmar Senha:", confirmar_senha_edit)
+        
+        # Requisitos da senha
+        requisitos_label = QLabel("🔒 Requisitos:<br>• Mínimo de 6 caracteres")
+        requisitos_label.setStyleSheet("color: #64748b; font-size: 11px; margin-top: 10px;")
+        form_layout.addRow("", requisitos_label)
+        
+        layout.addLayout(form_layout)
+        
+        # Botões
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        
+        btn_alterar = QPushButton("Alterar Senha")
+        btn_layout.addWidget(btn_alterar)
+        
+        btn_cancelar = QPushButton("Cancelar")
+        btn_cancelar.clicked.connect(senha_dialog.reject)
+        btn_layout.addWidget(btn_cancelar)
+        
+        layout.addLayout(btn_layout)
+        
+        def confirmar_alteracao():
+            nova_senha = nova_senha_edit.text()
+            confirmar_senha = confirmar_senha_edit.text()
+            
+            if not nova_senha:
+                QMessageBox.warning(senha_dialog, "Atenção", "Digite a nova senha!")
+                return
+            
+            if len(nova_senha) < 6:
+                QMessageBox.warning(senha_dialog, "Atenção", "A senha deve ter no mínimo 6 caracteres!")
+                return
+            
+            if nova_senha != confirmar_senha:
+                QMessageBox.warning(senha_dialog, "Atenção", "As senhas não conferem!")
+                return
+            
+            try:
+                if api_client.alterar_senha_usuario(usuario_id, nova_senha):
+                    QMessageBox.information(senha_dialog, "Sucesso", f"Senha do usuário '{usuario_nome}' alterada com sucesso!")
+                    senha_dialog.accept()
+                    self.carregar_usuarios()
+                else:
+                    QMessageBox.warning(senha_dialog, "Erro", "Erro ao alterar senha")
+            except Exception as e:
+                QMessageBox.critical(senha_dialog, "Erro", f"Erro ao alterar senha: {e}")
+        
+        btn_alterar.clicked.connect(confirmar_alteracao)
+        
+        senha_dialog.exec()
+    
+    def resetar_senha(self):
+        """Reseta a senha do usuário para o padrão '123456'"""
+        current_row = self.tabela.currentRow()
+        if current_row < 0:
+            QMessageBox.warning(self, "Atenção", "Selecione um usuário para resetar a senha")
+            return
+        
+        usuario_id = int(self.tabela.item(current_row, 0).text())
+        usuario_nome = self.tabela.item(current_row, 2).text()
+        
+        confirm = QMessageBox.question(
+            self,
+            "Confirmar reset de senha",
+            f"Tem certeza que deseja resetar a senha do usuário '{usuario_nome}'?\n\nA nova senha será '123456'.",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if confirm == QMessageBox.Yes:
+            try:
+                if api_client.resetar_senha_usuario(usuario_id):
+                    QMessageBox.information(self, "Sucesso", f"Senha do usuário '{usuario_nome}' resetada para '123456'!")
+                    self.carregar_usuarios()
+                else:
+                    QMessageBox.warning(self, "Erro", "Erro ao resetar senha")
+            except Exception as e:
+                QMessageBox.critical(self, "Erro", f"Erro ao resetar senha: {e}")
+    
+    def deletar_usuario(self):
+        current_row = self.tabela.currentRow()
+        if current_row < 0:
+            QMessageBox.warning(self, "Atenção", "Selecione um usuário para deletar")
+            return
+        
+        usuario_id = int(self.tabela.item(current_row, 0).text())
+        usuario_nome = self.tabela.item(current_row, 2).text()
+        
+        confirm = QMessageBox.question(
+            self,
+            "Confirmar exclusão",
+            f"Tem certeza que deseja deletar o usuário '{usuario_nome}'?\n\nEsta ação não poderá ser desfeita.",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if confirm == QMessageBox.Yes:
+            try:
+                if api_client.deletar_usuario(usuario_id):
+                    QMessageBox.information(self, "Sucesso", "Usuário deletado com sucesso!")
+                    self.carregar_usuarios()
+                else:
+                    QMessageBox.warning(self, "Erro", "Erro ao deletar usuário")
+            except Exception as e:
+                QMessageBox.critical(self, "Erro", f"Erro ao deletar: {e}")
+
+
+class UsuarioDialog(QDialog):
+    def __init__(self, usuario_data=None, parent=None):
+        super().__init__(parent)
+        self.dados_item = usuario_data
+        self.setWindowTitle("Novo Usuário" if not usuario_data else "Editar Usuário")
+        self.setModal(True)
+        self.setMinimumWidth(500)
+        self.init_ui()
+        
+        if usuario_data:
+            self.carregar_dados_edicao()
+    
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+        
+        form_layout = QFormLayout()
+        form_layout.setSpacing(15)
+        
+        # Código
+        self.codigo_edit = QLineEdit()
+        self.codigo_edit.setPlaceholderText("Código numérico único (ex: 1001)")
+        form_layout.addRow("Código:", self.codigo_edit)
+        
+        # Nome
+        self.nome_edit = QLineEdit()
+        self.nome_edit.setPlaceholderText("Nome completo")
+        form_layout.addRow("Nome:", self.nome_edit)
+        
+        # Cargo
+        self.cargo_edit = QLineEdit()
+        self.cargo_edit.setPlaceholderText("Cargo do usuário")
+        form_layout.addRow("Cargo:", self.cargo_edit)
+        
+        # Empresa
+        self.empresa_combo = QComboBox()
+        self.empresa_combo.addItems(["Matriz", "Filial 1", "Filial 2", "Filial 3"])
+        self.empresa_combo.setEditable(True)
+        form_layout.addRow("Empresa:", self.empresa_combo)
+        
+        # Nível de Acesso
+        self.nivel_combo = QComboBox()
+        self.nivel_combo.addItems(["admin", "gerente", "usuario"])
+        self.nivel_combo.setToolTip(
+            "admin: Acesso total\n"
+            "gerente: Pode aprovar pedidos\n"
+            "usuario: Acesso básico"
+        )
+        form_layout.addRow("Nível de Acesso:", self.nivel_combo)
+        
+        # Status (ativo)
+        self.ativo_check = QCheckBox("Usuário ativo")
+        self.ativo_check.setChecked(True)
+        form_layout.addRow("", self.ativo_check)
+        
+        # Observação sobre senha
+        if not self.dados_item:
+            senha_info = QLabel("⚠️ A senha padrão será '123456'.\nO usuário deverá trocar no primeiro acesso.")
+            senha_info.setStyleSheet("color: #64748b; font-size: 11px;")
+            form_layout.addRow("", senha_info)
+        
+        layout.addLayout(form_layout)
+        
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        
+        self.salvar_btn = QPushButton("Salvar")
+        self.salvar_btn.clicked.connect(self.salvar)
+        
+        cancelar_btn = QPushButton("Cancelar")
+        cancelar_btn.clicked.connect(self.reject)
+        
+        btn_layout.addWidget(self.salvar_btn)
+        btn_layout.addWidget(cancelar_btn)
+        
+        layout.addLayout(btn_layout)
+    
+    def carregar_dados_edicao(self):
+        """Carrega os dados do usuário para edição"""
+        if self.dados_item is None:
+            return
+        
+        self.codigo_edit.setText(str(self.dados_item.get("codigo", "")))
+        self.nome_edit.setText(str(self.dados_item.get("nome", "")))
+        self.cargo_edit.setText(str(self.dados_item.get("cargo", "")))
+        
+        empresa = str(self.dados_item.get("empresa", ""))
+        idx = self.empresa_combo.findText(empresa)
+        if idx >= 0:
+            self.empresa_combo.setCurrentIndex(idx)
+        else:
+            self.empresa_combo.setEditText(empresa)
+        
+        nivel = str(self.dados_item.get("nivel_acesso", "usuario"))
+        idx = self.nivel_combo.findText(nivel)
+        if idx >= 0:
+            self.nivel_combo.setCurrentIndex(idx)
+        
+        self.ativo_check.setChecked(self.dados_item.get("ativo", True))
+        
+        # Desabilitar edição do código (não pode ser alterado)
+        self.codigo_edit.setReadOnly(True)
+    
+    def salvar(self):
+        codigo = self.codigo_edit.text().strip()
+        nome = self.nome_edit.text().strip()
+        cargo = self.cargo_edit.text().strip()
+        empresa = self.empresa_combo.currentText()
+        nivel_acesso = self.nivel_combo.currentText()
+        ativo = self.ativo_check.isChecked()
+        
+        if not codigo:
+            QMessageBox.warning(self, "Atenção", "O código é obrigatório!")
+            return
+        
+        if not nome:
+            QMessageBox.warning(self, "Atenção", "O nome é obrigatório!")
+            return
+        
+        dados = {
+            "codigo": codigo,
+            "nome": nome,
+            "cargo": cargo or None,
+            "empresa": empresa,
+            "nivel_acesso": nivel_acesso,
+            "ativo": ativo
+        }
+        
+        # Se for criação, adicionar a senha (será tratada pelo backend)
+        if not self.dados_item:
+            dados["senha"] = "123456"
+        
+        try:
+            if self.dados_item:
+                # Atualizar
+                response = api_client.atualizar_usuario(self.dados_item["id"], dados)
+                if response:
+                    QMessageBox.information(self, "Sucesso", "Usuário atualizado com sucesso!")
+                    self.accept()
+                else:
+                    QMessageBox.warning(self, "Erro", "Erro ao atualizar usuário")
+            else:
+                # Criar
+                response = api_client.criar_usuario(dados)
+                if response:
+                    QMessageBox.information(self, "Sucesso", "Usuário criado com sucesso!\n\nSenha padrão: 123456")
+                    self.accept()
+                else:
+                    QMessageBox.warning(self, "Erro", "Erro ao criar usuário")
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao salvar: {e}")
+            
