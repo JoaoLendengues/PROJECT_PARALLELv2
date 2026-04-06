@@ -147,11 +147,16 @@ class APIClient:
     def criar_maquina(self, maquina):
         """Cria uma nova máquina"""
         response = requests.post(
-            f'{self.base_url}/api/maquinas',
+            f"{self.base_url}/api/maquinas",
             json=maquina,
             headers=self.get_headers()
         )
-        return response.json() if response.status_code == 200 else None
+        # Verificar se foi criado com sucesso (status 201)
+        if response.status_code == 201:
+            return response.json()  # Retorna a máquina criada
+        else:
+            print(f"Erro ao criar máquina: {response.status_code} - {response.text}")
+            return None
     
     def atualizar_maquina(self, maquina_id, maquina):
         """Atualiza uma máquina"""

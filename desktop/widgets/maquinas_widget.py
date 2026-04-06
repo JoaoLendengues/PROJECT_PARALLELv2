@@ -311,23 +311,19 @@ class MaquinaDialog(QDialog):
             if self.dados_item:
                 # Atualizar
                 response = api_client.atualizar_maquina(self.dados_item["id"], dados)
-                if response:
+                if response and response.get("id"):
                     QMessageBox.information(self, "Sucesso", "Máquina atualizada com sucesso!")
                     self.accept()
                 else:
                     QMessageBox.warning(self, "Erro", "Erro ao atualizar máquina")
             else:
                 # Criar
-                print("Enviando dados para criar máquina:", dados)  # Debug
                 response = api_client.criar_maquina(dados)
-                print("Resposta da API:", response)  # Debug
-                
-                if response:
+                # Verificar se a resposta tem um ID (criação bem sucedida)
+                if response and response.get("id"):
                     QMessageBox.information(self, "Sucesso", "Máquina criada com sucesso!")
                     self.accept()
                 else:
                     QMessageBox.warning(self, "Erro", "Erro ao criar máquina. Verifique os dados e tente novamente.")
         except Exception as e:
-            print(f"Exceção: {e}")
             QMessageBox.critical(self, "Erro", f"Erro ao salvar: {e}")
-            
