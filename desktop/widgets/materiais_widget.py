@@ -309,22 +309,24 @@ class MaterialDialog(QDialog):
             "empresa": self.empresa_combo.currentText(),
             "status": self.status_combo.currentText()
         }
-        
+    
         if not dados["nome"]:
             QMessageBox.warning(self, "Atenção", "O nome do material é obrigatório!")
             return
-        
+    
         try:
             if self.dados_item:
+                # Atualizar
                 response = api_client.atualizar_material(self.dados_item["id"], dados)
-                if response:
+                if response and response.get("id"):
                     QMessageBox.information(self, "Sucesso", "Material atualizado com sucesso!")
                     self.accept()
                 else:
                     QMessageBox.warning(self, "Erro", "Erro ao atualizar material")
             else:
+                # Criar - CORREÇÃO AQUI
                 response = api_client.criar_material(dados)
-                if response:
+                if response:  # Se retornou algo (não None)
                     QMessageBox.information(self, "Sucesso", "Material criado com sucesso!")
                     self.accept()
                 else:

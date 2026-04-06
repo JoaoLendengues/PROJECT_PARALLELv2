@@ -21,17 +21,20 @@ class MaquinasWidget(QWidget):
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(15)
         
+        # Cabeçalho
         header = QHBoxLayout()
         titulo = QLabel("🖥️ Máquinas")
         titulo.setProperty("class", "page-title")
         header.addWidget(titulo)
         header.addStretch()
         
+        # Botão Nova Máquina
         self.novo_btn = QPushButton("+ Nova Máquina")
         self.novo_btn.setFixedHeight(40)
         self.novo_btn.clicked.connect(self.nova_maquina)
         header.addWidget(self.novo_btn)
         
+        # Botão Atualizar
         self.atualizar_btn = QPushButton("🔄 Atualizar")
         self.atualizar_btn.setFixedHeight(40)
         self.atualizar_btn.clicked.connect(self.carregar_maquinas)
@@ -39,6 +42,7 @@ class MaquinasWidget(QWidget):
         
         layout.addLayout(header)
         
+        # Barra de pesquisa e filtros
         filtros = QHBoxLayout()
         
         self.pesquisa_edit = QLineEdit()
@@ -58,6 +62,7 @@ class MaquinasWidget(QWidget):
         
         layout.addLayout(filtros)
         
+        # Tabela de máquinas
         self.tabela = QTableWidget()
         self.tabela.setAlternatingRowColors(True)
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
@@ -72,6 +77,7 @@ class MaquinasWidget(QWidget):
         
         layout.addWidget(self.tabela)
         
+        # Botões de ação
         acoes = QHBoxLayout()
         acoes.addStretch()
         
@@ -196,11 +202,11 @@ class MaquinasWidget(QWidget):
                 QMessageBox.critical(self, "Erro", f"Erro ao deletar: {e}")
 
 
-# CLASSE DO DIALOG - SEPARADA E CORRETA
+# CLASSE DO DIALOG - CORRETA
 class MaquinaDialog(QDialog):
     def __init__(self, item_data=None, parent=None):
         super().__init__(parent)
-        self.dados_item = item_data  # Nome diferente para evitar conflito
+        self.dados_item = item_data
         self.setWindowTitle("Cadastro de Máquina" if not item_data else "Editar Máquina")
         self.setModal(True)
         self.setMinimumWidth(500)
@@ -303,6 +309,7 @@ class MaquinaDialog(QDialog):
         
         try:
             if self.dados_item:
+                # Atualizar
                 response = api_client.atualizar_maquina(self.dados_item["id"], dados)
                 if response:
                     QMessageBox.information(self, "Sucesso", "Máquina atualizada com sucesso!")
@@ -310,12 +317,17 @@ class MaquinaDialog(QDialog):
                 else:
                     QMessageBox.warning(self, "Erro", "Erro ao atualizar máquina")
             else:
+                # Criar
+                print("Enviando dados para criar máquina:", dados)  # Debug
                 response = api_client.criar_maquina(dados)
+                print("Resposta da API:", response)  # Debug
+                
                 if response:
                     QMessageBox.information(self, "Sucesso", "Máquina criada com sucesso!")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Erro ao criar máquina")
+                    QMessageBox.warning(self, "Erro", "Erro ao criar máquina. Verifique os dados e tente novamente.")
         except Exception as e:
+            print(f"Exceção: {e}")
             QMessageBox.critical(self, "Erro", f"Erro ao salvar: {e}")
             

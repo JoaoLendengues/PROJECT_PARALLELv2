@@ -86,11 +86,16 @@ class APIClient:
     def criar_material(self, material):
         """Cria um novo material"""
         response = requests.post(
-            f'{self.base_url}/api/materiais',
+            f"{self.base_url}/api/materiais",
             json=material,
             headers=self.get_headers()
         )
-        return response.json() if response.status_code == 200 else None
+        # Verificar se foi criado com sucesso (status 201)
+        if response.status_code == 201:
+            return response.json()  # Retorna o material criado
+        else:
+            print(f"Erro ao criar material: {response.status_code} - {response.text}")
+            return None
     
     def atualizar_material(self, material_id, material):
         """Atualiza um material"""
