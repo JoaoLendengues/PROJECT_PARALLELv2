@@ -3,7 +3,7 @@ from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from app.database import engine, Base, get_db, test_connection
 from app.routers import (materiais, maquinas, manutencoes, movimentacoes, pedidos,
-                         auth, usuarios_sistema, colaboradores)
+                         auth, usuarios_sistema, colaboradores, dashboard)
 from sqlalchemy import text
 from datetime import datetime
 
@@ -31,6 +31,7 @@ app.include_router(pedidos.router)
 app.include_router(auth.router)
 app.include_router(usuarios_sistema.router)
 app.include_router(colaboradores.router)
+app.include_router(dashboard.router)
 
 
 @app.get("/")

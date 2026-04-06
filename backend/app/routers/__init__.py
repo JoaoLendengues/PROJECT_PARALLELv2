@@ -5,4 +5,5 @@ from . import movimentacoes
 from . import pedidos
 from . import auth
 from . import usuarios_sistema
-from. import colaboradores
+from . import colaboradores
+from . import dashboard

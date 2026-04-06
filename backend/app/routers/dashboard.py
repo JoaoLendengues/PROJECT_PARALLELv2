@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models
+from datetime import datetime, date
 
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
 
@@ -9,18 +10,49 @@ router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
 def get_dashboard_resumo(db: Session = Depends(get_db)):
     """Retorna resumo para o dashboard"""
     
-    total_materiais = db.query(models.Material).filter(models.Material.status == "ativo").count()
-    maquinas_ativas = db.query(models.Maquina).filter(models.Maquina.status == "ativo").count()
-    manutencoes_pendentes = db.query(models.Manutencao).filter(models.Manutencao.status == "pendente").count()
-    pedidos_pendentes = db.query(models.Pedido).filter(models.Pedido.status == "pendente").count()
-    
+    # Contar materiais ativos
+    total_materiais = db.query(models.Material).filter(
+        models.Material.status == 'ativo'
+    ).count()
+
+    # Contar máquinas ativas
+    maquinas_ativas = db.query(models.Maquina).filter(
+        models.Maquina.status == 'ativo'
+    ).count()
+
+    # Contar manutenções pendentes
+    manutencoes_pendentes = db.query(models.Manutencao).filter(
+        models.Manutencao.status == 'pendente'
+    ).count()
+
+    # Contar pedidos pendentes
+    pedidos_pendentes = db.query(models.Pedido).filter(
+        models.Pedido.status == 'pendente'
+    ).count()
+
+    # Contar movimentações de hoje
+    movimentacoes_hoje = db.query(models.Movimentacao).filter(
+        models.Movimentacao.data_hora >= date.today()
+    ).count()
+
+
+    # Contar items com estoque baixo (se tiver campo quantidade_minima)
+    itens_baixo_estoque = 0
+    # Se tiver campo quantidade_minima, descomente:
+    # itens_baixo_estoque = db.query(models.Material).filter(
+    #     models.Material.quantidade <= models.Material.quantidade_minima
+    # ).count() 
+
     return {
-        "resumo": {
-            "total_materiais": total_materiais,
-            "itens_baixo_estoque": 0,
-            "maquinas_ativas": maquinas_ativas,
-            "manutencoes_pendentes": manutencoes_pendentes,
-            "pedidos_pendentes": pedidos_pendentes,
-            "movimentacoes_hoje": 0
+        'resumo': {
+                'total_materiais': total_materiais,
+                'itens_baixo_estoque': itens_baixo_estoque,
+                'maquinas_ativas': maquinas_ativas,
+                'manutencoes_pendentes': manutencoes_pendentes,
+                'pedidos_pendentes': pedidos_pendentes,
+                'movimentacoes_hoje': movimentacoes_hoje
+
         }
     }
+
+
