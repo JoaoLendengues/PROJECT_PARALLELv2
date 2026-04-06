@@ -75,32 +75,69 @@ def criar_pedido(
     db: Session = Depends(get_db),
     usuario_id: int = Query(1, description='ID do usuário logado')
 ):
-    """Cria um novo pedido"""
-
+    """Cria um novo pedido (cria material automaticamente se não existir)"""
+    
+    material_id = pedido.material_id
+    
+    # Se não tem material_id mas tem material_nome, criar ou buscar o material
+    if not material_id and pedido.material_nome:
+        # Verificar se material já existe
+        existing = db.query(models.Material).filter(
+            models.Material.nome == pedido.material_nome,
+            models.Material.empresa == pedido.empresa
+        ).first()
+        
+        if existing:
+            material_id = existing.id
+            print(f"📦 Material existente encontrado: {pedido.material_nome}")
+        else:
+            # Criar novo material
+            novo_material = models.Material(
+                nome=pedido.material_nome,
+                descricao=f"Material solicitado em pedido",
+                quantidade=0,
+                categoria="Não categorizado",
+                empresa=pedido.empresa,
+                status="ativo"
+            )
+            db.add(novo_material)
+            db.flush()
+            material_id = novo_material.id
+            print(f"✅ Material '{pedido.material_nome}' criado automaticamente com ID {material_id}")
+    
+    if not material_id:
+        raise HTTPException(status_code=400, detail="Material não identificado")
+    
     # Verificar se o material existe
-    material = db.query(models.Material).filter(models.Material.id == pedido.material_id).first()
+    material = db.query(models.Material).filter(models.Material.id == material_id).first()
     if not material:
         raise HTTPException(status_code=404, detail='Material não encontrado')
     
-    # Verificar se tem estoque suficiente para pedido pendente?
-    # Por ora, apenas registra o pedido sem verificar estoque
-
     # Criar pedido
     novo_pedido = models.Pedido(
-        **pedido.model_dump(),
+        material_id=material_id,
+        quantidade=pedido.quantidade,
+        solicitante=pedido.solicitante,
+        empresa=pedido.empresa,
+        departamento=pedido.departamento,
+        status=pedido.status,
+        observacao=pedido.observacao,
         usuario_id=usuario_id
     )
     db.add(novo_pedido)
     db.commit()
     db.refresh(novo_pedido)
-
-    print(f'✅ Pedido criado: {pedido.quantidade} x {material.nome} - Solicitante: {pedido.solicitante}')
-
+    
+    # Buscar o material para resposta
+    material = db.query(models.Material).filter(models.Material.id == material_id).first()
+    
     result = {
         **{key: getattr(novo_pedido, key) for key in novo_pedido.__dict__.keys() if not key.startswith('_')},
-        'material_nome': material.nome
+        'material_nome': material.nome if material else pedido.material_nome
     }
-
+    
+    print(f"✅ Pedido criado: {pedido.quantidade} x {material.nome} - Solicitante: {pedido.solicitante}")
+    
     return result
 
 

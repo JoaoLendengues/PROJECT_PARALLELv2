@@ -214,7 +214,27 @@ class APIClient:
             json=movimentacao,
             headers=self.get_headers()
         )
-        return response.json() if response.status_code == 200 else None
+        if response.status_code == 201:
+            return response.json()
+        else:
+            print(f'Erro ao criar movimentação: {response.status_code} - {response.text}')
+            return None
+        
+    def listar_materiais_para_movimentacao(self):
+        """Lista materiais para usar no combo box"""
+        response = requests.get(
+            f'{self.base_url}/api/materiais',
+            headers=self.get_headers()
+        )
+        return response.json() if response.status_code == 200 else []
+    
+    def listar_colaboradores_para_movimentacao(self):
+        """Lista colaboradores para usar no combo box (destinatário)"""
+        response = requests.get(
+            f'{self.base_url}/api/colaboradores',
+            headers=self.get_headers()
+        )
+        return response.json() if response.status_code == 200 else []
 
     
     # =====================================================
@@ -237,14 +257,35 @@ class APIClient:
         )
         return response.json() if response.status_code == 200 else []
     
-    def criar_manutencoes(self, manutencao):
+    def criar_manutencao(self, manutencao):
         """Cria uma nova manutenção"""
         response = requests.post(
-            f'{self.base_url}/api/manutencoes',
+            f"{self.base_url}/api/manutencoes",
             json=manutencao,
             headers=self.get_headers()
         )
-        return response.json() if response.status_code == 201 else None
+        if response.status_code == 201:
+            return response.json()
+        else:
+            print(f"Erro ao criar manutenção: {response.status_code} - {response.text}")
+            return None
+        
+    def atualizar_manutencao(self, manutencao_id, manutencao):
+        """Atualiza uma manutenção"""
+        response = requests.put(
+            f'{self.base_url}/api/manutencoes/{manutencao_id}',
+            json=manutencao,
+            headers=self.get_headers()
+        )
+        return response.json() if response.status_code == 200 else None
+    
+    def deletar_manutencao(self, manutencao_id):
+        """Deleta uma manutenção"""
+        response = requests.delete(
+            f'{self.base_url}/api/manutencoes',
+            headers=self.get_headers()
+        )
+        return response.status_code == 200
     
     def concluir_manutencao(self, manutencao_id):
         """conclui uma manutenção"""
@@ -253,6 +294,14 @@ class APIClient:
             headers=self.get_headers()
         )
         return response.status_code == 200
+    
+    def listar_maquinas_para_manutencao(self):
+        """Lista máquinas para usar no combo box"""
+        response = requests.get(
+            f'{self.base_url}/api/maquinas',
+            headers=self.get_headers()
+        )
+        return response.json() if response.status_code == 200 else []
     
 
     # =====================================================
@@ -276,13 +325,26 @@ class APIClient:
         return response.json() if response.status_code == 200 else []
 
     def criar_pedido(self, pedido):
-        """Cria um novo pedido"""
+        """Cria um novo pedido (pode receber material_nome para criar material automaticamente)"""
         response = requests.post(
-            f'{self.base_url}/api/pedidos',
+            f"{self.base_url}/api/pedidos",
             json=pedido,
             headers=self.get_headers()
         )
-        return response.json() if response.status_code == 201 else None
+        if response.status_code == 201:
+            return response.json()
+        else:
+            print(f"Erro ao criar pedido: {response.status_code} - {response.text}")
+            return None
+        
+    def atualizar_pedido(self, pedido_id, pedido):
+        """Atualiza um pedido"""
+        response = requests.put(
+            f"{self.base_url}/api/pedidos/{pedido_id}",
+            json=pedido,
+            headers=self.get_headers()
+        )
+        return response.json() if response.status_code == 200 else None
 
     def aprovar_pedido(self, pedido_id):
         """Aprova um pedido"""
@@ -307,6 +369,22 @@ class APIClient:
             headers=self.get_headers()
         )
         return response.status_code == 200
+    
+    def deletar_pedido(self, pedido_id):
+        """Deleta um pedido"""
+        response = requests.delete(
+            f"{self.base_url}/api/pedidos/{pedido_id}",
+            headers=self.get_headers()
+        )
+        return response.status_code == 200
+    
+    def listar_materiais_para_pedido(self):
+        """Lista materiais para usar no combo box"""
+        response = requests.get(
+            f"{self.base_url}/api/materiais",
+            headers=self.get_headers()
+        )
+        return response.json() if response.status_code == 200 else []
     
 
     # =====================================================

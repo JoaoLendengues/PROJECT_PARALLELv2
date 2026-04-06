@@ -143,8 +143,15 @@ class PedidoBase(BaseModel):
     status: str = 'pendente'
     observacao: Optional[str] = None
 
-class PedidoCreate(PedidoBase):
-    pass
+class PedidoCreate(BaseModel):
+    material_id: Optional[int] = None  # Pode ser None
+    material_nome: Optional[str] = None  # Nome do material não cadastrado
+    quantidade: int
+    solicitante: str
+    empresa: str
+    departamento: Optional[str] = None
+    status: str = "pendente"
+    observacao: Optional[str] = None
 
 class PedidoUpdate(BaseModel):
     quantidade: Optional[int] = None

@@ -140,15 +140,15 @@ class MainWindow(QMainWindow):
 
     def show_movimentacoes(self):
         self.content_stack.setCurrentWidget(self.movimentacoes_widget)
-        self.movimentacoes_widget.carregar_dados()
+        self.movimentacoes_widget.carregar_movimentacoes()
 
     def show_manutencoes(self):
         self.content_stack.setCurrentWidget(self.manutencoes_widget)
-        self.manutencoes_widget.carregar_dados()
+        self.manutencoes_widget.carregar_manutencoes()
 
     def show_pedidos(self):
         self.content_stack.setCurrentWidget(self.pedidos_widget)
-        self.pedidos_widget.carregar_dados()
+        self.pedidos_widget.carregar_pedidos()
 
     def show_usuarios(self):
         self.content_stack.setCurrentWidget(self.usuarios_widget)

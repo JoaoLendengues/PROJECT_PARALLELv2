@@ -1,61 +1,337 @@
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                               QPushButton, QTableWidget, QHeaderView,
-                               QMessageBox)
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
+                               QTableWidgetItem, QPushButton, QLabel, QLineEdit,
+                               QComboBox, QDialog, QFormLayout, QSpinBox,
+                               QTextEdit, QMessageBox, QHeaderView)
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont, QColor
+from datetime import datetime
+from api_client import api_client
 
 
 class MovimentacoesWidget(QWidget):
     def __init__(self):
         super().__init__()
-        self.info_label = None
+        self.movimentacoes = []
+        self.materiais = []
+        self.colaboradores = []
         self.init_ui()
+        self.carregar_materiais()
+        self.carregar_colaboradores()
+        self.carregar_movimentacoes()
     
     def init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)
-        layout.setSpacing(20)
+        layout.setSpacing(15)
         
+        # Cabeçalho
         header = QHBoxLayout()
-        
         titulo = QLabel("📊 Movimentações")
         titulo.setProperty("class", "page-title")
         header.addWidget(titulo)
-        
         header.addStretch()
         
-        self.btn_atualizar = QPushButton("🔄 Atualizar")
-        self.btn_atualizar.setFixedHeight(40)
-        self.btn_atualizar.clicked.connect(self.carregar_dados)
-        header.addWidget(self.btn_atualizar)
+        # Botão Nova Movimentação
+        self.novo_btn = QPushButton("+ Nova Movimentação")
+        self.novo_btn.setFixedHeight(40)
+        self.novo_btn.clicked.connect(self.nova_movimentacao)
+        header.addWidget(self.novo_btn)
+        
+        # Botão Atualizar
+        self.atualizar_btn = QPushButton("🔄 Atualizar")
+        self.atualizar_btn.setFixedHeight(40)
+        self.atualizar_btn.clicked.connect(self.carregar_movimentacoes)
+        header.addWidget(self.atualizar_btn)
         
         layout.addLayout(header)
         
+        # Barra de pesquisa e filtros
+        filtros = QHBoxLayout()
+        
+        self.tipo_filter = QComboBox()
+        self.tipo_filter.addItems(["Todos", "Entrada", "Saída"])
+        self.tipo_filter.currentTextChanged.connect(self.filtrar_movimentacoes)
+        filtros.addWidget(QLabel("Tipo:"))
+        filtros.addWidget(self.tipo_filter)
+        
+        self.material_filter = QComboBox()
+        self.material_filter.addItem("Todos os materiais")
+        self.material_filter.currentTextChanged.connect(self.filtrar_movimentacoes)
+        filtros.addWidget(QLabel("Material:"))
+        filtros.addWidget(self.material_filter)
+        
+        filtros.addStretch()
+        
+        layout.addLayout(filtros)
+        
+        # Tabela de movimentações
         self.tabela = QTableWidget()
         self.tabela.setAlternatingRowColors(True)
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
+        self.tabela.setEditTriggers(QTableWidget.NoEditTriggers)
         
-        headers = ["ID", "Material", "Tipo", "Quantidade", "Empresa", "Destinatário", "Data/Hora"]
+        headers = ["ID", "Material", "Tipo", "Quantidade", "Empresa", "Destinatário", "Data/Hora", "Observação"]
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
         
+        self.tabela.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.tabela.horizontalHeader().setSectionResizeMode(7, QHeaderView.Stretch)
+        
         layout.addWidget(self.tabela)
         
-        self.mostrar_placeholder()
-    
-    def mostrar_placeholder(self):
-        self.tabela.setVisible(False)
-        self.info_label = QLabel("⏳ Aguardando conexão com o backend...")
-        self.info_label.setAlignment(Qt.AlignCenter)
-        self.info_label.setStyleSheet("color: #64748b; font-size: 14px; padding: 50px;")
-        layout = self.layout()
-        layout.addWidget(self.info_label)
-    
-    def remover_placeholder(self):
-        if self.info_label:
-            self.info_label.deleteLater()
-            self.info_label = None
-        self.tabela.setVisible(True)
-    
-    def carregar_dados(self):
-        print("Carregando movimentações...")
+        # Botões de ação
+        acoes = QHBoxLayout()
+        acoes.addStretch()
         
+        self.deletar_btn = QPushButton("🗑️ Deletar")
+        self.deletar_btn.clicked.connect(self.deletar_movimentacao)
+        acoes.addWidget(self.deletar_btn)
+        
+        layout.addLayout(acoes)
+    
+    def carregar_materiais(self):
+        """Carrega a lista de materiais para o filtro"""
+        try:
+            self.materiais = api_client.listar_materiais_para_movimentacao()
+            self.material_filter.clear()
+            self.material_filter.addItem("Todos os materiais")
+            for mat in self.materiais:
+                self.material_filter.addItem(f"{mat.get('nome', '')} - {mat.get('empresa', '')}", mat.get("id"))
+        except Exception as e:
+            print(f"Erro ao carregar materiais: {e}")
+    
+    def carregar_colaboradores(self):
+        """Carrega a lista de colaboradores"""
+        try:
+            self.colaboradores = api_client.listar_colaboradores_para_movimentacao()
+        except Exception as e:
+            print(f"Erro ao carregar colaboradores: {e}")
+    
+    def carregar_movimentacoes(self):
+        """Carrega a lista de movimentações do backend"""
+        try:
+            self.movimentacoes = api_client.listar_movimentacoes()
+            self.atualizar_tabela(self.movimentacoes)
+            print(f"✅ Movimentações carregadas: {len(self.movimentacoes)}")
+        except Exception as e:
+            print(f"❌ Erro ao carregar movimentações: {e}")
+            QMessageBox.warning(self, "Erro", f"Erro ao carregar movimentações: {e}")
+    
+    def filtrar_movimentacoes(self):
+        """Filtra as movimentações com base nos filtros"""
+        tipo = self.tipo_filter.currentText().lower()
+        material_texto = self.material_filter.currentText()
+        
+        filtered = []
+        for mov in self.movimentacoes:
+            # Filtro por tipo
+            if tipo != "todos" and mov.get("tipo", "").lower() != tipo:
+                continue
+            
+            # Filtro por material
+            if material_texto != "Todos os materiais":
+                material_nome = mov.get("material_nome", "")
+                if material_texto not in material_nome:
+                    continue
+            
+            filtered.append(mov)
+        
+        self.atualizar_tabela(filtered)
+    
+    def atualizar_tabela(self, movimentacoes):
+        """Atualiza a tabela com a lista de movimentações"""
+        self.tabela.setRowCount(len(movimentacoes))
+        
+        for row, mov in enumerate(movimentacoes):
+            self.tabela.setItem(row, 0, QTableWidgetItem(str(mov.get("id", ""))))
+            self.tabela.setItem(row, 1, QTableWidgetItem(mov.get("material_nome", "-")))
+            
+            tipo_item = QTableWidgetItem(mov.get("tipo", "").upper())
+            if mov.get("tipo") == "entrada":
+                tipo_item.setForeground(QColor(42, 157, 143))
+            else:
+                tipo_item.setForeground(QColor(231, 111, 81))
+            self.tabela.setItem(row, 2, tipo_item)
+            
+            self.tabela.setItem(row, 3, QTableWidgetItem(str(mov.get("quantidade", 0))))
+            self.tabela.setItem(row, 4, QTableWidgetItem(mov.get("empresa", "-")))
+            self.tabela.setItem(row, 5, QTableWidgetItem(mov.get("destinatario", "-")))
+            
+            data_hora = mov.get("data_hora", "")
+            if data_hora:
+                data_hora = data_hora[:16].replace("T", " ")
+            self.tabela.setItem(row, 6, QTableWidgetItem(data_hora))
+            
+            self.tabela.setItem(row, 7, QTableWidgetItem(mov.get("observacao", "-")[:50]))
+    
+    def nova_movimentacao(self):
+        dialog = MovimentacaoDialog(materiais=self.materiais, colaboradores=self.colaboradores, parent=self)
+        if dialog.exec():
+            self.carregar_movimentacoes()
+            self.carregar_materiais()
+    
+    def deletar_movimentacao(self):
+        current_row = self.tabela.currentRow()
+        if current_row < 0:
+            QMessageBox.warning(self, "Atenção", "Selecione uma movimentação para deletar")
+            return
+        
+        mov_id = int(self.tabela.item(current_row, 0).text())
+        mov_desc = self.tabela.item(current_row, 1).text()
+        
+        confirm = QMessageBox.question(
+            self,
+            "Confirmar exclusão",
+            f"Tem certeza que deseja deletar a movimentação do material '{mov_desc}'?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if confirm == QMessageBox.Yes:
+            try:
+                # Nota: O backend pode não permitir deletar movimentações
+                # que afetam o estoque. Por isso o método pode não existir.
+                QMessageBox.warning(self, "Aviso", "Exclusão de movimentações não permitida para manter a integridade do estoque.")
+            except Exception as e:
+                QMessageBox.critical(self, "Erro", f"Erro ao deletar: {e}")
+
+
+class MovimentacaoDialog(QDialog):
+    def __init__(self, materiais=None, colaboradores=None, parent=None):
+        super().__init__(parent)
+        self.materiais = materiais or []
+        self.colaboradores = colaboradores or []
+        self.setWindowTitle("Nova Movimentação")
+        self.setModal(True)
+        self.setMinimumWidth(500)
+        self.init_ui()
+    
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+        
+        form_layout = QFormLayout()
+        form_layout.setSpacing(15)
+        
+        # Material
+        self.material_combo = QComboBox()
+        self.material_combo.setEditable(True)
+        for mat in self.materiais:
+            self.material_combo.addItem(
+                f"{mat.get('nome', '')} - Estoque: {mat.get('quantidade', 0)} - {mat.get('empresa', '')}", 
+                mat.get("id")
+            )
+        form_layout.addRow("Material:", self.material_combo)
+        
+        # Tipo (Entrada/Saída)
+        self.tipo_combo = QComboBox()
+        self.tipo_combo.addItems(["entrada", "saida"])
+        self.tipo_combo.currentTextChanged.connect(self.on_tipo_changed)
+        form_layout.addRow("Tipo:", self.tipo_combo)
+        
+        # Quantidade
+        self.quantidade_spin = QSpinBox()
+        self.quantidade_spin.setRange(1, 999999)
+        self.quantidade_spin.setValue(1)
+        form_layout.addRow("Quantidade:", self.quantidade_spin)
+        
+        # Empresa
+        self.empresa_combo = QComboBox()
+        self.empresa_combo.addItems(["Matriz", "Filial 1", "Filial 2", "Filial 3"])
+        self.empresa_combo.setEditable(True)
+        form_layout.addRow("Empresa:", self.empresa_combo)
+        
+        # Destinatário (para saída)
+        self.destinatario_label = QLabel("Destinatário:")
+        self.destinatario_combo = QComboBox()
+        self.destinatario_combo.setEditable(True)
+        self.destinatario_combo.addItems(["Estoque", "João Silva", "Maria Santos", "Carlos Oliveira"])
+        for colab in self.colaboradores:
+            self.destinatario_combo.addItem(colab.get("nome", ""))
+        form_layout.addRow(self.destinatario_label, self.destinatario_combo)
+        
+        # Observação
+        self.observacao_edit = QTextEdit()
+        self.observacao_edit.setMaximumHeight(80)
+        self.observacao_edit.setPlaceholderText("Observação sobre a movimentação...")
+        form_layout.addRow("Observação:", self.observacao_edit)
+        
+        layout.addLayout(form_layout)
+        
+        # Status do estoque (para informação)
+        self.estoque_label = QLabel("")
+        self.estoque_label.setStyleSheet("color: #64748b; font-size: 12px; margin-top: 10px;")
+        layout.addWidget(self.estoque_label)
+        
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        
+        self.salvar_btn = QPushButton("Registrar")
+        self.salvar_btn.clicked.connect(self.salvar)
+        
+        cancelar_btn = QPushButton("Cancelar")
+        cancelar_btn.clicked.connect(self.reject)
+        
+        btn_layout.addWidget(self.salvar_btn)
+        btn_layout.addWidget(cancelar_btn)
+        
+        layout.addLayout(btn_layout)
+        
+        # Atualizar informação de estoque ao mudar material
+        self.material_combo.currentIndexChanged.connect(self.atualizar_info_estoque)
+        self.atualizar_info_estoque()
+    
+    def on_tipo_changed(self):
+        """Altera o texto do destinatário conforme o tipo"""
+        if self.tipo_combo.currentText() == "entrada":
+            self.destinatario_label.setText("Fornecedor/Origem:")
+            self.destinatario_combo.setEditText("Fornecedor")
+        else:
+            self.destinatario_label.setText("Destinatário:")
+            self.destinatario_combo.setEditText("")
+    
+    def atualizar_info_estoque(self):
+        """Atualiza a label com a informação do estoque atual"""
+        idx = self.material_combo.currentIndex()
+        if idx >= 0 and idx < len(self.materiais):
+            material = self.materiais[idx]
+            quantidade = material.get("quantidade", 0)
+            self.estoque_label.setText(f"📦 Estoque atual: {quantidade} unidades")
+        else:
+            self.estoque_label.setText("")
+    
+    def salvar(self):
+        # Obter ID do material selecionado
+        idx = self.material_combo.currentIndex()
+        if idx < 0 or idx >= len(self.materiais):
+            QMessageBox.warning(self, "Atenção", "Selecione um material válido!")
+            return
+        
+        material_id = self.materiais[idx].get("id")
+        tipo = self.tipo_combo.currentText()
+        quantidade = self.quantidade_spin.value()
+        empresa = self.empresa_combo.currentText()
+        destinatario = self.destinatario_combo.currentText().strip()
+        observacao = self.observacao_edit.toPlainText().strip()
+        
+        if not destinatario:
+            QMessageBox.warning(self, "Atenção", "Informe o destinatário/origem!")
+            return
+        
+        dados = {
+            "material_id": material_id,
+            "tipo": tipo,
+            "quantidade": quantidade,
+            "empresa": empresa,
+            "destinatario": destinatario,
+            "observacao": observacao or None
+        }
+        
+        try:
+            response = api_client.criar_movimentacao(dados)
+            if response:
+                QMessageBox.information(self, "Sucesso", f"Movimentação de {tipo} registrada com sucesso!")
+                self.accept()
+            else:
+                QMessageBox.warning(self, "Erro", "Erro ao registrar movimentação")
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao salvar: {e}")
+            
