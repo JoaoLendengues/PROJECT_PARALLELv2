@@ -92,6 +92,15 @@ class APIClient:
         )
         return response.json() if response.status_code == 200 else None
     
+    def atualizar_material(self, material_id, material):
+        """Atualiza um material"""
+        response = requests.put(
+            f'{self.base_url}/api/materiais/{material_id}',
+            json=material,
+            headers=self.get_headers()
+        )
+        return response.json() if response.status_code == 200 else None
+
     def deletar_material(self, material_id):
         """Deleta um material"""
         response = requests.delete(
@@ -159,7 +168,7 @@ class APIClient:
     def listar_departamentos(self):
         """Lista departamentos"""
         response = requests.get(
-            f'{self.base_url}/api/maquinas/departamentos/listas',
+            f'{self.base_url}/api/maquinas/departamentos/lista',
             headers=self.get_headers()
         )
         return response.json().get('departamentos', []) if response.status_code == 200 else []

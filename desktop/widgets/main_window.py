@@ -132,11 +132,11 @@ class MainWindow(QMainWindow):
 
     def show_materiais(self):
         self.content_stack.setCurrentWidget(self.materiais_widget)
-        self.materiais_widget.carregar_dados()
+        self.materiais_widget.carregar_materiais()
 
     def show_maquinas(self):
         self.content_stack.setCurrentWidget(self.maquinas_widget)
-        self.maquinas_widget.carregar_dados()
+        self.maquinas_widget.carregar_maquinas()
 
     def show_movimentacoes(self):
         self.content_stack.setCurrentWidget(self.movimentacoes_widget)
