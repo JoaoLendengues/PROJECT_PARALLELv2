@@ -10,10 +10,6 @@ class HomeWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.usuario_nome = None
-        self.valor_materiais = QLabel("0")
-        self.valor_maquinas = QLabel("0")
-        self.valor_manutencoes = QLabel("0")
-        self.valor_pedidos = QLabel("0")
         self.init_ui()
     
     def set_usuario(self, nome):
@@ -54,7 +50,7 @@ class HomeWidget(QWidget):
         self.criar_cards_manualmente()
 
         # Carregar dados da API com um pequeno delay para garantir que os cards foram criados
-        QTimer.singleShot(100, self.carregar_dados)
+        self.carregar_dados()
         
         layout.addStretch()
     
@@ -81,7 +77,7 @@ class HomeWidget(QWidget):
     def criar_cards_manualmente(self):
         """Cria os cards manualmente para evitar duplicação"""
         
-        # Card 1 - Materiais
+         # Card 1 - Materiais
         card1 = QFrame()
         card1.setProperty("class", "dashboard-card")
         card1.setMinimumHeight(180)
@@ -97,12 +93,12 @@ class HomeWidget(QWidget):
         title1.setStyleSheet("color: #64748b; font-size: 14px; font-weight: 500;")
         layout1.addWidget(title1)
         
-        value1 = QLabel("1.452")
-        value1.setStyleSheet("color: #3b82f6; font-size: 36px; font-weight: bold;")
-        layout1.addWidget(value1)
+        self.value_materiais = QLabel("0")
+        self.value_materiais.setStyleSheet("color: #3b82f6; font-size: 36px; font-weight: bold;")
+        layout1.addWidget(self.value_materiais)
         
         subtitle1 = QLabel("Atualmente em estoque.")
-        subtitle1.setStyleSheet("color: #94a3b8; font-size: 18px;")
+        subtitle1.setStyleSheet("color: #94a3b8; font-size: 12px;")
         layout1.addWidget(subtitle1)
         
         layout1.addStretch()
@@ -127,18 +123,18 @@ class HomeWidget(QWidget):
         title2.setStyleSheet("color: #64748b; font-size: 14px; font-weight: 500;")
         layout2.addWidget(title2)
         
-        value2 = QLabel("18")
-        value2.setStyleSheet("color: #10b981; font-size: 36px; font-weight: bold;")
-        layout2.addWidget(value2)
+        self.value_maquinas = QLabel("0")
+        self.value_maquinas.setStyleSheet("color: #10b981; font-size: 36px; font-weight: bold;")
+        layout2.addWidget(self.value_maquinas)
         
         subtitle2 = QLabel("Máquinas em operação.")
-        subtitle2.setStyleSheet("color: #94a3b8; font-size: 18px;")
+        subtitle2.setStyleSheet("color: #94a3b8; font-size: 12px;")
         layout2.addWidget(subtitle2)
         
         layout2.addStretch()
         
         link2 = QLabel("Clique para ver")
-        link2.setStyleSheet("color: #10b981; font-size: 14px; font-weight: 500; border-top: 1px solid #e2e8f0; padding-top: 10px;")
+        link2.setStyleSheet("color: #10b981; font-size: 12px; font-weight: 500; border-top: 1px solid #e2e8f0; padding-top: 10px;")
         layout2.addWidget(link2)
         
         # Card 3 - Manutenções
@@ -157,12 +153,12 @@ class HomeWidget(QWidget):
         title3.setStyleSheet("color: #64748b; font-size: 14px; font-weight: 500;")
         layout3.addWidget(title3)
         
-        value3 = QLabel("7")
-        value3.setStyleSheet("color: #f59e0b; font-size: 36px; font-weight: bold;")
-        layout3.addWidget(value3)
+        self.value_manutencoes = QLabel("0")
+        self.value_manutencoes.setStyleSheet("color: #f59e0b; font-size: 36px; font-weight: bold;")
+        layout3.addWidget(self.value_manutencoes)
         
         subtitle3 = QLabel("Tarefas agendadas.")
-        subtitle3.setStyleSheet("color: #94a3b8; font-size: 18px;")
+        subtitle3.setStyleSheet("color: #94a3b8; font-size: 12px;")
         layout3.addWidget(subtitle3)
         
         layout3.addStretch()
@@ -187,12 +183,12 @@ class HomeWidget(QWidget):
         title4.setStyleSheet("color: #64748b; font-size: 14px; font-weight: 500;")
         layout4.addWidget(title4)
         
-        value4 = QLabel("24")
-        value4.setStyleSheet("color: #8b5cf6; font-size: 36px; font-weight: bold;")
-        layout4.addWidget(value4)
+        self.value_pedidos = QLabel("0")
+        self.value_pedidos.setStyleSheet("color: #8b5cf6; font-size: 36px; font-weight: bold;")
+        layout4.addWidget(self.value_pedidos)
         
         subtitle4 = QLabel("Pedidos de compra e venda.")
-        subtitle4.setStyleSheet("color: #94a3b8; font-size: 18px;")
+        subtitle4.setStyleSheet("color: #94a3b8; font-size: 12px;")
         layout4.addWidget(subtitle4)
         
         layout4.addStretch()
@@ -216,10 +212,10 @@ class HomeWidget(QWidget):
             resumo = dados.get("resumo", {})
         
             # Atualizar valores nos cards
-            self.valor_materiais.setText(str(resumo.get("total_materiais", 0)))
-            self.valor_maquinas.setText(str(resumo.get("maquinas_ativas", 0)))
-            self.valor_manutencoes.setText(str(resumo.get("manutencoes_pendentes", 0)))
-            self.valor_pedidos.setText(str(resumo.get("pedidos_pendentes", 0)))
+            self.value_materiais.setText(str(resumo.get("total_materiais", 0)))
+            self.value_maquinas.setText(str(resumo.get("maquinas_ativas", 0)))
+            self.value_manutencoes.setText(str(resumo.get("manutencoes_pendentes", 0)))
+            self.value_pedidos.setText(str(resumo.get("pedidos_pendentes", 0)))
             
             print(f"✅ Dashboard atualizado: Materiais={resumo.get('total_materiais', 0)}")
             
