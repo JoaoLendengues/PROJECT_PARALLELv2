@@ -6,6 +6,7 @@ from app.routers import (materiais, maquinas, manutencoes, movimentacoes, pedido
                          auth, usuarios_sistema, colaboradores, dashboard)
 from sqlalchemy import text
 from datetime import datetime
+from fastapi.responses import HTMLResponse
 
 # Criar as tabelas no banco (se não existirem)
 print("📦 Criando/verificando tabelas no banco de dados...")
@@ -69,7 +70,7 @@ def test_database():
     else:
         return {"status": "error", "message": "Falha na conexão com PostgreSQL"}
     
-@app.get("/login")
+@app.get("/login", response_class=HTMLResponse)
 def login_page():
     """Página simples para login e obter token"""
     return """
@@ -91,7 +92,11 @@ def login_page():
                 padding: 30px;
                 border-radius: 10px;
                 box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                width: 300px;
+                width: 350px;
+            }
+            h2 {
+                text-align: center;
+                color: #2c7da0;
             }
             input {
                 width: 100%;
@@ -99,6 +104,7 @@ def login_page():
                 margin: 10px 0;
                 border: 1px solid #ddd;
                 border-radius: 5px;
+                box-sizing: border-box;
             }
             button {
                 width: 100%;
@@ -108,6 +114,7 @@ def login_page():
                 border: none;
                 border-radius: 5px;
                 cursor: pointer;
+                font-size: 16px;
             }
             button:hover {
                 background: #1f5e7a;
@@ -120,6 +127,11 @@ def login_page():
                 word-break: break-all;
                 font-size: 12px;
             }
+            code {
+                background: #e9ecef;
+                padding: 2px 4px;
+                border-radius: 3px;
+            }
         </style>
     </head>
     <body>
@@ -127,7 +139,7 @@ def login_page():
             <h2>🔐 Project Parallel</h2>
             <input type="text" id="codigo" placeholder="Código" value="1001">
             <input type="password" id="senha" placeholder="Senha" value="admin123">
-            <button onclick="fazerLogin()">Login</button>
+            <button onclick="fazerLogin()">Entrar</button>
             <div id="result"></div>
         </div>
 
@@ -138,6 +150,7 @@ def login_page():
                 const resultDiv = document.getElementById('result');
                 
                 resultDiv.innerHTML = '🔄 Carregando...';
+                resultDiv.style.color = '#666';
                 
                 try {
                     const response = await fetch('/api/auth/login', {
@@ -152,15 +165,17 @@ def login_page():
                         resultDiv.innerHTML = `
                             ✅ <strong>Login realizado!</strong><br><br>
                             📋 <strong>Token:</strong><br>
-                            <code style="font-size: 11px;">${data.access_token}</code><br><br>
-                            🔗 <strong>Link com token:</strong><br>
-                            <a href="/docs?token=${data.access_token}" target="_blank">Abrir Swagger com Token</a>
+                            <code>${data.access_token}</code><br><br>
+                            🔗 <a href="/docs?token=${data.access_token}" target="_blank">Abrir Swagger com Token</a>
                         `;
+                        resultDiv.style.color = '#2a9d8f';
                     } else {
-                        resultDiv.innerHTML = `❌ Erro: ${data.detail || 'Login inválido'}`;
+                        resultDiv.innerHTML = ❌ Erro: ${data.detail || 'Login inválido'}`;
+                        resultDiv.style.color = '#e76f51';
                     }
                 } catch (error) {
                     resultDiv.innerHTML = `❌ Erro de conexão: ${error.message}`;
+                    resultDiv.style.color = '#e76f51';
                 }
             }
         </script>
