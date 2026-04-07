@@ -250,3 +250,49 @@ class ColaboradorResponse(ColaboradorBase):
     class Config:
         from_attributes = True
         
+
+# =====================================================
+# Schemas para Demandas
+# =====================================================
+
+class DemandaBase(BaseModel):
+    titulo: str
+    descricao: str
+    solicitante: str
+    departamento: Optional[str] = None
+    empresa: str
+    prioridade: str = "media"
+    urgencia: str = "media"
+    status: str = "aberto"
+    data_prevista: Optional[date] = None
+    responsavel: Optional[str] = None
+    observacao: Optional[str] = None
+
+
+class DemandaCreate(DemandaBase):
+    pass
+
+
+class DemandaUpdate(BaseModel):
+    titulo: Optional[str] = None
+    descricao: Optional[str] = None
+    prioridade: Optional[str] = None
+    urgencia: Optional[str] = None
+    status: Optional[str] = None
+    data_prevista: Optional[date] = None
+    data_conclusao: Optional[date] = None
+    responsavel: Optional[str] = None
+    observacao: Optional[str] = None
+
+
+class DemandaResponse(DemandaBase):
+    id: int
+    data_abertura: datetime
+    data_conclusao: Optional[date] = None
+    criado_em: datetime
+    atualizado_em: datetime
+    criado_por: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+        

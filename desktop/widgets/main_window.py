@@ -14,6 +14,7 @@ from widgets.pedidos_widget import PedidosWidget
 from widgets.usuarios_widget import UsuariosWidget
 from widgets.parametros_widget import ParametrosWidget
 from widgets.colaboradores_widget import ColaboradoresWidget
+from widgets.demandas_widget import DemandasWidget
 
 
 class MainWindow(QMainWindow):
@@ -82,6 +83,7 @@ class MainWindow(QMainWindow):
             ("📊 Movimentações", self.show_movimentacoes),
             ("🔧 Manutenções", self.show_manutencoes),
             ("📋 Pedidos", self.show_pedidos),
+            ("🎫 Demandas", self.show_demandas),
             ("👥 Usuários", self.show_usuarios),
             ("👥 Colaboradores", self.show_colaboradores),
             ("⚙️ Parâmetros", self.show_parametros)
@@ -119,6 +121,7 @@ class MainWindow(QMainWindow):
         self.usuarios_widget = UsuariosWidget()
         self.parametros_widget = ParametrosWidget()
         self.colaboradores_widget = ColaboradoresWidget()
+        self.demandas_widget = DemandasWidget()
 
         self.content_stack.addWidget(self.home_widget)
         self.content_stack.addWidget(self.materiais_widget)
@@ -129,6 +132,7 @@ class MainWindow(QMainWindow):
         self.content_stack.addWidget(self.usuarios_widget)
         self.content_stack.addWidget(self.parametros_widget)
         self.content_stack.addWidget(self.colaboradores_widget)
+        self.content_stack.addWidget(self.demandas_widget)
 
     def show_home(self):
         self.content_stack.setCurrentWidget(self.home_widget)
@@ -163,4 +167,9 @@ class MainWindow(QMainWindow):
 
     def show_colaboradores(self):
         self.content_stack.setCurrentWidget(self.colaboradores_widget)
-        self.colaboradores_widget.carregar_colaboradores()        
+        self.colaboradores_widget.carregar_colaboradores()   
+
+    def show_demandas(self):
+        self.content_stack.setCurrentWidget(self.demandas_widget)
+        self.demandas_widget.carregar_demandas()
+             
