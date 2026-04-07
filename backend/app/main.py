@@ -69,3 +69,101 @@ def test_database():
     else:
         return {"status": "error", "message": "Falha na conexão com PostgreSQL"}
     
+@app.get("/login")
+def login_page():
+    """Página simples para login e obter token"""
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Project Parallel - Login</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                background: #f0f2f5;
+            }
+            .container {
+                background: white;
+                padding: 30px;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                width: 300px;
+            }
+            input {
+                width: 100%;
+                padding: 10px;
+                margin: 10px 0;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+            }
+            button {
+                width: 100%;
+                padding: 10px;
+                background: #2c7da0;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+            }
+            button:hover {
+                background: #1f5e7a;
+            }
+            #result {
+                margin-top: 20px;
+                padding: 10px;
+                background: #f8f9fa;
+                border-radius: 5px;
+                word-break: break-all;
+                font-size: 12px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h2>🔐 Project Parallel</h2>
+            <input type="text" id="codigo" placeholder="Código" value="1001">
+            <input type="password" id="senha" placeholder="Senha" value="admin123">
+            <button onclick="fazerLogin()">Login</button>
+            <div id="result"></div>
+        </div>
+
+        <script>
+            async function fazerLogin() {
+                const codigo = document.getElementById('codigo').value;
+                const senha = document.getElementById('senha').value;
+                const resultDiv = document.getElementById('result');
+                
+                resultDiv.innerHTML = '🔄 Carregando...';
+                
+                try {
+                    const response = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({codigo: codigo, senha: senha})
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        resultDiv.innerHTML = `
+                            ✅ <strong>Login realizado!</strong><br><br>
+                            📋 <strong>Token:</strong><br>
+                            <code style="font-size: 11px;">${data.access_token}</code><br><br>
+                            🔗 <strong>Link com token:</strong><br>
+                            <a href="/docs?token=${data.access_token}" target="_blank">Abrir Swagger com Token</a>
+                        `;
+                    } else {
+                        resultDiv.innerHTML = `❌ Erro: ${data.detail || 'Login inválido'}`;
+                    }
+                } catch (error) {
+                    resultDiv.innerHTML = `❌ Erro de conexão: ${error.message}`;
+                }
+            }
+        </script>
+    </body>
+    </html>
+    """
