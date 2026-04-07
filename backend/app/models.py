@@ -140,17 +140,17 @@ class Colaborador(Base):
     
 
 class Demanda(Base):
-    __tablename__ = "demandas"
-    
+    __tablename__ = 'demandas'
+
     id = Column(Integer, primary_key=True, index=True)
     titulo = Column(String(200), nullable=False)
     descricao = Column(Text, nullable=False)
     solicitante = Column(String(100), nullable=False)
     departamento = Column(String(100))
     empresa = Column(String(100))
-    prioridade = Column(String(20), default="media")  # alta, media, baixa
-    urgencia = Column(String(20), default="media")   # alta, media, baixa
-    status = Column(String(20), default="aberto")    # aberto, andamento, concluido, cancelado
+    prioridade = Column(String(20), default="media")
+    urgencia = Column(String(20), default="media")
+    status = Column(String(20), default="aberto")
     data_abertura = Column(DateTime, server_default=func.now())
     data_prevista = Column(Date)
     data_conclusao = Column(Date)
@@ -159,4 +159,6 @@ class Demanda(Base):
     criado_por = Column(Integer, ForeignKey("usuarios_sistema.id"))
     criado_em = Column(DateTime, server_default=func.now())
     atualizado_em = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    
+
     
