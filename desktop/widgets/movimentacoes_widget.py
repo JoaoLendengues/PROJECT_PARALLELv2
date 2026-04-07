@@ -103,7 +103,7 @@ class MovimentacoesWidget(QWidget):
     def carregar_colaboradores(self):
         """Carrega a lista de colaboradores"""
         try:
-            self.colaboradores = api_client.listar_colaboradores_para_movimentacao()
+            self.colaboradores = api_client.listar_colaboradores()
         except Exception as e:
             print(f"Erro ao carregar colaboradores: {e}")
     
@@ -169,6 +169,7 @@ class MovimentacoesWidget(QWidget):
         if dialog.exec():
             self.carregar_movimentacoes()
             self.carregar_materiais()
+            self.carregar_colaboradores()
     
     def deletar_movimentacao(self):
         current_row = self.tabela.currentRow()
@@ -188,8 +189,6 @@ class MovimentacoesWidget(QWidget):
         
         if confirm == QMessageBox.Yes:
             try:
-                # Nota: O backend pode não permitir deletar movimentações
-                # que afetam o estoque. Por isso o método pode não existir.
                 QMessageBox.warning(self, "Aviso", "Exclusão de movimentações não permitida para manter a integridade do estoque.")
             except Exception as e:
                 QMessageBox.critical(self, "Erro", f"Erro ao deletar: {e}")
@@ -239,13 +238,11 @@ class MovimentacaoDialog(QDialog):
         self.empresa_combo.setEditable(True)
         form_layout.addRow("Empresa:", self.empresa_combo)
         
-        # Destinatário (para saída)
+        # Destinatário (com colaboradores)
         self.destinatario_label = QLabel("Destinatário:")
         self.destinatario_combo = QComboBox()
         self.destinatario_combo.setEditable(True)
-        self.destinatario_combo.addItems(["Estoque", "João Silva", "Maria Santos", "Carlos Oliveira"])
-        for colab in self.colaboradores:
-            self.destinatario_combo.addItem(colab.get("nome", ""))
+        self.carregar_colaboradores_no_combo()
         form_layout.addRow(self.destinatario_label, self.destinatario_combo)
         
         # Observação
@@ -278,6 +275,18 @@ class MovimentacaoDialog(QDialog):
         # Atualizar informação de estoque ao mudar material
         self.material_combo.currentIndexChanged.connect(self.atualizar_info_estoque)
         self.atualizar_info_estoque()
+    
+    def carregar_colaboradores_no_combo(self):
+        """Carrega os colaboradores no combo box"""
+        try:
+            self.destinatario_combo.clear()
+            # Adicionar opção de digitar manualmente
+            self.destinatario_combo.addItem("--- Digite ou selecione ---")
+            for colab in self.colaboradores:
+                if colab.get("ativo", True):
+                    self.destinatario_combo.addItem(colab.get("nome", ""))
+        except Exception as e:
+            print(f"Erro ao carregar colaboradores: {e}")
     
     def on_tipo_changed(self):
         """Altera o texto do destinatário conforme o tipo"""
@@ -312,7 +321,8 @@ class MovimentacaoDialog(QDialog):
         destinatario = self.destinatario_combo.currentText().strip()
         observacao = self.observacao_edit.toPlainText().strip()
         
-        if not destinatario:
+        # Verificar se o destinatário é o placeholder
+        if destinatario == "--- Digite ou selecione ---" or not destinatario:
             QMessageBox.warning(self, "Atenção", "Informe o destinatário/origem!")
             return
         
@@ -334,4 +344,3 @@ class MovimentacaoDialog(QDialog):
                 QMessageBox.warning(self, "Erro", "Erro ao registrar movimentação")
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao salvar: {e}")
-            
