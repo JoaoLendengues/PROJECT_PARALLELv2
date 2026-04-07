@@ -110,7 +110,7 @@ class ColaboradoresWidget(QWidget):
             self.tabela.setItem(row, 5, status_item)
     
     def novo_colaborador(self):
-        dialog = ColaboradorDialog(self)
+        dialog = ColaboradorDialog(item_data=None, parent=self)
         if dialog.exec():
             self.carregar_colaboradores()
     
@@ -124,7 +124,7 @@ class ColaboradoresWidget(QWidget):
         colab = next((c for c in self.colaboradores if c["id"] == colab_id), None)
         
         if colab:
-            dialog = ColaboradorDialog(colab, self)
+            dialog = ColaboradorDialog(item_data=colab, parent=self)
             if dialog.exec():
                 self.carregar_colaboradores()
     
@@ -156,16 +156,16 @@ class ColaboradoresWidget(QWidget):
 
 
 class ColaboradorDialog(QDialog):
-    def __init__(self, colaborador=None, parent=None):
+    def __init__(self, item_data=None, parent=None):
         super().__init__(parent)
-        self.dados_item = colaborador
-        self.setWindowTitle("Cadastro de Colaborador" if not colaborador else "Editar Colaborador")
+        self.dados_item = item_data  # Nome diferente para evitar conflito
+        self.setWindowTitle("Cadastro de Colaborador" if not item_data else "Editar Colaborador")
         self.setModal(True)
         self.setMinimumWidth(450)
         self.init_ui()
         
-        if colaborador:
-            self.carregar_dados()
+        if item_data:
+            self.carregar_dados_edicao()
     
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -216,18 +216,22 @@ class ColaboradorDialog(QDialog):
         
         layout.addLayout(btn_layout)
     
-    def carregar_dados(self):
-        self.nome_edit.setText(self.dados_item.get("nome", ""))
-        self.cargo_edit.setText(self.dados_item.get("cargo", ""))
+    def carregar_dados_edicao(self):
+        """Carrega os dados do colaborador para edição"""
+        if self.dados_item is None:
+            return
         
-        dept = self.dados_item.get("departamento", "")
+        self.nome_edit.setText(str(self.dados_item.get("nome", "")))
+        self.cargo_edit.setText(str(self.dados_item.get("cargo", "")))
+        
+        dept = str(self.dados_item.get("departamento", ""))
         idx = self.departamento_combo.findText(dept)
         if idx >= 0:
             self.departamento_combo.setCurrentIndex(idx)
         else:
             self.departamento_combo.setEditText(dept)
         
-        empresa = self.dados_item.get("empresa", "")
+        empresa = str(self.dados_item.get("empresa", ""))
         idx = self.empresa_combo.findText(empresa)
         if idx >= 0:
             self.empresa_combo.setCurrentIndex(idx)
