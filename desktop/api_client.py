@@ -523,7 +523,9 @@ def listar_demandas(self, status=None, prioridade=None, empresa=None):
     )
     if response.status_code == 200:
         return response.json()
-    return []
+    else:
+            print(f"Erro ao listar demandas: {response.status_code} - {response.text}")
+            return []
 
 def criar_demanda(self, demanda):
     response = requests.post(
@@ -533,7 +535,9 @@ def criar_demanda(self, demanda):
     )
     if response.status_code == 201:
         return response.json()
-    return None
+    else:
+            print(f"Erro ao criar demanda: {response.status_code} - {response.text}")
+            return None
 
 def atualizar_demanda(self, demanda_id, demanda):
     response = requests.put(
@@ -543,7 +547,9 @@ def atualizar_demanda(self, demanda_id, demanda):
     )
     if response.status_code == 200:
         return response.json()
-    return None
+    else:
+            print(f"Erro ao atualizar demanda: {response.status_code} - {response.text}")
+            return None
 
 def concluir_demanda(self, demanda_id):
     response = requests.put(
