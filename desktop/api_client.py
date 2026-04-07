@@ -508,7 +508,6 @@ class APIClient:
 # =====================================================
 
 def listar_demandas(self, status=None, prioridade=None, empresa=None):
-    """Lista demandas com filtros"""
     params = {}
     if status:
         params["status"] = status
@@ -524,12 +523,9 @@ def listar_demandas(self, status=None, prioridade=None, empresa=None):
     )
     if response.status_code == 200:
         return response.json()
-    else:
-        print(f"Erro ao listar demandas: {response.status_code} - {response.text}")
-        return []
+    return []
 
 def criar_demanda(self, demanda):
-    """Cria uma nova demanda"""
     response = requests.post(
         f"{self.base_url}/api/demandas",
         json=demanda,
@@ -537,12 +533,9 @@ def criar_demanda(self, demanda):
     )
     if response.status_code == 201:
         return response.json()
-    else:
-        print(f"Erro ao criar demanda: {response.status_code} - {response.text}")
-        return None
+    return None
 
 def atualizar_demanda(self, demanda_id, demanda):
-    """Atualiza uma demanda"""
     response = requests.put(
         f"{self.base_url}/api/demandas/{demanda_id}",
         json=demanda,
@@ -550,12 +543,9 @@ def atualizar_demanda(self, demanda_id, demanda):
     )
     if response.status_code == 200:
         return response.json()
-    else:
-        print(f"Erro ao atualizar demanda: {response.status_code} - {response.text}")
-        return None
+    return None
 
 def concluir_demanda(self, demanda_id):
-    """Conclui uma demanda"""
     response = requests.put(
         f"{self.base_url}/api/demandas/{demanda_id}/concluir",
         headers=self.get_headers()
@@ -563,7 +553,6 @@ def concluir_demanda(self, demanda_id):
     return response.status_code == 200
 
 def cancelar_demanda(self, demanda_id):
-    """Cancela uma demanda"""
     response = requests.put(
         f"{self.base_url}/api/demandas/{demanda_id}/cancelar",
         headers=self.get_headers()
@@ -571,7 +560,6 @@ def cancelar_demanda(self, demanda_id):
     return response.status_code == 200
 
 def deletar_demanda(self, demanda_id):
-    """Deleta uma demanda"""
     response = requests.delete(
         f"{self.base_url}/api/demandas/{demanda_id}",
         headers=self.get_headers()
