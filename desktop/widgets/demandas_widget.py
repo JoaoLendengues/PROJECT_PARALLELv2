@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
                                QTableWidgetItem, QPushButton, QLabel, QLineEdit,
                                QComboBox, QDialog, QFormLayout, QTextEdit,
-                               QDateEdit, QMessageBox, QHeaderView, QFrame)
+                               QDateEdit, QMessageBox, QHeaderView)
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QFont, QColor
 from api_client import api_client
@@ -59,7 +59,7 @@ class DemandasWidget(QWidget):
         
         layout.addLayout(filtros)
         
-        # Tabela de demandas
+        # Tabela
         self.tabela = QTableWidget()
         self.tabela.setAlternatingRowColors(True)
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
@@ -131,12 +131,6 @@ class DemandasWidget(QWidget):
             "baixa": QColor(42, 157, 143)
         }
         
-        urgencia_cores = {
-            "alta": QColor(231, 111, 81),
-            "media": QColor(244, 162, 97),
-            "baixa": QColor(42, 157, 143)
-        }
-        
         status_cores = {
             "aberto": QColor(244, 162, 97),
             "andamento": QColor(42, 157, 143),
@@ -154,7 +148,6 @@ class DemandasWidget(QWidget):
             self.tabela.setItem(row, 3, prioridade_item)
             
             urgencia_item = QTableWidgetItem(d.get("urgencia", "media").upper())
-            urgencia_item.setForeground(urgencia_cores.get(d.get("urgencia", "media"), QColor(0, 0, 0)))
             self.tabela.setItem(row, 4, urgencia_item)
             
             status_item = QTableWidgetItem(d.get("status", "aberto").upper())
@@ -331,11 +324,6 @@ class DemandaDialog(QDialog):
         # Prioridade
         self.prioridade_combo = QComboBox()
         self.prioridade_combo.addItems(["alta", "media", "baixa"])
-        self.prioridade_combo.setStyleSheet("""
-            QComboBox[priority="alta"] { color: #e76f51; }
-            QComboBox[priority="media"] { color: #f4a261; }
-            QComboBox[priority="baixa"] { color: #2a9d8f; }
-        """)
         form_layout.addRow("Prioridade:", self.prioridade_combo)
         
         # Urgência
@@ -367,7 +355,6 @@ class DemandaDialog(QDialog):
         
         layout.addLayout(form_layout)
         
-        # Botões
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
         
@@ -386,7 +373,6 @@ class DemandaDialog(QDialog):
             self.set_readonly()
     
     def set_readonly(self):
-        """Configura todos os campos como somente leitura"""
         self.titulo_edit.setReadOnly(True)
         self.descricao_edit.setReadOnly(True)
         self.solicitante_edit.setReadOnly(True)
@@ -400,7 +386,6 @@ class DemandaDialog(QDialog):
         self.observacao_edit.setReadOnly(True)
     
     def carregar_dados_edicao(self):
-        """Carrega os dados da demanda para edição"""
         if self.dados_item is None:
             return
         
@@ -445,7 +430,6 @@ class DemandaDialog(QDialog):
         self.observacao_edit.setPlainText(str(self.dados_item.get("observacao", "")))
     
     def carregar_dados_visualizacao(self):
-        """Carrega os dados da demanda para visualização"""
         self.carregar_dados_edicao()
     
     def salvar(self):
