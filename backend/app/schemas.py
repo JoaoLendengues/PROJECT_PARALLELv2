@@ -280,7 +280,6 @@ class DemandaUpdate(BaseModel):
     urgencia: Optional[str] = None
     status: Optional[str] = None
     data_prevista: Optional[date] = None
-    data_conclusao: Optional[date] = None
     responsavel: Optional[str] = None
     observacao: Optional[str] = None
 
@@ -291,7 +290,6 @@ class DemandaResponse(DemandaBase):
     data_conclusao: Optional[date] = None
     criado_em: datetime
     atualizado_em: datetime
-    criado_por: Optional[int] = None
 
     class Config:
         from_attributes = True
