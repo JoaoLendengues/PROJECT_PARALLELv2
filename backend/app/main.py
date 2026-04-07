@@ -86,6 +86,7 @@ def login_page():
                 align-items: center;
                 height: 100vh;
                 background: #f0f2f5;
+                margin: 0;
             }
             .container {
                 background: white;
@@ -97,6 +98,7 @@ def login_page():
             h2 {
                 text-align: center;
                 color: #2c7da0;
+                margin-top: 0;
             }
             input {
                 width: 100%;
@@ -115,6 +117,7 @@ def login_page():
                 border-radius: 5px;
                 cursor: pointer;
                 font-size: 16px;
+                margin-top: 10px;
             }
             button:hover {
                 background: #1f5e7a;
@@ -124,14 +127,11 @@ def login_page():
                 padding: 10px;
                 background: #f8f9fa;
                 border-radius: 5px;
-                word-break: break-all;
                 font-size: 12px;
+                word-break: break-all;
             }
-            code {
-                background: #e9ecef;
-                padding: 2px 4px;
-                border-radius: 3px;
-            }
+            .success { color: #2a9d8f; }
+            .error { color: #e76f51; }
         </style>
     </head>
     <body>
@@ -144,41 +144,38 @@ def login_page():
         </div>
 
         <script>
-            async function fazerLogin() {
-                const codigo = document.getElementById('codigo').value;
-                const senha = document.getElementById('senha').value;
-                const resultDiv = document.getElementById('result');
+            function fazerLogin() {
+                var codigo = document.getElementById('codigo').value;
+                var senha = document.getElementById('senha').value;
+                var resultDiv = document.getElementById('result');
                 
                 resultDiv.innerHTML = '🔄 Carregando...';
-                resultDiv.style.color = '#666';
                 
-                try {
-                    const response = await fetch('/api/auth/login', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({codigo: codigo, senha: senha})
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (response.ok) {
-                        resultDiv.innerHTML = `
-                            ✅ <strong>Login realizado!</strong><br><br>
-                            📋 <strong>Token:</strong><br>
-                            <code>${data.access_token}</code><br><br>
-                            🔗 <a href="/docs?token=${data.access_token}" target="_blank">Abrir Swagger com Token</a>
-                        `;
-                        resultDiv.style.color = '#2a9d8f';
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', '/api/auth/login', true);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                
+                xhr.onload = function() {
+                    if (xhr.status === 200) {
+                        var data = JSON.parse(xhr.responseText);
+                        resultDiv.innerHTML = '<span class="success">✅ Login realizado!</span><br><br>' +
+                            '<strong>Token:</strong><br>' +
+                            '<code>' + data.access_token + '</code><br><br>' +
+                            '<a href="/docs" target="_blank">📚 Abrir Swagger</a>';
                     } else {
-                        resultDiv.innerHTML = ❌ Erro: ${data.detail || 'Login inválido'}`;
-                        resultDiv.style.color = '#e76f51';
+                        var data = JSON.parse(xhr.responseText);
+                        resultDiv.innerHTML = '<span class="error">❌ Erro: ' + (data.detail || 'Login inválido') + '</span>';
                     }
-                } catch (error) {
-                    resultDiv.innerHTML = `❌ Erro de conexão: ${error.message}`;
-                    resultDiv.style.color = '#e76f51';
-                }
+                };
+                
+                xhr.onerror = function() {
+                    resultDiv.innerHTML = '<span class="error">❌ Erro de conexão com o servidor</span>';
+                };
+                
+                xhr.send(JSON.stringify({codigo: codigo, senha: senha}));
             }
         </script>
     </body>
     </html>
     """
+    
