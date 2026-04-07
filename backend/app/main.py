@@ -70,7 +70,8 @@ def test_database():
         return {"status": "success", "message": "Conexão com PostgreSQL OK!"}
     else:
         return {"status": "error", "message": "Falha na conexão com PostgreSQL"}
-    
+
+
 @app.get("/login", response_class=HTMLResponse)
 def login_page():
     """Página simples para login e obter token"""
@@ -179,4 +180,3 @@ def login_page():
     </body>
     </html>
     """
-    
