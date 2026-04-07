@@ -7,3 +7,4 @@ from . import auth
 from . import usuarios_sistema
 from . import colaboradores
 from . import dashboard
+from . import demandas

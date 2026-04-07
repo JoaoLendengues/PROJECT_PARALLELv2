@@ -503,6 +503,10 @@ class APIClient:
             }
 
 
+# =====================================================
+# Demandas / Chamados TI
+# =====================================================
+
 def listar_demandas(self, status=None, prioridade=None, empresa=None):
     """Lista demandas com filtros"""
     params = {}
@@ -518,7 +522,11 @@ def listar_demandas(self, status=None, prioridade=None, empresa=None):
         headers=self.get_headers(),
         params=params
     )
-    return response.json() if response.status_code == 200 else []
+    if response.status_code == 200:
+        return response.json()
+    else:
+        print(f"Erro ao listar demandas: {response.status_code} - {response.text}")
+        return []
 
 def criar_demanda(self, demanda):
     """Cria uma nova demanda"""
@@ -529,7 +537,9 @@ def criar_demanda(self, demanda):
     )
     if response.status_code == 201:
         return response.json()
-    return None
+    else:
+        print(f"Erro ao criar demanda: {response.status_code} - {response.text}")
+        return None
 
 def atualizar_demanda(self, demanda_id, demanda):
     """Atualiza uma demanda"""
@@ -538,7 +548,11 @@ def atualizar_demanda(self, demanda_id, demanda):
         json=demanda,
         headers=self.get_headers()
     )
-    return response.json() if response.status_code == 200 else None
+    if response.status_code == 200:
+        return response.json()
+    else:
+        print(f"Erro ao atualizar demanda: {response.status_code} - {response.text}")
+        return None
 
 def concluir_demanda(self, demanda_id):
     """Conclui uma demanda"""
