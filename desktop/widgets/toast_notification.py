@@ -12,41 +12,40 @@ class ToastNotification(QFrame):
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_DeleteOnClose)
         
-        # Cores fixas e legíveis - Fundo claro, texto escuro
+        # Cores fixas e legíveis
         cores = {
             "info": {
                 "bg": "#E3F2FD",
                 "bg_hover": "#BBDEFB",
                 "icon": "ℹ️", 
                 "titulo": "INFORMAÇÃO",
-                "texto": "#0D47A1"  # Azul escuro
+                "texto": "#0D47A1"
             },
             "success": {
                 "bg": "#E8F5E9", 
                 "bg_hover": "#C8E6C9", 
                 "icon": "✅", 
                 "titulo": "SUCESSO",
-                "texto": "#1B5E20"  # Verde escuro
+                "texto": "#1B5E20"
             },
             "warning": {
                 "bg": "#FFF3E0", 
                 "bg_hover": "#FFE0B2", 
                 "icon": "⚠️", 
                 "titulo": "ATENÇÃO",
-                "texto": "#E65100"  # Laranja escuro
+                "texto": "#E65100"
             },
             "error": {
                 "bg": "#FFEBEE", 
                 "bg_hover": "#FFCDD2", 
                 "icon": "❌", 
                 "titulo": "ERRO",
-                "texto": "#B71C1C"  # Vermelho escuro
+                "texto": "#B71C1C"
             }
         }
         
         cor = cores.get(tipo, cores["info"])
         
-        # Estilo do frame
         self.setStyleSheet(f"""
             QFrame {{
                 background-color: {cor['bg']};
@@ -151,12 +150,20 @@ class ToastNotification(QFrame):
         if self.parent():
             parent_rect = self.parent().rect()
             x = parent_rect.width() - self.width() - 15
-            y = parent_rect.height() - self.height() - 15
+            
+            # Calcular posição Y baseado no tamanho da janela
+            if parent_rect.height() < 600:
+                y = parent_rect.height() - self.height() - 60
+            elif parent_rect.height() < 800:
+                y = parent_rect.height() - self.height() - 80
+            else:
+                y = parent_rect.height() - self.height() - 120
+            
             self.move(x, y)
         else:
             screen = self.screen().availableGeometry()
             x = screen.width() - self.width() - 15
-            y = screen.height() - self.height() - 50
+            y = screen.height() - self.height() - 100
             self.move(x, y)
     
     def fechar_animado(self):
