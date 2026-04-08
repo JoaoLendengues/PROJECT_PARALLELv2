@@ -64,11 +64,21 @@ class MovimentacoesWidget(QWidget):
         
         layout.addLayout(filtros)
         
-        # Tabela de movimentações
+        # Tabela de movimentações com estilo melhorado
         self.tabela = QTableWidget()
         self.tabela.setAlternatingRowColors(True)
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabela.setEditTriggers(QTableWidget.NoEditTriggers)
+        
+        # Estilo da tabela
+        self.tabela.setStyleSheet("""
+            QTableWidget::item {
+                padding: 10px 8px;
+            }
+            QHeaderView::section {
+                padding: 10px 12px;
+            }
+        """)
         
         headers = ["ID", "Material", "Tipo", "Quantidade", "Empresa", "Destinatário", "Data/Hora", "Observação"]
         self.tabela.setColumnCount(len(headers))
@@ -202,6 +212,17 @@ class MovimentacaoDialog(QDialog):
         self.setWindowTitle("Nova Movimentação")
         self.setModal(True)
         self.setMinimumWidth(500)
+        
+        # Estilo do diálogo
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #f5f7fa;
+            }
+            QDialog QPushButton {
+                min-width: 100px;
+            }
+        """)
+        
         self.init_ui()
     
     def init_ui(self):
@@ -344,3 +365,4 @@ class MovimentacaoDialog(QDialog):
                 QMessageBox.warning(self, "Erro", "Erro ao registrar movimentação")
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao salvar: {e}")
+            

@@ -61,11 +61,21 @@ class ManutencoesWidget(QWidget):
         
         layout.addLayout(filtros)
         
-        # Tabela de manutenções
+        # Tabela de manutenções com estilo melhorado
         self.tabela = QTableWidget()
         self.tabela.setAlternatingRowColors(True)
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabela.setEditTriggers(QTableWidget.NoEditTriggers)
+        
+        # Estilo da tabela
+        self.tabela.setStyleSheet("""
+            QTableWidget::item {
+                padding: 10px 8px;
+            }
+            QHeaderView::section {
+                padding: 10px 12px;
+            }
+        """)
         
         headers = ["ID", "Máquina", "Tipo", "Descrição", "Data Início", "Data Fim", "Responsável", "Status"]
         self.tabela.setColumnCount(len(headers))
@@ -249,6 +259,17 @@ class ManutencaoDialog(QDialog):
         self.setWindowTitle("Cadastro de Manutenção" if not manutencao_data else "Editar Manutenção")
         self.setModal(True)
         self.setMinimumWidth(550)
+        
+        # Estilo do diálogo
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #f5f7fa;
+            }
+            QDialog QPushButton {
+                min-width: 100px;
+            }
+        """)
+        
         self.init_ui()
         
         if manutencao_data:

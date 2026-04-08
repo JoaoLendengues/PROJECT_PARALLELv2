@@ -62,11 +62,21 @@ class MaquinasWidget(QWidget):
         
         layout.addLayout(filtros)
         
-        # Tabela de máquinas
+        # Tabela de máquinas com estilo melhorado
         self.tabela = QTableWidget()
         self.tabela.setAlternatingRowColors(True)
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabela.setEditTriggers(QTableWidget.NoEditTriggers)
+        
+        # Estilo da tabela
+        self.tabela.setStyleSheet("""
+            QTableWidget::item {
+                padding: 10px 8px;
+            }
+            QHeaderView::section {
+                padding: 10px 12px;
+            }
+        """)
         
         headers = ["ID", "Nome", "Modelo", "Empresa", "Departamento", "Status", "Observações"]
         self.tabela.setColumnCount(len(headers))
@@ -202,7 +212,7 @@ class MaquinasWidget(QWidget):
                 QMessageBox.critical(self, "Erro", f"Erro ao deletar: {e}")
 
 
-# CLASSE DO DIALOG - CORRETA
+# CLASSE DO DIALOG - CORRETA COM ESTILO MELHORADO
 class MaquinaDialog(QDialog):
     def __init__(self, item_data=None, parent=None):
         super().__init__(parent)
@@ -210,6 +220,17 @@ class MaquinaDialog(QDialog):
         self.setWindowTitle("Cadastro de Máquina" if not item_data else "Editar Máquina")
         self.setModal(True)
         self.setMinimumWidth(500)
+        
+        # Estilo do diálogo
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #f5f7fa;
+            }
+            QDialog QPushButton {
+                min-width: 100px;
+            }
+        """)
+        
         self.init_ui()
         
         if item_data:
@@ -319,7 +340,6 @@ class MaquinaDialog(QDialog):
             else:
                 # Criar
                 response = api_client.criar_maquina(dados)
-                # Verificar se a resposta tem um ID (criação bem sucedida)
                 if response and response.get("id"):
                     QMessageBox.information(self, "Sucesso", "Máquina criada com sucesso!")
                     self.accept()
@@ -327,3 +347,4 @@ class MaquinaDialog(QDialog):
                     QMessageBox.warning(self, "Erro", "Erro ao criar máquina. Verifique os dados e tente novamente.")
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao salvar: {e}")
+            

@@ -62,11 +62,21 @@ class MateriaisWidget(QWidget):
         
         layout.addLayout(filtros)
         
-        # Tabela de materiais
+        # Tabela de materiais com estilo melhorado
         self.tabela = QTableWidget()
         self.tabela.setAlternatingRowColors(True)
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabela.setEditTriggers(QTableWidget.NoEditTriggers)
+        
+        # Estilo da tabela
+        self.tabela.setStyleSheet("""
+            QTableWidget::item {
+                padding: 10px 8px;
+            }
+            QHeaderView::section {
+                padding: 10px 12px;
+            }
+        """)
         
         headers = ["ID", "Nome", "Descrição", "Qtd", "Categoria", "Empresa", "Status"]
         self.tabela.setColumnCount(len(headers))
@@ -201,14 +211,25 @@ class MateriaisWidget(QWidget):
                 QMessageBox.critical(self, "Erro", f"Erro ao deletar: {e}")
 
 
-# CLASSE DO DIALOG - SEPARADA E CORRETA
+# CLASSE DO DIALOG - SEPARADA E CORRETA COM ESTILO MELHORADO
 class MaterialDialog(QDialog):
     def __init__(self, item_data=None, parent=None):
         super().__init__(parent)
-        self.dados_item = item_data  # Nome diferente para evitar conflito
+        self.dados_item = item_data
         self.setWindowTitle("Cadastro de Material" if not item_data else "Editar Material")
         self.setModal(True)
         self.setMinimumWidth(500)
+        
+        # Estilo do diálogo
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #f5f7fa;
+            }
+            QDialog QPushButton {
+                min-width: 100px;
+            }
+        """)
+        
         self.init_ui()
         
         if item_data:
@@ -324,12 +345,13 @@ class MaterialDialog(QDialog):
                 else:
                     QMessageBox.warning(self, "Erro", "Erro ao atualizar material")
             else:
-                # Criar - CORREÇÃO AQUI
+                # Criar
                 response = api_client.criar_material(dados)
-                if response:  # Se retornou algo (não None)
+                if response:
                     QMessageBox.information(self, "Sucesso", "Material criado com sucesso!")
                     self.accept()
                 else:
                     QMessageBox.warning(self, "Erro", "Erro ao criar material")
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao salvar: {e}")
+            

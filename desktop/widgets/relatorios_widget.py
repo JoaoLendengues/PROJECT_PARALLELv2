@@ -11,10 +11,9 @@ from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm, cm
-from reportlab.pdfgen import canvas
 from datetime import datetime
 import os
 
@@ -61,31 +60,37 @@ class RelatoriosWidget(QWidget):
         
         # Filtros
         filtros = QGroupBox("Filtros")
+        filtros.setObjectName("configGroup")
         filtros_layout = QHBoxLayout(filtros)
+        filtros_layout.setContentsMargins(20, 15, 20, 15)
         
         # Período
         filtros_layout.addWidget(QLabel("Data Início:"))
         self.mov_data_inicio = QDateEdit()
         self.mov_data_inicio.setDate(QDate.currentDate().addMonths(-1))
         self.mov_data_inicio.setCalendarPopup(True)
+        self.mov_data_inicio.setObjectName("configInput")
         filtros_layout.addWidget(self.mov_data_inicio)
         
         filtros_layout.addWidget(QLabel("Data Fim:"))
         self.mov_data_fim = QDateEdit()
         self.mov_data_fim.setDate(QDate.currentDate())
         self.mov_data_fim.setCalendarPopup(True)
+        self.mov_data_fim.setObjectName("configInput")
         filtros_layout.addWidget(self.mov_data_fim)
         
         # Tipo
         filtros_layout.addWidget(QLabel("Tipo:"))
         self.mov_tipo = QComboBox()
         self.mov_tipo.addItems(["Todos", "Entrada", "Saída"])
+        self.mov_tipo.setObjectName("configCombo")
         filtros_layout.addWidget(self.mov_tipo)
         
         # Empresa
         filtros_layout.addWidget(QLabel("Empresa:"))
         self.mov_empresa = QComboBox()
         self.mov_empresa.addItems(["Todas", "Matriz", "Filial 1", "Filial 2", "Filial 3"])
+        self.mov_empresa.setObjectName("configCombo")
         filtros_layout.addWidget(self.mov_empresa)
         
         filtros_layout.addStretch()
@@ -96,25 +101,38 @@ class RelatoriosWidget(QWidget):
         btn_layout = QHBoxLayout()
         
         self.btn_atualizar = QPushButton("🔍 Atualizar")
+        self.btn_atualizar.setObjectName("btnPrimary")
         self.btn_atualizar.clicked.connect(self.carregar_movimentacoes)
         btn_layout.addWidget(self.btn_atualizar)
         
         btn_layout.addStretch()
         
         self.btn_exportar_excel = QPushButton("📊 Exportar Excel")
+        self.btn_exportar_excel.setObjectName("btnSecondary")
         self.btn_exportar_excel.clicked.connect(lambda: self.exportar_excel("movimentacoes"))
         btn_layout.addWidget(self.btn_exportar_excel)
         
         self.btn_exportar_pdf = QPushButton("📄 Exportar PDF")
+        self.btn_exportar_pdf.setObjectName("btnSecondary")
         self.btn_exportar_pdf.clicked.connect(lambda: self.exportar_pdf("movimentacoes"))
         btn_layout.addWidget(self.btn_exportar_pdf)
         
         layout.addLayout(btn_layout)
         
-        # Tabela
+        # Tabela com estilo melhorado
         self.mov_tabela = QTableWidget()
         self.mov_tabela.setAlternatingRowColors(True)
         self.mov_tabela.setSelectionBehavior(QTableWidget.SelectRows)
+        
+        # Estilo da tabela
+        self.mov_tabela.setStyleSheet("""
+            QTableWidget::item {
+                padding: 10px 8px;
+            }
+            QHeaderView::section {
+                padding: 10px 12px;
+            }
+        """)
         
         headers = ["ID", "Material", "Tipo", "Quantidade", "Empresa", "Destinatário", "Data/Hora", "Usuário", "Observação"]
         self.mov_tabela.setColumnCount(len(headers))
@@ -138,24 +156,29 @@ class RelatoriosWidget(QWidget):
         
         # Filtros
         filtros = QGroupBox("Filtros")
+        filtros.setObjectName("configGroup")
         filtros_layout = QHBoxLayout(filtros)
+        filtros_layout.setContentsMargins(20, 15, 20, 15)
         
         # Categoria
         filtros_layout.addWidget(QLabel("Categoria:"))
         self.est_categoria = QComboBox()
         self.est_categoria.addItems(["Todas"])
+        self.est_categoria.setObjectName("configCombo")
         filtros_layout.addWidget(self.est_categoria)
         
         # Empresa
         filtros_layout.addWidget(QLabel("Empresa:"))
         self.est_empresa = QComboBox()
         self.est_empresa.addItems(["Todas", "Matriz", "Filial 1", "Filial 2", "Filial 3"])
+        self.est_empresa.setObjectName("configCombo")
         filtros_layout.addWidget(self.est_empresa)
         
         # Status
         filtros_layout.addWidget(QLabel("Status:"))
         self.est_status = QComboBox()
         self.est_status.addItems(["Todos", "Ativo", "Inativo", "Descontinuado"])
+        self.est_status.setObjectName("configCombo")
         filtros_layout.addWidget(self.est_status)
         
         filtros_layout.addStretch()
@@ -166,24 +189,37 @@ class RelatoriosWidget(QWidget):
         btn_layout = QHBoxLayout()
         
         self.btn_carregar_estoque = QPushButton("🔍 Atualizar")
+        self.btn_carregar_estoque.setObjectName("btnPrimary")
         self.btn_carregar_estoque.clicked.connect(self.carregar_estoque)
         btn_layout.addWidget(self.btn_carregar_estoque)
         
         btn_layout.addStretch()
         
         self.btn_exportar_excel_estoque = QPushButton("📊 Exportar Excel")
+        self.btn_exportar_excel_estoque.setObjectName("btnSecondary")
         self.btn_exportar_excel_estoque.clicked.connect(lambda: self.exportar_excel("estoque"))
         btn_layout.addWidget(self.btn_exportar_excel_estoque)
         
         self.btn_exportar_pdf_estoque = QPushButton("📄 Exportar PDF")
+        self.btn_exportar_pdf_estoque.setObjectName("btnSecondary")
         self.btn_exportar_pdf_estoque.clicked.connect(lambda: self.exportar_pdf("estoque"))
         btn_layout.addWidget(self.btn_exportar_pdf_estoque)
         
         layout.addLayout(btn_layout)
         
-        # Tabela
+        # Tabela com estilo melhorado
         self.est_tabela = QTableWidget()
         self.est_tabela.setAlternatingRowColors(True)
+        
+        # Estilo da tabela
+        self.est_tabela.setStyleSheet("""
+            QTableWidget::item {
+                padding: 10px 8px;
+            }
+            QHeaderView::section {
+                padding: 10px 12px;
+            }
+        """)
         
         headers = ["ID", "Nome", "Descrição", "Quantidade", "Categoria", "Empresa", "Status"]
         self.est_tabela.setColumnCount(len(headers))
@@ -205,31 +241,37 @@ class RelatoriosWidget(QWidget):
         
         # Filtros
         filtros = QGroupBox("Filtros")
+        filtros.setObjectName("configGroup")
         filtros_layout = QHBoxLayout(filtros)
+        filtros_layout.setContentsMargins(20, 15, 20, 15)
         
         # Período
         filtros_layout.addWidget(QLabel("Data Início:"))
         self.ped_data_inicio = QDateEdit()
         self.ped_data_inicio.setDate(QDate.currentDate().addMonths(-1))
         self.ped_data_inicio.setCalendarPopup(True)
+        self.ped_data_inicio.setObjectName("configInput")
         filtros_layout.addWidget(self.ped_data_inicio)
         
         filtros_layout.addWidget(QLabel("Data Fim:"))
         self.ped_data_fim = QDateEdit()
         self.ped_data_fim.setDate(QDate.currentDate())
         self.ped_data_fim.setCalendarPopup(True)
+        self.ped_data_fim.setObjectName("configInput")
         filtros_layout.addWidget(self.ped_data_fim)
         
         # Status
         filtros_layout.addWidget(QLabel("Status:"))
         self.ped_status = QComboBox()
         self.ped_status.addItems(["Todos", "Pendente", "Aprovado", "Concluído", "Cancelado"])
+        self.ped_status.setObjectName("configCombo")
         filtros_layout.addWidget(self.ped_status)
         
         # Empresa
         filtros_layout.addWidget(QLabel("Empresa:"))
         self.ped_empresa = QComboBox()
         self.ped_empresa.addItems(["Todas", "Matriz", "Filial 1", "Filial 2", "Filial 3"])
+        self.ped_empresa.setObjectName("configCombo")
         filtros_layout.addWidget(self.ped_empresa)
         
         filtros_layout.addStretch()
@@ -240,24 +282,37 @@ class RelatoriosWidget(QWidget):
         btn_layout = QHBoxLayout()
         
         self.btn_carregar_pedidos = QPushButton("🔍 Atualizar")
+        self.btn_carregar_pedidos.setObjectName("btnPrimary")
         self.btn_carregar_pedidos.clicked.connect(self.carregar_pedidos)
         btn_layout.addWidget(self.btn_carregar_pedidos)
         
         btn_layout.addStretch()
         
         self.btn_exportar_excel_pedidos = QPushButton("📊 Exportar Excel")
+        self.btn_exportar_excel_pedidos.setObjectName("btnSecondary")
         self.btn_exportar_excel_pedidos.clicked.connect(lambda: self.exportar_excel("pedidos"))
         btn_layout.addWidget(self.btn_exportar_excel_pedidos)
         
         self.btn_exportar_pdf_pedidos = QPushButton("📄 Exportar PDF")
+        self.btn_exportar_pdf_pedidos.setObjectName("btnSecondary")
         self.btn_exportar_pdf_pedidos.clicked.connect(lambda: self.exportar_pdf("pedidos"))
         btn_layout.addWidget(self.btn_exportar_pdf_pedidos)
         
         layout.addLayout(btn_layout)
         
-        # Tabela
+        # Tabela com estilo melhorado
         self.ped_tabela = QTableWidget()
         self.ped_tabela.setAlternatingRowColors(True)
+        
+        # Estilo da tabela
+        self.ped_tabela.setStyleSheet("""
+            QTableWidget::item {
+                padding: 10px 8px;
+            }
+            QHeaderView::section {
+                padding: 10px 12px;
+            }
+        """)
         
         headers = ["ID", "Material", "Qtd", "Solicitante", "Empresa", "Data Solic.", "Data Conclusão", "Status"]
         self.ped_tabela.setColumnCount(len(headers))
@@ -276,31 +331,37 @@ class RelatoriosWidget(QWidget):
         
         # Filtros
         filtros = QGroupBox("Filtros")
+        filtros.setObjectName("configGroup")
         filtros_layout = QHBoxLayout(filtros)
+        filtros_layout.setContentsMargins(20, 15, 20, 15)
         
         # Período
         filtros_layout.addWidget(QLabel("Data Início:"))
         self.dem_data_inicio = QDateEdit()
         self.dem_data_inicio.setDate(QDate.currentDate().addMonths(-1))
         self.dem_data_inicio.setCalendarPopup(True)
+        self.dem_data_inicio.setObjectName("configInput")
         filtros_layout.addWidget(self.dem_data_inicio)
         
         filtros_layout.addWidget(QLabel("Data Fim:"))
         self.dem_data_fim = QDateEdit()
         self.dem_data_fim.setDate(QDate.currentDate())
         self.dem_data_fim.setCalendarPopup(True)
+        self.dem_data_fim.setObjectName("configInput")
         filtros_layout.addWidget(self.dem_data_fim)
         
         # Status
         filtros_layout.addWidget(QLabel("Status:"))
         self.dem_status = QComboBox()
         self.dem_status.addItems(["Todos", "Aberto", "Em Andamento", "Concluído", "Cancelado"])
+        self.dem_status.setObjectName("configCombo")
         filtros_layout.addWidget(self.dem_status)
         
         # Prioridade
         filtros_layout.addWidget(QLabel("Prioridade:"))
         self.dem_prioridade = QComboBox()
         self.dem_prioridade.addItems(["Todas", "Alta", "Média", "Baixa"])
+        self.dem_prioridade.setObjectName("configCombo")
         filtros_layout.addWidget(self.dem_prioridade)
         
         filtros_layout.addStretch()
@@ -311,24 +372,37 @@ class RelatoriosWidget(QWidget):
         btn_layout = QHBoxLayout()
         
         self.btn_carregar_demandas = QPushButton("🔍 Atualizar")
+        self.btn_carregar_demandas.setObjectName("btnPrimary")
         self.btn_carregar_demandas.clicked.connect(self.carregar_demandas)
         btn_layout.addWidget(self.btn_carregar_demandas)
         
         btn_layout.addStretch()
         
         self.btn_exportar_excel_demandas = QPushButton("📊 Exportar Excel")
+        self.btn_exportar_excel_demandas.setObjectName("btnSecondary")
         self.btn_exportar_excel_demandas.clicked.connect(lambda: self.exportar_excel("demandas"))
         btn_layout.addWidget(self.btn_exportar_excel_demandas)
         
         self.btn_exportar_pdf_demandas = QPushButton("📄 Exportar PDF")
+        self.btn_exportar_pdf_demandas.setObjectName("btnSecondary")
         self.btn_exportar_pdf_demandas.clicked.connect(lambda: self.exportar_pdf("demandas"))
         btn_layout.addWidget(self.btn_exportar_pdf_demandas)
         
         layout.addLayout(btn_layout)
         
-        # Tabela
+        # Tabela com estilo melhorado
         self.dem_tabela = QTableWidget()
         self.dem_tabela.setAlternatingRowColors(True)
+        
+        # Estilo da tabela
+        self.dem_tabela.setStyleSheet("""
+            QTableWidget::item {
+                padding: 10px 8px;
+            }
+            QHeaderView::section {
+                padding: 10px 12px;
+            }
+        """)
         
         headers = ["ID", "Título", "Solicitante", "Prioridade", "Status", "Data Abertura", "Responsável"]
         self.dem_tabela.setColumnCount(len(headers))
@@ -507,7 +581,6 @@ class RelatoriosWidget(QWidget):
     def exportar_excel(self, tipo):
         """Exporta dados para Excel"""
         try:
-            # Escolher local para salvar
             file_path, _ = QFileDialog.getSaveFileName(
                 self, "Salvar Excel", f"relatorio_{tipo}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                 "Excel Files (*.xlsx)"
@@ -516,7 +589,6 @@ class RelatoriosWidget(QWidget):
             if not file_path:
                 return
             
-            # Criar workbook
             wb = openpyxl.Workbook()
             ws = wb.active
             ws.title = f"Relatório {tipo.capitalize()}"
@@ -553,7 +625,7 @@ class RelatoriosWidget(QWidget):
             elif tipo == "pedidos":
                 headers = ["ID", "Material", "Qtd", "Solicitante", "Empresa", "Data Solic.", "Data Conclusão", "Status"]
                 dados = self.ped_tabela
-            else:  # demandas
+            else:
                 headers = ["ID", "Título", "Solicitante", "Prioridade", "Status", "Data Abertura", "Responsável"]
                 dados = self.dem_tabela
             
@@ -578,7 +650,6 @@ class RelatoriosWidget(QWidget):
             for col in range(1, len(headers) + 1):
                 ws.column_dimensions[get_column_letter(col)].width = 20
             
-            # Salvar
             wb.save(file_path)
             QMessageBox.information(self, "Sucesso", f"Relatório exportado com sucesso!\n\nArquivo: {file_path}")
             
@@ -588,7 +659,6 @@ class RelatoriosWidget(QWidget):
     def exportar_pdf(self, tipo):
         """Exporta dados para PDF"""
         try:
-            # Escolher local para salvar
             file_path, _ = QFileDialog.getSaveFileName(
                 self, "Salvar PDF", f"relatorio_{tipo}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
                 "PDF Files (*.pdf)"
@@ -597,27 +667,23 @@ class RelatoriosWidget(QWidget):
             if not file_path:
                 return
             
-            # Criar PDF
             doc = SimpleDocTemplate(file_path, pagesize=landscape(A4))
             elements = []
             
-            # Estilos
             styles = getSampleStyleSheet()
             title_style = ParagraphStyle(
                 'CustomTitle',
                 parent=styles['Heading1'],
                 fontSize=16,
-                alignment=1,  # Center
+                alignment=1,
                 spaceAfter=20
             )
             
-            # Título
             elements.append(Paragraph(f"Relatório de {tipo.upper()}", title_style))
             elements.append(Spacer(1, 10))
             elements.append(Paragraph(f"Data de emissão: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", styles['Normal']))
             elements.append(Spacer(1, 20))
             
-            # Dados
             if tipo == "movimentacoes":
                 headers = ["ID", "Material", "Tipo", "Qtd", "Empresa", "Destinatário", "Data/Hora", "Usuário"]
                 dados = self.mov_tabela
@@ -627,11 +693,10 @@ class RelatoriosWidget(QWidget):
             elif tipo == "pedidos":
                 headers = ["ID", "Material", "Qtd", "Solicitante", "Empresa", "Data Solic.", "Status"]
                 dados = self.ped_tabela
-            else:  # demandas
+            else:
                 headers = ["ID", "Título", "Solicitante", "Prioridade", "Status", "Data Abertura", "Responsável"]
                 dados = self.dem_tabela
             
-            # Montar dados da tabela
             data = [headers]
             
             for row in range(dados.rowCount()):
@@ -639,13 +704,11 @@ class RelatoriosWidget(QWidget):
                 for col in range(dados.columnCount()):
                     item = dados.item(row, col)
                     value = item.text() if item else ""
-                    # Limitar tamanho para PDF
                     if len(value) > 40:
                         value = value[:37] + "..."
                     row_data.append(value)
                 data.append(row_data)
             
-            # Criar tabela
             table = Table(data)
             table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2C7DA0')),
@@ -663,7 +726,6 @@ class RelatoriosWidget(QWidget):
             
             elements.append(table)
             
-            # Gerar PDF
             doc.build(elements)
             QMessageBox.information(self, "Sucesso", f"Relatório exportado com sucesso!\n\nArquivo: {file_path}")
             

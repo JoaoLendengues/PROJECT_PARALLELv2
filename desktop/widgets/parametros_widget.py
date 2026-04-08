@@ -254,12 +254,22 @@ class ParametrosWidget(QWidget):
         alertas_layout = QVBoxLayout(grupo_alertas)
         alertas_layout.setContentsMargins(20, 20, 20, 20)
         
-        # Lista de alertas
+        # Lista de alertas com estilo
         self.lista_alertas = QTableWidget()
         self.lista_alertas.setColumnCount(5)
         self.lista_alertas.setHorizontalHeaderLabels(["Tipo", "Mensagem", "Status", "Data", "Ações"])
         self.lista_alertas.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self.lista_alertas.setAlternatingRowColors(True)
+        
+        # Estilo da tabela de alertas
+        self.lista_alertas.setStyleSheet("""
+            QTableWidget::item {
+                padding: 10px 8px;
+            }
+            QHeaderView::section {
+                padding: 10px 12px;
+            }
+        """)
         alertas_layout.addWidget(self.lista_alertas)
         
         # Botão para verificar alertas
@@ -276,11 +286,21 @@ class ParametrosWidget(QWidget):
         historico_layout = QVBoxLayout(grupo_historico)
         historico_layout.setContentsMargins(20, 20, 20, 20)
         
+        # Estilo da tabela de histórico
         self.historico_alertas = QTableWidget()
         self.historico_alertas.setColumnCount(4)
         self.historico_alertas.setHorizontalHeaderLabels(["Data/Hora", "Tipo", "Mensagem", "Status"])
         self.historico_alertas.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
         self.historico_alertas.setAlternatingRowColors(True)
+        
+        self.historico_alertas.setStyleSheet("""
+            QTableWidget::item {
+                padding: 10px 8px;
+            }
+            QHeaderView::section {
+                padding: 10px 12px;
+            }
+        """)
         historico_layout.addWidget(self.historico_alertas)
         
         layout.addWidget(grupo_historico)
@@ -297,6 +317,16 @@ class ParametrosWidget(QWidget):
         self.tabela_empresas.setColumnCount(2)
         self.tabela_empresas.setHorizontalHeaderLabels(["ID", "Nome da Empresa"])
         self.tabela_empresas.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        
+        # Estilo da tabela
+        self.tabela_empresas.setStyleSheet("""
+            QTableWidget::item {
+                padding: 10px 8px;
+            }
+            QHeaderView::section {
+                padding: 10px 12px;
+            }
+        """)
         
         self.carregar_tabela_empresas()
         
@@ -326,6 +356,16 @@ class ParametrosWidget(QWidget):
         self.tabela_departamentos.setHorizontalHeaderLabels(["ID", "Departamento"])
         self.tabela_departamentos.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         
+        # Estilo da tabela
+        self.tabela_departamentos.setStyleSheet("""
+            QTableWidget::item {
+                padding: 10px 8px;
+            }
+            QHeaderView::section {
+                padding: 10px 12px;
+            }
+        """)
+        
         self.carregar_tabela_departamentos()
         
         layout.addWidget(self.tabela_departamentos)
@@ -353,6 +393,16 @@ class ParametrosWidget(QWidget):
         self.tabela_categorias.setColumnCount(2)
         self.tabela_categorias.setHorizontalHeaderLabels(["ID", "Categoria"])
         self.tabela_categorias.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        
+        # Estilo da tabela
+        self.tabela_categorias.setStyleSheet("""
+            QTableWidget::item {
+                padding: 10px 8px;
+            }
+            QHeaderView::section {
+                padding: 10px 12px;
+            }
+        """)
         
         self.carregar_tabela_categorias()
         
@@ -449,9 +499,20 @@ class ParametrosWidget(QWidget):
         dialog.setModal(True)
         dialog.setMinimumWidth(300)
         
+        # Estilo do diálogo
+        dialog.setStyleSheet("""
+            QDialog {
+                background-color: #f5f7fa;
+            }
+            QDialog QPushButton {
+                min-width: 100px;
+            }
+        """)
+        
         layout = QVBoxLayout(dialog)
         nome_edit = QLineEdit()
         nome_edit.setPlaceholderText("Nome da empresa")
+        nome_edit.setObjectName("configInput")
         layout.addWidget(nome_edit)
         
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -477,9 +538,20 @@ class ParametrosWidget(QWidget):
         dialog.setModal(True)
         dialog.setMinimumWidth(300)
         
+        # Estilo do diálogo
+        dialog.setStyleSheet("""
+            QDialog {
+                background-color: #f5f7fa;
+            }
+            QDialog QPushButton {
+                min-width: 100px;
+            }
+        """)
+        
         layout = QVBoxLayout(dialog)
         nome_edit = QLineEdit()
         nome_edit.setPlaceholderText("Nome do departamento")
+        nome_edit.setObjectName("configInput")
         layout.addWidget(nome_edit)
         
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -505,9 +577,20 @@ class ParametrosWidget(QWidget):
         dialog.setModal(True)
         dialog.setMinimumWidth(300)
         
+        # Estilo do diálogo
+        dialog.setStyleSheet("""
+            QDialog {
+                background-color: #f5f7fa;
+            }
+            QDialog QPushButton {
+                min-width: 100px;
+            }
+        """)
+        
         layout = QVBoxLayout(dialog)
         nome_edit = QLineEdit()
         nome_edit.setPlaceholderText("Nome da categoria")
+        nome_edit.setObjectName("configInput")
         layout.addWidget(nome_edit)
         
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -574,7 +657,6 @@ class ParametrosWidget(QWidget):
         self.timer_alertas = QTimer()
         self.timer_alertas.timeout.connect(self.verificar_alertas_periodico)
         
-        # Intervalo em milissegundos
         intervalo_texto = self.intervalo_verificacao.currentText()
         if "1 minuto" in intervalo_texto:
             self.timer_alertas.start(60000)
@@ -584,7 +666,7 @@ class ParametrosWidget(QWidget):
             self.timer_alertas.start(900000)
         elif "30 minutos" in intervalo_texto:
             self.timer_alertas.start(1800000)
-        else:  # 1 hora
+        else:
             self.timer_alertas.start(3600000)
     
     def verificar_alertas_periodico(self):
@@ -619,10 +701,8 @@ class ParametrosWidget(QWidget):
             else:
                 duracao = 8000
             
-            # Buscar materiais
             materiais = api_client.listar_materiais()
             
-            # Verificar estoque baixo
             if self.notif_estoque_baixo.isChecked():
                 limite_baixo = self.alerta_estoque.value()
                 for mat in materiais:
@@ -631,9 +711,8 @@ class ParametrosWidget(QWidget):
                     if qtd <= limite_baixo and qtd > 0:
                         msg = f"📦 ESTOQUE BAIXO!\n\nMaterial: {nome}\nQuantidade disponível: {qtd} unidades"
                         notification_manager.show(msg, "warning", duracao, parent)
-                        return  # Exibe uma por vez
+                        return
             
-            # Verificar estoque crítico
             if self.notif_estoque_critico.isChecked():
                 limite_critico = self.alerta_estoque_critico.value()
                 for mat in materiais:
@@ -644,7 +723,6 @@ class ParametrosWidget(QWidget):
                         notification_manager.show(msg, "error", duracao, parent)
                         return
             
-            # Verificar manutenções pendentes
             if self.notif_manutencao.isChecked():
                 manutencoes = api_client.listar_manutencoes(status="pendente")
                 for man in manutencoes:
@@ -653,7 +731,6 @@ class ParametrosWidget(QWidget):
                     notification_manager.show(msg, "warning", duracao, parent)
                     return
             
-            # Verificar pedidos pendentes
             if self.notif_pedidos.isChecked():
                 pedidos = api_client.listar_pedidos(status="pendente")
                 for ped in pedidos:
@@ -661,7 +738,6 @@ class ParametrosWidget(QWidget):
                     notification_manager.show(msg, "info", duracao, parent)
                     return
             
-            # Verificar demandas abertas
             if self.notif_demandas.isChecked():
                 demandas = api_client.listar_demandas(status="aberto")
                 for dem in demandas:
@@ -689,9 +765,7 @@ class ParametrosWidget(QWidget):
         )
         
         if confirm == QMessageBox.Yes:
-            # Mover para histórico
             self.adicionar_historico(tipo, mensagem, "Resolvido")
-            # Remover da lista atual
             self.lista_alertas.removeRow(row)
             notification_manager.success("Alerta resolvido com sucesso!", self.window(), 3000)
     
@@ -743,7 +817,6 @@ class ParametrosWidget(QWidget):
         
         print(f"Configurações salvas: {config}")
         
-        # Reconfigurar timer com novo intervalo
         self.configurar_timer_alertas()
         
         notification_manager.success("Configurações salvas com sucesso!", self.window(), 3000)
@@ -754,3 +827,4 @@ class ParametrosWidget(QWidget):
     def carregar_dados(self):
         self.carregar_configuracoes()
         self.carregar_info_servidor()
+        

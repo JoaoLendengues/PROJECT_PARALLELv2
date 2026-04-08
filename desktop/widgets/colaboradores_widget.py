@@ -46,11 +46,21 @@ class ColaboradoresWidget(QWidget):
         self.pesquisa_edit.textChanged.connect(self.filtrar_colaboradores)
         layout.addWidget(self.pesquisa_edit)
         
-        # Tabela
+        # Tabela com estilo melhorado
         self.tabela = QTableWidget()
         self.tabela.setAlternatingRowColors(True)
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabela.setEditTriggers(QTableWidget.NoEditTriggers)
+        
+        # Estilo da tabela
+        self.tabela.setStyleSheet("""
+            QTableWidget::item {
+                padding: 10px 8px;
+            }
+            QHeaderView::section {
+                padding: 10px 12px;
+            }
+        """)
         
         headers = ["ID", "Nome", "Cargo", "Departamento", "Empresa", "Status"]
         self.tabela.setColumnCount(len(headers))
@@ -158,10 +168,21 @@ class ColaboradoresWidget(QWidget):
 class ColaboradorDialog(QDialog):
     def __init__(self, item_data=None, parent=None):
         super().__init__(parent)
-        self.dados_item = item_data  # Nome diferente para evitar conflito
+        self.dados_item = item_data
         self.setWindowTitle("Cadastro de Colaborador" if not item_data else "Editar Colaborador")
         self.setModal(True)
         self.setMinimumWidth(450)
+        
+        # Estilo do diálogo
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #f5f7fa;
+            }
+            QDialog QPushButton {
+                min-width: 100px;
+            }
+        """)
+        
         self.init_ui()
         
         if item_data:

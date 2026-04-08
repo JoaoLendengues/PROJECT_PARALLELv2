@@ -49,7 +49,7 @@ class HomeWidget(QWidget):
         # Criar cards manualmente um por um
         self.criar_cards_manualmente()
 
-        # Carregar dados da API com um pequeno delay para garantir que os cards foram criados
+        # Carregar dados da API
         self.carregar_dados()
         
         layout.addStretch()
@@ -75,126 +75,134 @@ class HomeWidget(QWidget):
             self.saudacao_label.setText(f"{saudacao}!")
     
     def criar_cards_manualmente(self):
-        """Cria os cards manualmente para evitar duplicação"""
+        """Cria os cards manualmente com design melhorado"""
         
-         # Card 1 - Materiais
+        # Card 1 - Materiais
         card1 = QFrame()
         card1.setProperty("class", "dashboard-card")
-        card1.setMinimumHeight(180)
+        card1.setMinimumHeight(160)
+        card1.setMaximumHeight(190)
         layout1 = QVBoxLayout(card1)
-        layout1.setContentsMargins(20, 15, 20, 15)
-        layout1.setSpacing(8)
+        layout1.setContentsMargins(16, 14, 16, 14)
+        layout1.setSpacing(6)
         
         icon1 = QLabel("📦")
-        icon1.setFont(QFont("Segoe UI", 28))
+        icon1.setFont(QFont("Segoe UI", 24))
         layout1.addWidget(icon1)
         
         title1 = QLabel("Materiais em Estoque")
-        title1.setStyleSheet("color: #64748b; font-size: 14px; font-weight: 500;")
+        title1.setStyleSheet("color: #64748b; font-size: 13px; font-weight: 500;")
         layout1.addWidget(title1)
         
         self.value_materiais = QLabel("0")
-        self.value_materiais.setStyleSheet("color: #3b82f6; font-size: 36px; font-weight: bold;")
+        self.value_materiais.setStyleSheet("color: #3b82f6; font-size: 28px; font-weight: bold;")
         layout1.addWidget(self.value_materiais)
         
         subtitle1 = QLabel("Atualmente em estoque.")
-        subtitle1.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        subtitle1.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        subtitle1.setWordWrap(True)
         layout1.addWidget(subtitle1)
         
         layout1.addStretch()
         
         link1 = QLabel("Clique para gerenciar")
-        link1.setStyleSheet("color: #3b82f6; font-size: 12px; font-weight: 500; border-top: 1px solid #e2e8f0; padding-top: 10px;")
+        link1.setStyleSheet("color: #3b82f6; font-size: 11px; font-weight: 500; border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 4px;")
         layout1.addWidget(link1)
         
         # Card 2 - Máquinas
         card2 = QFrame()
         card2.setProperty("class", "dashboard-card")
-        card2.setMinimumHeight(180)
+        card2.setMinimumHeight(160)
+        card2.setMaximumHeight(190)
         layout2 = QVBoxLayout(card2)
-        layout2.setContentsMargins(20, 15, 20, 15)
-        layout2.setSpacing(8)
+        layout2.setContentsMargins(16, 14, 16, 14)
+        layout2.setSpacing(6)
         
         icon2 = QLabel("🖥️")
-        icon2.setFont(QFont("Segoe UI", 28))
+        icon2.setFont(QFont("Segoe UI", 24))
         layout2.addWidget(icon2)
         
         title2 = QLabel("Máquinas Ativas")
-        title2.setStyleSheet("color: #64748b; font-size: 14px; font-weight: 500;")
+        title2.setStyleSheet("color: #64748b; font-size: 13px; font-weight: 500;")
         layout2.addWidget(title2)
         
         self.value_maquinas = QLabel("0")
-        self.value_maquinas.setStyleSheet("color: #10b981; font-size: 36px; font-weight: bold;")
+        self.value_maquinas.setStyleSheet("color: #10b981; font-size: 28px; font-weight: bold;")
         layout2.addWidget(self.value_maquinas)
         
         subtitle2 = QLabel("Máquinas em operação.")
-        subtitle2.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        subtitle2.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        subtitle2.setWordWrap(True)
         layout2.addWidget(subtitle2)
         
         layout2.addStretch()
         
         link2 = QLabel("Clique para ver")
-        link2.setStyleSheet("color: #10b981; font-size: 12px; font-weight: 500; border-top: 1px solid #e2e8f0; padding-top: 10px;")
+        link2.setStyleSheet("color: #10b981; font-size: 11px; font-weight: 500; border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 4px;")
         layout2.addWidget(link2)
         
         # Card 3 - Manutenções
         card3 = QFrame()
         card3.setProperty("class", "dashboard-card")
-        card3.setMinimumHeight(180)
+        card3.setMinimumHeight(160)
+        card3.setMaximumHeight(190)
         layout3 = QVBoxLayout(card3)
-        layout3.setContentsMargins(20, 15, 20, 15)
-        layout3.setSpacing(8)
+        layout3.setContentsMargins(16, 14, 16, 14)
+        layout3.setSpacing(6)
         
         icon3 = QLabel("🔧")
-        icon3.setFont(QFont("Segoe UI", 28))
+        icon3.setFont(QFont("Segoe UI", 24))
         layout3.addWidget(icon3)
         
         title3 = QLabel("Manutenções Pendentes")
-        title3.setStyleSheet("color: #64748b; font-size: 14px; font-weight: 500;")
+        title3.setStyleSheet("color: #64748b; font-size: 13px; font-weight: 500;")
         layout3.addWidget(title3)
         
         self.value_manutencoes = QLabel("0")
-        self.value_manutencoes.setStyleSheet("color: #f59e0b; font-size: 36px; font-weight: bold;")
+        self.value_manutencoes.setStyleSheet("color: #f59e0b; font-size: 28px; font-weight: bold;")
         layout3.addWidget(self.value_manutencoes)
         
         subtitle3 = QLabel("Tarefas agendadas.")
-        subtitle3.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        subtitle3.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        subtitle3.setWordWrap(True)
         layout3.addWidget(subtitle3)
         
         layout3.addStretch()
         
         link3 = QLabel("Ações necessárias")
-        link3.setStyleSheet("color: #f59e0b; font-size: 12px; font-weight: 500; border-top: 1px solid #e2e8f0; padding-top: 10px;")
+        link3.setStyleSheet("color: #f59e0b; font-size: 11px; font-weight: 500; border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 4px;")
         layout3.addWidget(link3)
         
         # Card 4 - Pedidos
         card4 = QFrame()
         card4.setProperty("class", "dashboard-card")
-        card4.setMinimumHeight(180)
+        card4.setMinimumHeight(160)
+        card4.setMaximumHeight(190)
         layout4 = QVBoxLayout(card4)
-        layout4.setContentsMargins(20, 15, 20, 15)
-        layout4.setSpacing(8)
+        layout4.setContentsMargins(16, 14, 16, 14)
+        layout4.setSpacing(6)
         
         icon4 = QLabel("📋")
-        icon4.setFont(QFont("Segoe UI", 28))
+        icon4.setFont(QFont("Segoe UI", 24))
         layout4.addWidget(icon4)
         
         title4 = QLabel("Pedidos Pendentes")
-        title4.setStyleSheet("color: #64748b; font-size: 14px; font-weight: 500;")
+        title4.setStyleSheet("color: #64748b; font-size: 13px; font-weight: 500;")
         layout4.addWidget(title4)
         
         self.value_pedidos = QLabel("0")
-        self.value_pedidos.setStyleSheet("color: #8b5cf6; font-size: 36px; font-weight: bold;")
+        self.value_pedidos.setStyleSheet("color: #8b5cf6; font-size: 28px; font-weight: bold;")
         layout4.addWidget(self.value_pedidos)
         
         subtitle4 = QLabel("Pedidos de compra e venda.")
-        subtitle4.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        subtitle4.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        subtitle4.setWordWrap(True)
         layout4.addWidget(subtitle4)
         
         layout4.addStretch()
         
         link4 = QLabel("Aguardando aprovação")
-        link4.setStyleSheet("color: #8b5cf6; font-size: 12px; font-weight: 500; border-top: 1px solid #e2e8f0; padding-top: 10px;")
+        link4.setStyleSheet("color: #8b5cf6; font-size: 11px; font-weight: 500; border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 4px;")
         layout4.addWidget(link4)
         
         # Adicionar cards ao layout
@@ -221,5 +229,4 @@ class HomeWidget(QWidget):
             
         except Exception as e:
             print(f"❌ Erro ao carregar dashboard: {e}")
-
             

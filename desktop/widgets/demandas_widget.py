@@ -59,11 +59,21 @@ class DemandasWidget(QWidget):
         
         layout.addLayout(filtros)
         
-        # Tabela
+        # Tabela com estilo melhorado
         self.tabela = QTableWidget()
         self.tabela.setAlternatingRowColors(True)
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabela.setEditTriggers(QTableWidget.NoEditTriggers)
+        
+        # Estilo da tabela
+        self.tabela.setStyleSheet("""
+            QTableWidget::item {
+                padding: 10px 8px;
+            }
+            QHeaderView::section {
+                padding: 10px 12px;
+            }
+        """)
         
         headers = ["ID", "Título", "Solicitante", "Prioridade", "Urgência", "Status", "Data Abertura", "Responsável"]
         self.tabela.setColumnCount(len(headers))
@@ -280,6 +290,17 @@ class DemandaDialog(QDialog):
         self.setWindowTitle("Detalhes da Demanda" if readonly else ("Editar Demanda" if demanda_data else "Nova Demanda"))
         self.setModal(True)
         self.setMinimumWidth(600)
+        
+        # Estilo do diálogo
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #f5f7fa;
+            }
+            QDialog QPushButton {
+                min-width: 100px;
+            }
+        """)
+        
         self.init_ui()
         
         if demanda_data and not readonly:

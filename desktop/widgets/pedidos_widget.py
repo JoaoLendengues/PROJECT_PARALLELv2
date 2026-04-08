@@ -62,11 +62,21 @@ class PedidosWidget(QWidget):
         
         layout.addLayout(filtros)
         
-        # Tabela de pedidos
+        # Tabela de pedidos com estilo melhorado
         self.tabela = QTableWidget()
         self.tabela.setAlternatingRowColors(True)
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabela.setEditTriggers(QTableWidget.NoEditTriggers)
+        
+        # Estilo da tabela
+        self.tabela.setStyleSheet("""
+            QTableWidget::item {
+                padding: 10px 8px;
+            }
+            QHeaderView::section {
+                padding: 10px 12px;
+            }
+        """)
         
         headers = ["ID", "Material", "Qtd", "Solicitante", "Empresa", "Dept", "Data Solic.", "Data Conclusão", "Status", "Observação"]
         self.tabela.setColumnCount(len(headers))
@@ -322,6 +332,17 @@ class PedidoDialog(QDialog):
         self.setWindowTitle("Novo Pedido" if not pedido_data else "Editar Pedido")
         self.setModal(True)
         self.setMinimumWidth(550)
+        
+        # Estilo do diálogo
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #f5f7fa;
+            }
+            QDialog QPushButton {
+                min-width: 100px;
+            }
+        """)
+        
         self.init_ui()
         
         if pedido_data:
@@ -575,5 +596,4 @@ class PedidoDialog(QDialog):
                     QMessageBox.warning(self, "Erro", "Erro ao criar pedido")
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao salvar: {e}")
-
             

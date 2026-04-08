@@ -60,11 +60,21 @@ class UsuariosWidget(QWidget):
         
         layout.addLayout(filtros)
         
-        # Tabela de usuários
+        # Tabela de usuários com estilo melhorado
         self.tabela = QTableWidget()
         self.tabela.setAlternatingRowColors(True)
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabela.setEditTriggers(QTableWidget.NoEditTriggers)
+        
+        # Estilo da tabela
+        self.tabela.setStyleSheet("""
+            QTableWidget::item {
+                padding: 10px 8px;
+            }
+            QHeaderView::section {
+                padding: 10px 12px;
+            }
+        """)
         
         headers = ["ID", "Código", "Nome", "Cargo", "Empresa", "Nível", "Status", "Primeiro Acesso"]
         self.tabela.setColumnCount(len(headers))
@@ -192,6 +202,16 @@ class UsuariosWidget(QWidget):
         senha_dialog.setWindowTitle("Alterar Senha")
         senha_dialog.setModal(True)
         senha_dialog.setMinimumWidth(400)
+        
+        # Estilo do diálogo de alteração de senha
+        senha_dialog.setStyleSheet("""
+            QDialog {
+                background-color: #f5f7fa;
+            }
+            QDialog QPushButton {
+                min-width: 100px;
+            }
+        """)
         
         layout = QVBoxLayout(senha_dialog)
         
@@ -325,6 +345,17 @@ class UsuarioDialog(QDialog):
         self.setWindowTitle("Novo Usuário" if not usuario_data else "Editar Usuário")
         self.setModal(True)
         self.setMinimumWidth(500)
+        
+        # Estilo do diálogo
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #f5f7fa;
+            }
+            QDialog QPushButton {
+                min-width: 100px;
+            }
+        """)
+        
         self.init_ui()
         
         if usuario_data:
