@@ -317,6 +317,7 @@ class ParametrosWidget(QWidget):
         self.tabela_empresas.setColumnCount(2)
         self.tabela_empresas.setHorizontalHeaderLabels(["ID", "Nome da Empresa"])
         self.tabela_empresas.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.tabela_empresas.verticalHeader().setVisible(False)
         
         # Estilo da tabela
         self.tabela_empresas.setStyleSheet("""
@@ -355,6 +356,7 @@ class ParametrosWidget(QWidget):
         self.tabela_departamentos.setColumnCount(2)
         self.tabela_departamentos.setHorizontalHeaderLabels(["ID", "Departamento"])
         self.tabela_departamentos.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.tabela_departamentos.verticalHeader().setVisible(False)
         
         # Estilo da tabela
         self.tabela_departamentos.setStyleSheet("""
@@ -393,6 +395,7 @@ class ParametrosWidget(QWidget):
         self.tabela_categorias.setColumnCount(2)
         self.tabela_categorias.setHorizontalHeaderLabels(["ID", "Categoria"])
         self.tabela_categorias.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.tabela_categorias.verticalHeader().setVisible(False)
         
         # Estilo da tabela
         self.tabela_categorias.setStyleSheet("""
@@ -622,7 +625,7 @@ class ParametrosWidget(QWidget):
     
     def carregar_info_servidor(self):
         try:
-            response = requests.get("http://localhost:8000/health", timeout=5)
+            response = requests.get("http://10.1.1.151:8000/health", timeout=5)
             if response.status_code == 200:
                 self.status_api.setText("✅ Status da API: Online")
                 self.status_api.setStyleSheet("color: #2a9d8f;")
@@ -638,7 +641,7 @@ class ParametrosWidget(QWidget):
             self.api_versao.setText("📦 Versão da API: Não disponível")
         
         try:
-            response = requests.get("http://localhost:8000/health", timeout=5)
+            response = requests.get("http://10.1.1.151:8000/health", timeout=5)
             if response.status_code == 200:
                 self.status_banco.setText("✅ Banco de Dados: Conectado")
                 self.status_banco.setStyleSheet("color: #2a9d8f;")
