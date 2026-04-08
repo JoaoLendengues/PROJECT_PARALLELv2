@@ -66,7 +66,7 @@ class APIClient:
     # Materiais
     # =====================================================
 
-    def listar_materiais(self,search=None, categoria=None, empresa=None, status='ativo'):
+    def listar_materiais(self,search=None, categoria=None, empresa=None, status=None):
         """Lista materiais com filtros"""
         params = {'status': status}
         if search:
@@ -76,6 +76,9 @@ class APIClient:
         if empresa:
             params['empresa'] = empresa
 
+        if status:
+            params['status'] = status
+            
         response = requests.get(
             f'{self.base_url}/api/materiais',
             headers=self.get_headers(),
