@@ -131,7 +131,7 @@ QTableWidget {
     outline: 0;
 }
 
-/* Remove o cabeçalho vertical (indicador de linha) */
+/* Remove o cabeçalho vertical (coluna com números) */
 QTableWidget::verticalHeader {
     width: 0px;
     min-width: 0px;
@@ -160,9 +160,8 @@ QHeaderView::section {
     font-size: 13px;
 }
 
-/* Remove a célula do canto superior esquerdo */
 QTableCornerButton::section {
-    background-color: transparent;
+    background-color: #f1f5f9;
     border: none;
     width: 0px;
     height: 0px;
@@ -221,7 +220,7 @@ QPushButton#btnSecondary:hover {
 }
 
 /* =====================================================
-   INPUTS
+   INPUTS - INCLUINDO QDateEdit COM FONTE ESCURA
    ===================================================== */
 QLineEdit, QComboBox, QSpinBox, QDateEdit, QTextEdit {
     border: 1px solid #e2e8f0;
@@ -229,7 +228,8 @@ QLineEdit, QComboBox, QSpinBox, QDateEdit, QTextEdit {
     padding: 8px 12px;
     background-color: #ffffff;
     font-size: 13px;
-    color: #1e293b;
+    color: #0f172a;
+    font-weight: 500;
     min-height: 32px;
 }
 
@@ -240,13 +240,37 @@ QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDateEdit:focus, QTextEdit:foc
 
 QLineEdit::placeholder {
     color: #94a3b8;
+    font-weight: 400;
+}
+
+/* Estilo específico para o calendário do QDateEdit */
+QDateEdit QCalendarWidget {
+    background-color: #ffffff;
+    color: #0f172a;
+}
+
+QDateEdit QCalendarWidget QToolButton {
+    background-color: #f1f5f9;
+    color: #0f172a;
+    border-radius: 4px;
+}
+
+QDateEdit QCalendarWidget QAbstractItemView:enabled {
+    background-color: #ffffff;
+    color: #0f172a;
+    selection-background-color: #e6f0ff;
+    selection-color: #0f172a;
+}
+
+QDateEdit QCalendarWidget QAbstractItemView:disabled {
+    color: #cbd5e1;
 }
 
 QComboBox QAbstractItemView {
-    color: #1e293b;
+    color: #0f172a;
     background-color: #ffffff;
     selection-background-color: #e6f0ff;
-    selection-color: #1e293b;
+    selection-color: #0f172a;
 }
 
 QComboBox::drop-down {
