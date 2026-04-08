@@ -4,12 +4,14 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QTabWidget, QMessageBox, QTableWidget,
                                QTableWidgetItem, QHeaderView, QDialog,
                                QDialogButtonBox, QFrame, QScrollArea, QTextEdit,
-                               QTimeEdit, QListWidget, QListWidgetItem)
+                               QTimeEdit)
 from PySide6.QtCore import Qt, QTimer, QTime
 from PySide6.QtGui import QFont, QColor
 from api_client import api_client
+from widgets.toast_notification import notification_manager
 import socket
 import requests
+from datetime import datetime
 
 
 class ParametrosWidget(QWidget):
@@ -18,10 +20,12 @@ class ParametrosWidget(QWidget):
         self.empresas = ["Matriz", "Filial 1", "Filial 2", "Filial 3"]
         self.departamentos = ["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logística"]
         self.categorias = ["Periféricos", "Hardware", "Armazenamento", "Monitores", "Cabos", "Redes", "Consumíveis", "Softwares"]
+        self.timer_alertas = None
         self.init_ui()
         self.carregar_configuracoes()
         self.carregar_info_servidor()
         self.carregar_alertas()
+        self.configurar_timer_alertas()
     
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -144,7 +148,7 @@ class ParametrosWidget(QWidget):
         form_backup.addRow("📅 Frequência:", self.frequencia_backup)
         
         self.horario_backup = QTimeEdit()
-        self.horario_backup.setTime(QTime(2, 0))  # 02:00
+        self.horario_backup.setTime(QTime(2, 0))
         form_backup.addRow("⏰ Horário:", self.horario_backup)
         
         self.dias_retencao = QSpinBox()
@@ -164,44 +168,8 @@ class ParametrosWidget(QWidget):
         layout = QVBoxLayout(widget)
         layout.setSpacing(20)
         
-        # Grupo: Notificações por E-mail
-        grupo_email = QGroupBox("Configurações de E-mail")
-        grupo_email.setObjectName("configGroup")
-        form_email = QFormLayout(grupo_email)
-        form_email.setContentsMargins(20, 20, 20, 20)
-        
-        self.email_enviar = QCheckBox("Habilitar envio de e-mails")
-        self.email_enviar.setObjectName("configCheckbox")
-        self.email_enviar.setChecked(False)
-        form_email.addRow("", self.email_enviar)
-        
-        self.smtp_server = QLineEdit()
-        self.smtp_server.setPlaceholderText("smtp.empresa.com")
-        form_email.addRow("📧 Servidor SMTP:", self.smtp_server)
-        
-        self.smtp_porta = QSpinBox()
-        self.smtp_porta.setRange(1, 65535)
-        self.smtp_porta.setValue(587)
-        form_email.addRow("🔌 Porta SMTP:", self.smtp_porta)
-        
-        self.email_usuario = QLineEdit()
-        self.email_usuario.setPlaceholderText("notificacoes@empresa.com")
-        form_email.addRow("👤 Usuário:", self.email_usuario)
-        
-        self.email_senha = QLineEdit()
-        self.email_senha.setEchoMode(QLineEdit.Password)
-        self.email_senha.setPlaceholderText("********")
-        form_email.addRow("🔑 Senha:", self.email_senha)
-        
-        self.email_destinatarios = QTextEdit()
-        self.email_destinatarios.setMaximumHeight(80)
-        self.email_destinatarios.setPlaceholderText("email1@empresa.com, email2@empresa.com")
-        form_email.addRow("📫 Destinatários:", self.email_destinatarios)
-        
-        layout.addWidget(grupo_email)
-        
         # Grupo: Notificações do Sistema
-        grupo_notificacoes = QGroupBox("Notificações do Sistema")
+        grupo_notificacoes = QGroupBox("Configurações de Notificações")
         grupo_notificacoes.setObjectName("configGroup")
         form_notificacoes = QFormLayout(grupo_notificacoes)
         form_notificacoes.setContentsMargins(20, 20, 20, 20)
@@ -243,6 +211,32 @@ class ParametrosWidget(QWidget):
         form_notificacoes.addRow("Valor mínimo para notificação:", self.valor_alto)
         
         layout.addWidget(grupo_notificacoes)
+        
+        # Grupo: Configurações de Alerta
+        grupo_alertas = QGroupBox("Configurações de Alerta")
+        grupo_alertas.setObjectName("configGroup")
+        form_alertas = QFormLayout(grupo_alertas)
+        form_alertas.setContentsMargins(20, 20, 20, 20)
+        
+        self.verificar_alertas_auto = QCheckBox("Verificar alertas automaticamente")
+        self.verificar_alertas_auto.setObjectName("configCheckbox")
+        self.verificar_alertas_auto.setChecked(True)
+        form_alertas.addRow("", self.verificar_alertas_auto)
+        
+        self.intervalo_verificacao = QComboBox()
+        self.intervalo_verificacao.addItems(["1 minuto", "5 minutos", "15 minutos", "30 minutos", "1 hora"])
+        form_alertas.addRow("⏱️ Intervalo de verificação:", self.intervalo_verificacao)
+        
+        self.tempo_notificacao = QComboBox()
+        self.tempo_notificacao.addItems(["3 segundos", "5 segundos", "10 segundos", "30 segundos"])
+        form_alertas.addRow("⏲️ Duração da notificação:", self.tempo_notificacao)
+        
+        layout.addWidget(grupo_alertas)
+        
+        # Botão para testar notificação
+        btn_testar = QPushButton("🔔 Testar Notificação")
+        btn_testar.clicked.connect(self.testar_notificacao)
+        layout.addWidget(btn_testar)
         
         layout.addStretch()
         return widget
@@ -572,53 +566,124 @@ class ParametrosWidget(QWidget):
             self.status_banco.setText("❌ Banco de Dados: Desconectado")
             self.status_banco.setStyleSheet("color: #e76f51;")
     
+    def configurar_timer_alertas(self):
+        """Configura o timer para verificação periódica de alertas"""
+        if self.timer_alertas:
+            self.timer_alertas.stop()
+        
+        self.timer_alertas = QTimer()
+        self.timer_alertas.timeout.connect(self.verificar_alertas_periodico)
+        
+        # Intervalo em milissegundos
+        intervalo_texto = self.intervalo_verificacao.currentText()
+        if "1 minuto" in intervalo_texto:
+            self.timer_alertas.start(60000)
+        elif "5 minutos" in intervalo_texto:
+            self.timer_alertas.start(300000)
+        elif "15 minutos" in intervalo_texto:
+            self.timer_alertas.start(900000)
+        elif "30 minutos" in intervalo_texto:
+            self.timer_alertas.start(1800000)
+        else:  # 1 hora
+            self.timer_alertas.start(3600000)
+    
+    def verificar_alertas_periodico(self):
+        """Verifica alertas periodicamente (se habilitado)"""
+        if self.verificar_alertas_auto.isChecked():
+            self.verificar_alertas()
+    
+    def testar_notificacao(self):
+        """Testa a notificação"""
+        notification_manager.info(
+            "Esta é uma notificação de teste!\n\nSe você está vendo isso, as notificações estão funcionando.",
+            self.window(),
+            5000
+        )
+    
     def carregar_alertas(self):
         """Carrega os alertas do sistema"""
         self.verificar_alertas()
     
     def verificar_alertas(self):
-        """Verifica e exibe alertas do sistema"""
+        """Verifica e exibe alertas do sistema com pop-ups"""
         try:
             alertas = []
+            alertas_lista = []  # Para a tabela
+            parent = self.window()
+            
+            # Duração da notificação
+            duracao_texto = self.tempo_notificacao.currentText()
+            if "3 segundos" in duracao_texto:
+                duracao = 3000
+            elif "5 segundos" in duracao_texto:
+                duracao = 5000
+            elif "10 segundos" in duracao_texto:
+                duracao = 10000
+            else:
+                duracao = 30000
+            
+            # Buscar materiais
+            materiais = api_client.listar_materiais()
             
             # Verificar estoque baixo
-            materiais = api_client.listar_materiais()
-            limite_baixo = self.alerta_estoque.value()
-            limite_critico = self.alerta_estoque_critico.value()
+            if self.notif_estoque_baixo.isChecked():
+                limite_baixo = self.alerta_estoque.value()
+                for mat in materiais:
+                    qtd = mat.get("quantidade", 0)
+                    nome = mat.get("nome", "")
+                    if qtd <= limite_baixo and qtd > 0:
+                        msg = f"📦 Estoque baixo: '{nome}' tem apenas {qtd} unidades"
+                        alertas.append(("warning", msg, duracao))
+                        alertas_lista.append(("⚠️ Alerta", msg, "ativo"))
             
-            for mat in materiais:
-                qtd = mat.get("quantidade", 0)
-                nome = mat.get("nome", "")
-                
-                if qtd <= limite_critico and qtd > 0:
-                    alertas.append(("🔴 Crítico", f"Material '{nome}' está com estoque CRÍTICO: {qtd} unidades", "ativo"))
-                elif qtd <= limite_baixo:
-                    alertas.append(("⚠️ Alerta", f"Material '{nome}' está com estoque baixo: {qtd} unidades", "ativo"))
+            # Verificar estoque crítico
+            if self.notif_estoque_critico.isChecked():
+                limite_critico = self.alerta_estoque_critico.value()
+                for mat in materiais:
+                    qtd = mat.get("quantidade", 0)
+                    nome = mat.get("nome", "")
+                    if qtd <= limite_critico and qtd > 0:
+                        msg = f"🔴 Estoque crítico: '{nome}' tem apenas {qtd} unidades!"
+                        alertas.append(("error", msg, duracao))
+                        alertas_lista.append(("🔴 Crítico", msg, "ativo"))
             
             # Verificar manutenções pendentes
-            manutencoes = api_client.listar_manutencoes(status="pendente")
-            for man in manutencoes:
-                alertas.append(("🔧 Manutenção", f"Manutenção pendente: {man.get('descricao', '')[:50]}", "ativo"))
+            if self.notif_manutencao.isChecked():
+                manutencoes = api_client.listar_manutencoes(status="pendente")
+                for man in manutencoes:
+                    msg = f"🔧 Manutenção pendente: {man.get('descricao', '')[:50]}"
+                    alertas.append(("warning", msg, duracao))
+                    alertas_lista.append(("🔧 Manutenção", msg, "ativo"))
             
             # Verificar pedidos pendentes
-            pedidos = api_client.listar_pedidos(status="pendente")
-            for ped in pedidos:
-                alertas.append(("📋 Pedido", f"Pedido pendente: {ped.get('quantidade')} x {ped.get('material_nome', '')}", "ativo"))
+            if self.notif_pedidos.isChecked():
+                pedidos = api_client.listar_pedidos(status="pendente")
+                for ped in pedidos:
+                    msg = f"📋 Pedido pendente: {ped.get('quantidade')} x {ped.get('material_nome', '')}"
+                    alertas.append(("info", msg, duracao))
+                    alertas_lista.append(("📋 Pedido", msg, "ativo"))
             
             # Verificar demandas abertas
-            demandas = api_client.listar_demandas(status="aberto")
-            for dem in demandas:
-                prioridade = dem.get("prioridade", "media")
-                icon = "🔥" if prioridade == "alta" else "⚠️" if prioridade == "media" else "📌"
-                alertas.append((f"{icon} Demanda", f"{dem.get('titulo', '')[:50]} - {dem.get('solicitante', '')}", "ativo"))
+            if self.notif_demandas.isChecked():
+                demandas = api_client.listar_demandas(status="aberto")
+                for dem in demandas:
+                    prioridade = dem.get("prioridade", "media")
+                    icon = "🔥" if prioridade == "alta" else "⚠️" if prioridade == "media" else "📌"
+                    msg = f"{icon} Demanda: {dem.get('titulo', '')[:50]}"
+                    alertas.append(("warning" if prioridade == "alta" else "info", msg, duracao))
+                    alertas_lista.append((f"{icon} Demanda", msg, "ativo"))
+            
+            # Exibir notificações pop-up (máximo 5 por vez)
+            for alerta in alertas[:5]:
+                notification_manager.show(alerta[1], alerta[0], alerta[2], parent)
             
             # Atualizar tabela de alertas
-            self.lista_alertas.setRowCount(len(alertas))
-            for row, (tipo, msg, status) in enumerate(alertas):
+            self.lista_alertas.setRowCount(len(alertas_lista))
+            for row, (tipo, msg, status) in enumerate(alertas_lista):
                 self.lista_alertas.setItem(row, 0, QTableWidgetItem(tipo))
                 self.lista_alertas.setItem(row, 1, QTableWidgetItem(msg))
                 
-                status_item = QTableWidgetItem("Ativo")
+                status_item = QTableWidgetItem(status)
                 status_item.setForeground(QColor(231, 111, 81))
                 self.lista_alertas.setItem(row, 2, status_item)
                 
@@ -650,7 +715,7 @@ class ParametrosWidget(QWidget):
             self.adicionar_historico(tipo, mensagem, "Resolvido")
             # Remover da lista atual
             self.lista_alertas.removeRow(row)
-            QMessageBox.information(self, "Sucesso", "Alerta marcado como resolvido!")
+            notification_manager.success("Alerta resolvido com sucesso!", self.window(), 3000)
     
     def adicionar_historico(self, tipo, mensagem, status):
         """Adiciona alerta ao histórico"""
@@ -670,6 +735,7 @@ class ParametrosWidget(QWidget):
     def carregar_configuracoes(self):
         """Carrega as configurações salvas"""
         print("Carregando configurações...")
+        self.configurar_timer_alertas()
     
     def salvar_configuracoes(self):
         """Salva as configurações"""
@@ -682,11 +748,6 @@ class ParametrosWidget(QWidget):
             "frequencia_backup": self.frequencia_backup.currentText(),
             "horario_backup": self.horario_backup.time().toString("HH:mm"),
             "dias_retencao": self.dias_retencao.value(),
-            "email_enviar": self.email_enviar.isChecked(),
-            "smtp_server": self.smtp_server.text(),
-            "smtp_porta": self.smtp_porta.value(),
-            "email_usuario": self.email_usuario.text(),
-            "email_destinatarios": self.email_destinatarios.toPlainText(),
             "notif_estoque_baixo": self.notif_estoque_baixo.isChecked(),
             "notif_estoque_critico": self.notif_estoque_critico.isChecked(),
             "notif_manutencao": self.notif_manutencao.isChecked(),
@@ -694,16 +755,23 @@ class ParametrosWidget(QWidget):
             "notif_demandas": self.notif_demandas.isChecked(),
             "notif_movimentacoes": self.notif_movimentacoes.isChecked(),
             "valor_alto": self.valor_alto.value(),
+            "verificar_alertas_auto": self.verificar_alertas_auto.isChecked(),
+            "intervalo_verificacao": self.intervalo_verificacao.currentText(),
+            "tempo_notificacao": self.tempo_notificacao.currentText(),
             "empresas": self.empresas,
             "departamentos": self.departamentos,
             "categorias": self.categorias
         }
         
         print(f"Configurações salvas: {config}")
-        QMessageBox.information(self, "Sucesso", "Configurações salvas com sucesso!\n\nAs alterações serão aplicadas após reiniciar o sistema.")
+        
+        # Reconfigurar timer com novo intervalo
+        self.configurar_timer_alertas()
+        
+        notification_manager.success("Configurações salvas com sucesso!", self.window(), 3000)
     
     def cancelar(self):
-        QMessageBox.information(self, "Cancelado", "Alterações canceladas.")
+        notification_manager.info("Alterações canceladas.", self.window(), 2000)
     
     def carregar_dados(self):
         self.carregar_configuracoes()
