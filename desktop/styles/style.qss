@@ -117,15 +117,15 @@ QLabel[class="page-title"] {
 }
 
 /* =====================================================
-   TABELAS
+   TABELAS - SEM BORDA EXTERNA
    ===================================================== */
 QTableWidget {
     background-color: #ffffff;
     alternate-background-color: #f8fafc;
-    gridline-color: #eef2f6;
+    gridline-color: #e2e8f0;
     selection-background-color: #e6f0ff;
     selection-color: #1e293b;
-    border: 1px solid #e2e8f0;
+    border: none;
     border-radius: 12px;
     padding: 4px;
 }
@@ -147,6 +147,11 @@ QHeaderView::section {
     border: none;
     font-weight: 600;
     font-size: 13px;
+}
+
+QTableCornerButton::section {
+    background-color: #f1f5f9;
+    border: none;
 }
 
 /* =====================================================
@@ -198,7 +203,7 @@ QPushButton#btnSecondary:hover {
 }
 
 /* =====================================================
-   INPUTS - CORES LEGÍVEIS
+   INPUTS
    ===================================================== */
 QLineEdit, QComboBox, QSpinBox, QDateEdit, QTextEdit {
     border: 1px solid #e2e8f0;
@@ -219,7 +224,6 @@ QLineEdit::placeholder {
     color: #94a3b8;
 }
 
-/* Ajuste para QComboBox dropdown */
 QComboBox QAbstractItemView {
     color: #1e293b;
     background-color: #ffffff;
