@@ -9,7 +9,7 @@ QMainWindow {
 
 QWidget {
     font-family: 'Segoe UI', 'Inter', 'Arial', sans-serif;
-    font-size: 16px;
+    font-size: 13px;
     color: #1e293b;
 }
 
@@ -218,9 +218,9 @@ QPushButton#btnSecondary:hover {
 }
 
 /* =====================================================
-   INPUTS - CORREÇÃO DAS BORDAS PRETAS
+   INPUTS - CORREÇÃO COMPLETA
    ===================================================== */
-QLineEdit, QComboBox, QSpinBox, QDateEdit, QTextEdit {
+QLineEdit, QSpinBox, QDateEdit, QTextEdit {
     border: 1px solid #cbd5e1;
     border-radius: 8px;
     padding: 8px 12px;
@@ -231,7 +231,7 @@ QLineEdit, QComboBox, QSpinBox, QDateEdit, QTextEdit {
     min-height: 32px;
 }
 
-QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDateEdit:focus, QTextEdit:focus {
+QLineEdit:focus, QSpinBox:focus, QDateEdit:focus, QTextEdit:focus {
     border-color: #2c7da0;
     outline: none;
 }
@@ -241,16 +241,23 @@ QLineEdit::placeholder {
     font-weight: 400;
 }
 
-/* CORREÇÃO DA BORDA PRETA DO COMBOBOX */
+/* =====================================================
+   COMBOBOX - SEM BORDAS PRETAS
+   ===================================================== */
 QComboBox {
     border: 1px solid #cbd5e1;
     border-radius: 8px;
-    padding: 8px 12px;
     background-color: #ffffff;
+    padding: 8px 12px;
+    min-height: 32px;
+    color: #0f172a;
+    font-size: 13px;
+    outline: none;
 }
 
 QComboBox::drop-down {
     border: none;
+    background: transparent;
     width: 20px;
 }
 
@@ -259,15 +266,43 @@ QComboBox::down-arrow {
     border: none;
 }
 
-QComboBox QAbstractItemView {
-    color: #0f172a;
-    background-color: #ffffff;
-    selection-background-color: #e6f0ff;
-    selection-color: #0f172a;
-    border: 1px solid #cbd5e1;
+QComboBox:focus {
+    border-color: #2c7da0;
+    outline: none;
 }
 
-/* CORREÇÃO DO CALENDÁRIO (meses e anos) */
+/* Lista dropdown */
+QComboBox QAbstractItemView {
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background-color: #ffffff;
+    outline: none;
+    padding: 4px;
+}
+
+/* Itens da lista */
+QComboBox QAbstractItemView::item {
+    border: none;
+    padding: 8px 12px;
+    background-color: transparent;
+    color: #0f172a;
+}
+
+/* Item selecionado */
+QComboBox QAbstractItemView::item:selected {
+    background-color: #e6f0ff;
+    border: none;
+}
+
+/* Item em hover */
+QComboBox QAbstractItemView::item:hover {
+    background-color: #f1f5f9;
+    border: none;
+}
+
+/* =====================================================
+   CALENDÁRIO (QDateEdit)
+   ===================================================== */
 QDateEdit QCalendarWidget {
     background-color: #ffffff;
     color: #0f172a;
@@ -315,7 +350,7 @@ QDateEdit QCalendarWidget QAbstractItemView:disabled {
 }
 
 /* =====================================================
-   CORREÇÃO DO CAMPOS HORÁRIO (QTimeEdit)
+   CAMPOS HORÁRIO (QTimeEdit)
    ===================================================== */
 QTimeEdit {
     border: 1px solid #cbd5e1;
