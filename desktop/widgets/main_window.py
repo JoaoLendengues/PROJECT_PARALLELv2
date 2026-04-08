@@ -16,6 +16,7 @@ from widgets.parametros_widget import ParametrosWidget
 from widgets.colaboradores_widget import ColaboradoresWidget
 from widgets.demandas_widget import DemandasWidget
 from widgets.relatorios_widget import RelatoriosWidget
+from widgets.toast_notification import notification_manager
 
 class MainWindow(QMainWindow):
     def __init__(self, usuario):
@@ -47,6 +48,9 @@ class MainWindow(QMainWindow):
 
         # Selecionar home por padrão
         self.content_stack.setCurrentWidget(self.home_widget)
+
+        # Configurar o gerenciador de notificações
+        notification_manager.set_parent(self)
     
     def set_active_menu(self, button_index):
         """Marca o menu como ativo visualmente"""

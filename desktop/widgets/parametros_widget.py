@@ -26,7 +26,6 @@ class ParametrosWidget(QWidget):
         self.carregar_info_servidor()
         self.carregar_alertas()
         self.configurar_timer_alertas()
-        notification_manager.set_parent(self)
     
     def init_ui(self):
         layout = QVBoxLayout(self)
