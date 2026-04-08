@@ -1,34 +1,11 @@
 /* =====================================================
-   PROJECT PARALLEL - DESIGN REFINADO
+   PROJECT PARALLEL - DESIGN ORIGINAL REFINADO
+   Cores: Branco, Cinza e Azul
    ===================================================== */
-
-/* =====================================================
-   VARIÁVEIS E ESTILOS GLOBAIS
-   ===================================================== */
-* {
-    /* Cores principais */
-    --primary: #2c7da0;
-    --primary-dark: #1f5e7a;
-    --primary-light: #e6f4ea;
-    --secondary: #f4a261;
-    --success: #2a9d8f;
-    --danger: #e76f51;
-    --warning: #e9c46a;
-    --info: #3b82f6;
-    
-    /* Cores neutras */
-    --bg: #f5f7fa;
-    --card: #ffffff;
-    --sidebar: #1a2c3e;
-    --sidebar-hover: #2d3e4e;
-    --border: #e2e8f0;
-    --text: #1e293b;
-    --text-muted: #64748b;
-}
 
 /* Estilos Globais */
 QMainWindow {
-    background-color: #f5f7fa;
+    background-color: #f0f2f5;
 }
 
 QWidget {
@@ -38,7 +15,19 @@ QWidget {
 }
 
 /* =====================================================
-   SIDEBAR - DESIGN REFINADO
+   TÍTULOS DAS PÁGINAS
+   ===================================================== */
+QLabel[class="page-title"] {
+    font-size: 22px;
+    font-weight: bold;
+    color: #1e293b;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #2c7da0;
+}
+
+/* =====================================================
+   SIDEBAR
    ===================================================== */
 .sidebar {
     background-color: #1a2c3e;
@@ -49,9 +38,9 @@ QWidget {
     color: #ffffff;
     font-size: 18px;
     font-weight: bold;
-    padding: 24px 16px;
+    padding: 24px 20px;
     border-bottom: 1px solid #2d3e4e;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
     background-color: #0f212e;
 }
 
@@ -63,7 +52,7 @@ QWidget {
     border: none;
     font-size: 14px;
     font-weight: 500;
-    border-radius: 10px;
+    border-radius: 8px;
     margin: 4px 12px;
     height: 44px;
 }
@@ -91,7 +80,7 @@ QWidget {
     border: none;
     font-size: 14px;
     font-weight: 500;
-    border-radius: 10px;
+    border-radius: 8px;
     margin: 4px 12px;
     height: 44px;
 }
@@ -113,18 +102,6 @@ QWidget {
 }
 
 /* =====================================================
-   TÍTULOS
-   ===================================================== */
-QLabel[class="page-title"] {
-    font-size: 22px;
-    font-weight: bold;
-    color: #1e293b;
-    margin-bottom: 20px;
-    padding-bottom: 10px;
-    border-bottom: 2px solid #2c7da0;
-}
-
-/* =====================================================
    DASHBOARD CARDS
    ===================================================== */
 .dashboard-card {
@@ -132,7 +109,6 @@ QLabel[class="page-title"] {
     border-radius: 16px;
     border: 1px solid #e2e8f0;
     padding: 16px;
-    transition: all 0.2s ease;
 }
 
 .dashboard-card:hover {
@@ -154,15 +130,6 @@ QTableWidget {
     padding: 4px;
 }
 
-QHeaderView::section {
-    background-color: #f1f5f9;
-    color: #1e293b;
-    padding: 12px 16px;
-    border: none;
-    font-weight: 600;
-    font-size: 13px;
-}
-
 QTableWidget::item {
     padding: 10px 8px;
     border-bottom: 1px solid #eef2f6;
@@ -173,8 +140,17 @@ QTableWidget::item:selected {
     color: #1e293b;
 }
 
+QHeaderView::section {
+    background-color: #f1f5f9;
+    color: #1e293b;
+    padding: 12px 16px;
+    border: none;
+    font-weight: 600;
+    font-size: 13px;
+}
+
 /* =====================================================
-   BOTÕES
+   BOTÕES - ARESTAS REFINADAS
    ===================================================== */
 QPushButton {
     background-color: #2c7da0;
@@ -194,18 +170,35 @@ QPushButton:pressed {
     background-color: #164a60;
 }
 
-QPushButton[secondary="true"] {
+QPushButton#btnPrimary {
+    background-color: #2c7da0;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: 600;
+}
+
+QPushButton#btnPrimary:hover {
+    background-color: #1f5e7a;
+}
+
+QPushButton#btnSecondary {
     background-color: #f1f5f9;
     color: #475569;
     border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: 500;
 }
 
-QPushButton[secondary="true"]:hover {
+QPushButton#btnSecondary:hover {
     background-color: #e2e8f0;
+    color: #1e293b;
 }
 
 /* =====================================================
-   INPUTS
+   INPUTS - CORES LEGÍVEIS
    ===================================================== */
 QLineEdit, QComboBox, QSpinBox, QDateEdit, QTextEdit {
     border: 1px solid #e2e8f0;
@@ -222,9 +215,25 @@ QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDateEdit:focus, QTextEdit:foc
     outline: none;
 }
 
-QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled {
-    background-color: #f1f5f9;
+QLineEdit::placeholder {
     color: #94a3b8;
+}
+
+/* Ajuste para QComboBox dropdown */
+QComboBox QAbstractItemView {
+    color: #1e293b;
+    background-color: #ffffff;
+    selection-background-color: #e6f0ff;
+    selection-color: #1e293b;
+}
+
+QComboBox::drop-down {
+    border: none;
+}
+
+QComboBox::down-arrow {
+    image: none;
+    border: none;
 }
 
 /* =====================================================
@@ -279,6 +288,82 @@ QGroupBox::title {
     padding: 0 8px;
     color: #2c7da0;
     background-color: #ffffff;
+}
+
+/* =====================================================
+   GROUP BOX PARA PARÂMETROS
+   ===================================================== */
+QGroupBox#configGroup {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    margin-top: 12px;
+    padding-top: 12px;
+    font-size: 13px;
+    font-weight: bold;
+    color: #1e293b;
+}
+
+QGroupBox#configGroup::title {
+    subcontrol-origin: margin;
+    left: 16px;
+    padding: 0 8px;
+    color: #2c7da0;
+    background-color: #ffffff;
+}
+
+/* =====================================================
+   INPUTS PARA PARÂMETROS
+   ===================================================== */
+QLineEdit#configInput {
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 8px 12px;
+    background-color: #f8fafc;
+    font-size: 13px;
+    color: #1e293b;
+}
+
+QLineEdit#configInput:focus {
+    border-color: #2c7da0;
+    background-color: #ffffff;
+}
+
+QLineEdit#configInputReadonly {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 12px;
+    background-color: #f1f5f9;
+    font-size: 13px;
+    color: #475569;
+}
+
+QSpinBox#configSpin, QComboBox#configCombo {
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 6px 10px;
+    background-color: #f8fafc;
+    font-size: 13px;
+    color: #1e293b;
+}
+
+QCheckBox#configCheckbox {
+    spacing: 8px;
+    font-size: 13px;
+    color: #1e293b;
+}
+
+QCheckBox#configCheckbox::indicator {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    border: 1px solid #cbd5e1;
+    background-color: #ffffff;
+}
+
+QCheckBox#configCheckbox::indicator:checked {
+    background-color: #2c7da0;
+    border-color: #2c7da0;
 }
 
 /* =====================================================
@@ -361,74 +446,52 @@ QFormLayout QLabel {
 }
 
 /* =====================================================
-   PARÂMETROS - CONFIG GROUPS
+   DIÁLOGOS
    ===================================================== */
-QGroupBox#configGroup {
+QDialog {
     background-color: #ffffff;
+}
+
+QDialog QPushButton {
+    min-width: 100px;
+}
+
+/* =====================================================
+   INFOCARD
+   ===================================================== */
+QFrame#infoCard {
+    background-color: #f8fafc;
     border: 1px solid #e2e8f0;
     border-radius: 12px;
-    margin-top: 12px;
-    padding-top: 12px;
-    font-size: 13px;
-    font-weight: bold;
-    color: #1e293b;
+    padding: 20px;
 }
 
-QGroupBox#configGroup::title {
-    subcontrol-origin: margin;
-    left: 16px;
-    padding: 0 8px;
-    color: #2c7da0;
+/* =====================================================
+   CAMPOS DOS DIÁLOGOS
+   ===================================================== */
+QDialog QComboBox, 
+QDialog QLineEdit, 
+QDialog QSpinBox, 
+QDialog QDateEdit, 
+QDialog QTextEdit {
+    color: #1e293b;
     background-color: #ffffff;
 }
 
-QLineEdit#configInput {
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    padding: 8px 12px;
-    background-color: #f8fafc;
-    font-size: 13px;
+QDialog QComboBox QAbstractItemView {
     color: #1e293b;
-}
-
-QLineEdit#configInput:focus {
-    border-color: #2c7da0;
     background-color: #ffffff;
 }
 
-QLineEdit#configInputReadonly {
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 8px 12px;
-    background-color: #f1f5f9;
-    font-size: 13px;
-    color: #475569;
-}
-
-QSpinBox#configSpin, QComboBox#configCombo {
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    padding: 6px 10px;
-    background-color: #f8fafc;
-    font-size: 13px;
+/* =====================================================
+   FILTROS DAS TABELAS
+   ===================================================== */
+.filtros QComboBox {
     color: #1e293b;
-}
-
-QCheckBox#configCheckbox {
-    spacing: 8px;
-    font-size: 13px;
-    color: #1e293b;
-}
-
-QCheckBox#configCheckbox::indicator {
-    width: 18px;
-    height: 18px;
-    border-radius: 4px;
-    border: 1px solid #cbd5e1;
     background-color: #ffffff;
 }
 
-QCheckBox#configCheckbox::indicator:checked {
-    background-color: #2c7da0;
-    border-color: #2c7da0;
+.filtros QLabel {
+    color: #1e293b;
+    font-weight: 500;
 }
