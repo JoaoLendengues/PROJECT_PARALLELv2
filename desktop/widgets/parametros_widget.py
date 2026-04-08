@@ -94,7 +94,8 @@ class ParametrosWidget(QWidget):
         form_sistema.setContentsMargins(20, 20, 20, 20)
         
         self.nome_sistema = QLineEdit("Project Parallel")
-        self.nome_sistema.setObjectName("configInput")
+        self.nome_sistema.setReadOnly(True)
+        self.nome_sistema.setObjectName("configInputOnly")
         form_sistema.addRow("📌 Nome do Sistema:", self.nome_sistema)
         
         self.versao = QLineEdit("1.0.0")

@@ -1,6 +1,5 @@
 /* =====================================================
-   PROJECT PARALLEL - DESIGN ORIGINAL REFINADO
-   Cores: Branco, Cinza e Azul
+   PROJECT PARALLEL - DESIGN REFINADO VERSÃO FINAL
    ===================================================== */
 
 /* Estilos Globais */
@@ -10,7 +9,7 @@ QMainWindow {
 
 QWidget {
     font-family: 'Segoe UI', 'Inter', 'Arial', sans-serif;
-    font-size: 13px;
+    font-size: 16px;
     color: #1e293b;
 }
 
@@ -117,7 +116,7 @@ QLabel[class="page-title"] {
 }
 
 /* =====================================================
-   TABELAS - SEM CABEÇALHO VERTICAL
+   TABELAS
    ===================================================== */
 QTableWidget {
     background-color: #ffffff;
@@ -131,7 +130,6 @@ QTableWidget {
     outline: 0;
 }
 
-/* Remove o cabeçalho vertical (coluna com números) */
 QTableWidget::verticalHeader {
     width: 0px;
     min-width: 0px;
@@ -172,7 +170,7 @@ QTableWidget:focus {
 }
 
 /* =====================================================
-   BOTÕES - ARESTAS REFINADAS
+   BOTÕES
    ===================================================== */
 QPushButton {
     background-color: #2c7da0;
@@ -220,10 +218,10 @@ QPushButton#btnSecondary:hover {
 }
 
 /* =====================================================
-   INPUTS - INCLUINDO QDateEdit COM FONTE ESCURA
+   INPUTS - CORREÇÃO DAS BORDAS PRETAS
    ===================================================== */
 QLineEdit, QComboBox, QSpinBox, QDateEdit, QTextEdit {
-    border: 1px solid #e2e8f0;
+    border: 1px solid #cbd5e1;
     border-radius: 8px;
     padding: 8px 12px;
     background-color: #ffffff;
@@ -243,27 +241,22 @@ QLineEdit::placeholder {
     font-weight: 400;
 }
 
-/* Estilo específico para o calendário do QDateEdit */
-QDateEdit QCalendarWidget {
+/* CORREÇÃO DA BORDA PRETA DO COMBOBOX */
+QComboBox {
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 8px 12px;
     background-color: #ffffff;
-    color: #0f172a;
 }
 
-QDateEdit QCalendarWidget QToolButton {
-    background-color: #f1f5f9;
-    color: #0f172a;
-    border-radius: 4px;
+QComboBox::drop-down {
+    border: none;
+    width: 20px;
 }
 
-QDateEdit QCalendarWidget QAbstractItemView:enabled {
-    background-color: #ffffff;
-    color: #0f172a;
-    selection-background-color: #e6f0ff;
-    selection-color: #0f172a;
-}
-
-QDateEdit QCalendarWidget QAbstractItemView:disabled {
-    color: #cbd5e1;
+QComboBox::down-arrow {
+    image: none;
+    border: none;
 }
 
 QComboBox QAbstractItemView {
@@ -271,14 +264,68 @@ QComboBox QAbstractItemView {
     background-color: #ffffff;
     selection-background-color: #e6f0ff;
     selection-color: #0f172a;
+    border: 1px solid #cbd5e1;
 }
 
-QComboBox::drop-down {
+/* CORREÇÃO DO CALENDÁRIO (meses e anos) */
+QDateEdit QCalendarWidget {
+    background-color: #ffffff;
+    color: #0f172a;
+}
+
+QDateEdit QCalendarWidget QWidget#qt_calendar_navigationbar {
+    background-color: #f1f5f9;
+}
+
+QDateEdit QCalendarWidget QToolButton {
+    background-color: #f1f5f9;
+    color: #0f172a;
+    border-radius: 4px;
     border: none;
 }
 
-QComboBox::down-arrow {
-    image: none;
+QDateEdit QCalendarWidget QToolButton:hover {
+    background-color: #e2e8f0;
+}
+
+QDateEdit QCalendarWidget QMenu {
+    background-color: #ffffff;
+    color: #0f172a;
+}
+
+QDateEdit QCalendarWidget QSpinBox {
+    background-color: #ffffff;
+    color: #0f172a;
+    border: 1px solid #cbd5e1;
+}
+
+QDateEdit QCalendarWidget QAbstractItemView {
+    background-color: #ffffff;
+    color: #0f172a;
+    selection-background-color: #e6f0ff;
+    selection-color: #0f172a;
+}
+
+QDateEdit QCalendarWidget QAbstractItemView:enabled {
+    color: #0f172a;
+}
+
+QDateEdit QCalendarWidget QAbstractItemView:disabled {
+    color: #cbd5e1;
+}
+
+/* =====================================================
+   CORREÇÃO DO CAMPOS HORÁRIO (QTimeEdit)
+   ===================================================== */
+QTimeEdit {
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 8px 12px;
+    background-color: #ffffff;
+    color: #0f172a;
+}
+
+QTimeEdit::drop-down {
     border: none;
 }
 
@@ -367,7 +414,7 @@ QLineEdit#configInput {
     padding: 8px 12px;
     background-color: #f8fafc;
     font-size: 13px;
-    color: #1e293b;
+    color: #475569;
 }
 
 QLineEdit#configInput:focus {
@@ -385,6 +432,15 @@ QLineEdit#configInputReadonly {
 }
 
 QSpinBox#configSpin, QComboBox#configCombo {
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 6px 10px;
+    background-color: #f8fafc;
+    font-size: 13px;
+    color: #1e293b;
+}
+
+QTimeEdit#configTime {
     border: 1px solid #cbd5e1;
     border-radius: 8px;
     padding: 6px 10px;

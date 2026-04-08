@@ -149,7 +149,7 @@ class ToastNotification(QFrame):
         """Posiciona a notificação no canto inferior direito da janela pai"""
         if self.parent():
             parent_rect = self.parent().rect()
-            x = parent_rect.width() - self.width() - 15
+            x = parent_rect.width() - self.width() - 200
             
             # Calcular posição Y baseado no tamanho da janela
             if parent_rect.height() < 600:
