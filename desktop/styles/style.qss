@@ -78,6 +78,29 @@ QLabel[class="page-title"] {
     border-top: 1px solid #2d3e4e;
 }
 
+/* Botões inferiores do sidebar */
+.menu-button-bottom {
+    text-align: left;
+    padding-left: 24px;
+    background-color: transparent;
+    color: #b9c7d4;
+    border: none;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 8px;
+    margin: 4px 12px;
+    height: 45px;
+}
+
+.menu-button-bottom:hover {
+    background-color: #2d3e4e;
+    color: #ffffff;
+}
+
+.menu-button-bottom:pressed {
+    background-color: #0f212e;
+}
+
 /* =====================================================
    HEADER
    ===================================================== */

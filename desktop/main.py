@@ -4,57 +4,53 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt
 from dotenv import load_dotenv
 
-# Adicionar o diretório atual ao path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
 from widgets.main_window import MainWindow
 from widgets.login_widget import LoginWidget
 from api_client import api_client
 
-# Carregar variáveis de ambiente
 load_dotenv()
 
+# Variáveis globais
+_app = None
+_current_window = None
 
-class AppLauncher:
-    def __init__(self):
-        self.app = QApplication(sys.argv)
-        self.app.setStyle('Fusion')
-        self.load_styles()
-        
-        self.login_widget = None
-        self.main_window = None
-        
-        self.show_login()
+
+def show_login():
+    """Exibe a tela de login"""
+    global _current_window
     
-    def load_styles(self):
-        """Carrega o arquivo de estilos"""
-        style_path = os.path.join(os.path.dirname(__file__), 'styles', 'style.qss')
-        if os.path.exists(style_path):
-            with open(style_path, 'r', encoding='utf-8') as f:
-                self.app.setStyleSheet(f.read())
+    if _current_window:
+        _current_window.close()
     
-    def show_login(self):
-        """Exibe a tela de login"""
-        self.login_widget = LoginWidget(self.on_login_success)
-        self.login_widget.show()
+    _current_window = LoginWidget(on_login_success)
+    _current_window.show()
+
+
+def on_login_success(usuario):
+    """Callback quando o login é bem sucedido"""
+    global _current_window
     
-    def on_login_success(self, usuario):
-        """Callback quando o login é bem sucedido"""
-        # Fecha a tela de login
-        self.login_widget.close()
-        
-        # Abre a janela principal
-        self.main_window = MainWindow(usuario)
-        self.main_window.show()
-    
-    def run(self):
-        """Executa a aplicação"""
-        sys.exit(self.app.exec())
+    _current_window.close()
+    _current_window = MainWindow(usuario)
+    _current_window.show()
 
 
 def main():
-    launcher = AppLauncher()
-    launcher.run()
+    global _app
+    
+    _app = QApplication(sys.argv)
+    _app.setStyle('Fusion')
+    
+    # Carregar estilo
+    style_path = os.path.join(os.path.dirname(__file__), 'styles', 'style.qss')
+    if os.path.exists(style_path):
+        with open(style_path, 'r', encoding='utf-8') as f:
+            _app.setStyleSheet(f.read())
+    
+    # Mostrar tela de login
+    show_login()
+    
+    sys.exit(_app.exec())
 
 
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                                QTabWidget, QPushButton, QLabel, QFrame, QStackedWidget)
+                                QPushButton, QLabel, QFrame, QStackedWidget, QMessageBox, QApplication)
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont
 from datetime import datetime
@@ -16,7 +16,8 @@ from widgets.parametros_widget import ParametrosWidget
 from widgets.colaboradores_widget import ColaboradoresWidget
 from widgets.demandas_widget import DemandasWidget
 from widgets.relatorios_widget import RelatoriosWidget
-from widgets.toast_notification import notification_manager
+from api_client import api_client
+
 
 class MainWindow(QMainWindow):
     def __init__(self, usuario):
@@ -39,7 +40,7 @@ class MainWindow(QMainWindow):
         sidebar.setFixedWidth(250)
         main_layout.addWidget(sidebar)
 
-        # Área de conteúdo (stacked widget)
+        # Área de conteúdo
         self.content_stack = QStackedWidget()
         main_layout.addWidget(self.content_stack)
 
@@ -48,9 +49,6 @@ class MainWindow(QMainWindow):
 
         # Selecionar home por padrão
         self.content_stack.setCurrentWidget(self.home_widget)
-
-        # Configurar o gerenciador de notificações
-        notification_manager.set_parent(self)
     
     def set_active_menu(self, button_index):
         """Marca o menu como ativo visualmente"""
@@ -87,10 +85,10 @@ class MainWindow(QMainWindow):
             ("📊 Movimentações", self.show_movimentacoes),
             ("🔧 Manutenções", self.show_manutencoes),
             ("📋 Pedidos", self.show_pedidos),
-            ("🎫 Demandas", self.show_demandas),
-            ("👥 Usuários", self.show_usuarios),
             ("👥 Colaboradores", self.show_colaboradores),
+            ("🎫 Demandas", self.show_demandas),
             ("📈 Relatórios", self.show_relatorios),
+            ("👥 Usuários", self.show_usuarios),
             ("⚙️ Parâmetros", self.show_parametros)
         ]
 
@@ -103,10 +101,24 @@ class MainWindow(QMainWindow):
             btn.setFixedHeight(48)
             layout.addWidget(btn)
             self.menu_buttons.append(btn)
-    
+        
         layout.addStretch()
+        
+        # Botão Trocar Usuário
+        btn_trocar_usuario = QPushButton("🔄 Trocar Usuário")
+        btn_trocar_usuario.setProperty("class", "menu-button-bottom")
+        btn_trocar_usuario.setFixedHeight(48)
+        btn_trocar_usuario.clicked.connect(self.trocar_usuario)
+        layout.addWidget(btn_trocar_usuario)
+        
+        # Botão Sair
+        btn_sair = QPushButton("🚪 Sair")
+        btn_sair.setProperty("class", "menu-button-bottom")
+        btn_sair.setFixedHeight(48)
+        btn_sair.clicked.connect(self.sair)
+        layout.addWidget(btn_sair)
 
-        # Rodapé com informações
+        # Rodapé
         footer = QLabel('v1.0.0')
         footer.setAlignment(Qt.AlignCenter)
         footer.setProperty('class', 'footer')
@@ -117,17 +129,17 @@ class MainWindow(QMainWindow):
     def init_screens(self):
         """Inicializa todas as telas do sistema"""
         self.home_widget = HomeWidget()
-        self.home_widget.set_usuario(self.usuario['nome'])  # Passa o nome do usuário
+        self.home_widget.set_usuario(self.usuario['nome'])
         self.materiais_widget = MateriaisWidget()
         self.maquinas_widget = MaquinasWidget()
         self.movimentacoes_widget = MovimentacoesWidget()
         self.manutencoes_widget = ManutencoesWidget()
         self.pedidos_widget = PedidosWidget()
-        self.usuarios_widget = UsuariosWidget()
-        self.parametros_widget = ParametrosWidget()
         self.colaboradores_widget = ColaboradoresWidget()
         self.demandas_widget = DemandasWidget()
         self.relatorios_widget = RelatoriosWidget()
+        self.usuarios_widget = UsuariosWidget()
+        self.parametros_widget = ParametrosWidget()
 
         self.content_stack.addWidget(self.home_widget)
         self.content_stack.addWidget(self.materiais_widget)
@@ -135,11 +147,11 @@ class MainWindow(QMainWindow):
         self.content_stack.addWidget(self.movimentacoes_widget)
         self.content_stack.addWidget(self.manutencoes_widget)
         self.content_stack.addWidget(self.pedidos_widget)
-        self.content_stack.addWidget(self.usuarios_widget)
-        self.content_stack.addWidget(self.parametros_widget)
         self.content_stack.addWidget(self.colaboradores_widget)
         self.content_stack.addWidget(self.demandas_widget)
         self.content_stack.addWidget(self.relatorios_widget)
+        self.content_stack.addWidget(self.usuarios_widget)
+        self.content_stack.addWidget(self.parametros_widget)
 
     def show_home(self):
         self.content_stack.setCurrentWidget(self.home_widget)
@@ -165,16 +177,9 @@ class MainWindow(QMainWindow):
         self.content_stack.setCurrentWidget(self.pedidos_widget)
         self.pedidos_widget.carregar_pedidos()
 
-    def show_usuarios(self):
-        self.content_stack.setCurrentWidget(self.usuarios_widget)
-        self.usuarios_widget.carregar_usuarios()
-
-    def show_parametros(self):
-        self.content_stack.setCurrentWidget(self.parametros_widget)
-
     def show_colaboradores(self):
         self.content_stack.setCurrentWidget(self.colaboradores_widget)
-        self.colaboradores_widget.carregar_colaboradores()   
+        self.colaboradores_widget.carregar_colaboradores()
 
     def show_demandas(self):
         self.content_stack.setCurrentWidget(self.demandas_widget)
@@ -182,4 +187,48 @@ class MainWindow(QMainWindow):
 
     def show_relatorios(self):
         self.content_stack.setCurrentWidget(self.relatorios_widget)
+
+    def show_usuarios(self):
+        self.content_stack.setCurrentWidget(self.usuarios_widget)
+        self.usuarios_widget.carregar_usuarios()
+
+    def show_parametros(self):
+        self.content_stack.setCurrentWidget(self.parametros_widget)
+    
+    def trocar_usuario(self):
+        """Troca o usuário atual (volta para tela de login)"""
+        confirm = QMessageBox.question(
+            self,
+            "Trocar Usuário",
+            "Deseja realmente trocar de usuário?\n\nVocê precisará fazer login novamente.",
+            QMessageBox.Yes | QMessageBox.No
+        )
         
+        if confirm == QMessageBox.Yes:
+            # Limpar token
+            api_client.set_token(None)
+            
+            # Fechar janela atual
+            self.close()
+            
+            # Abrir tela de login novamente
+            from main import show_login
+            show_login()
+    
+    def sair(self):
+        """Sai do sistema"""
+        confirm = QMessageBox.question(
+            self,
+            "Sair",
+            "Deseja realmente sair do sistema?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if confirm == QMessageBox.Yes:
+            # Limpar token
+            api_client.set_token(None)
+            
+            # Fechar aplicação
+            self.close()
+            QApplication.quit()
+            
