@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
 from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QTimer
-from PySide6.QtGui import QFont, QPalette
+from PySide6.QtGui import QFont
 
 
 class ToastNotification(QFrame):
@@ -9,40 +9,38 @@ class ToastNotification(QFrame):
     def __init__(self, message, tipo="info", parent=None, duration=5000):
         super().__init__(parent)
         
-        # Sem flags de janela flutuante - fica dentro da janela pai
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_DeleteOnClose)
         
-        # Cores que se adaptam ao tema da janela
-        # Usando as cores padrão do sistema
+        # Cores fixas e legíveis - Fundo claro, texto escuro
         cores = {
             "info": {
-                "bg": QPalette().color(QPalette.Highlight).lighter(150).name(),
-                "bg_hover": QPalette().color(QPalette.Highlight).lighter(120).name(),
+                "bg": "#E3F2FD",
+                "bg_hover": "#BBDEFB",
                 "icon": "ℹ️", 
                 "titulo": "INFORMAÇÃO",
-                "texto": QPalette().color(QPalette.WindowText).name()
+                "texto": "#0D47A1"  # Azul escuro
             },
             "success": {
-                "bg": "#C8E6C9", 
-                "bg_hover": "#A5D6A7", 
+                "bg": "#E8F5E9", 
+                "bg_hover": "#C8E6C9", 
                 "icon": "✅", 
                 "titulo": "SUCESSO",
-                "texto": QPalette().color(QPalette.WindowText).name()
+                "texto": "#1B5E20"  # Verde escuro
             },
             "warning": {
-                "bg": "#FFE0B2", 
-                "bg_hover": "#FFCC80", 
+                "bg": "#FFF3E0", 
+                "bg_hover": "#FFE0B2", 
                 "icon": "⚠️", 
                 "titulo": "ATENÇÃO",
-                "texto": QPalette().color(QPalette.WindowText).name()
+                "texto": "#E65100"  # Laranja escuro
             },
             "error": {
-                "bg": "#FFCDD2", 
-                "bg_hover": "#EF9A9A", 
+                "bg": "#FFEBEE", 
+                "bg_hover": "#FFCDD2", 
                 "icon": "❌", 
                 "titulo": "ERRO",
-                "texto": QPalette().color(QPalette.WindowText).name()
+                "texto": "#B71C1C"  # Vermelho escuro
             }
         }
         
@@ -53,7 +51,7 @@ class ToastNotification(QFrame):
             QFrame {{
                 background-color: {cor['bg']};
                 border-radius: 12px;
-                border: 1px solid rgba(0,0,0,0.1);
+                border: 1px solid #d0d0d0;
             }}
             QFrame:hover {{
                 background-color: {cor['bg_hover']};
@@ -71,7 +69,7 @@ class ToastNotification(QFrame):
                 font-weight: bold;
             }}
             QPushButton:hover {{
-                background-color: rgba(0, 0, 0, 0.1);
+                background-color: rgba(0, 0, 0, 0.08);
                 border-radius: 10px;
             }}
         """)
@@ -126,13 +124,13 @@ class ToastNotification(QFrame):
         # Ajustar tamanho
         self.adjustSize()
         
-        # Posicionar dentro da janela pai
+        # Posicionar
         self.posicionar()
         
         # Mostrar com animação
         self.show()
         
-        # Animação de entrada (fade in)
+        # Animação de entrada
         self.setWindowOpacity(0)
         self.anim_entrada = QPropertyAnimation(self, b"windowOpacity")
         self.anim_entrada.setDuration(250)
@@ -151,13 +149,11 @@ class ToastNotification(QFrame):
     def posicionar(self):
         """Posiciona a notificação no canto inferior direito da janela pai"""
         if self.parent():
-            # Posiciona dentro da janela pai
             parent_rect = self.parent().rect()
             x = parent_rect.width() - self.width() - 15
             y = parent_rect.height() - self.height() - 15
             self.move(x, y)
         else:
-            # Fallback: canto inferior direito da tela
             screen = self.screen().availableGeometry()
             x = screen.width() - self.width() - 15
             y = screen.height() - self.height() - 50
@@ -184,7 +180,7 @@ class ToastNotification(QFrame):
 
 
 class NotificationManager:
-    """Gerenciador de notificações do sistema - Restrito à janela"""
+    """Gerenciador de notificações do sistema"""
     
     _instance = None
     
@@ -197,7 +193,7 @@ class NotificationManager:
         return cls._instance
     
     def set_parent(self, parent):
-        """Define o parent para as notificações (a janela principal)"""
+        """Define o parent para as notificações"""
         self._parent = parent
     
     def show(self, message, tipo="info", duration=5000, parent=None):
@@ -220,7 +216,6 @@ class NotificationManager:
         
         item = self._fila.pop(0)
         
-        # Garantir que o parent é a janela principal
         parent = item["parent"]
         if parent and hasattr(parent, 'window'):
             parent = parent.window()
@@ -235,7 +230,6 @@ class NotificationManager:
         self._notificacao_atual.destroyed.connect(self._proxima)
     
     def _proxima(self):
-        """Callback para quando a notificação atual fechar"""
         self._notificacao_atual = None
         self._exibir_proxima()
     
@@ -252,11 +246,9 @@ class NotificationManager:
         return self.show(message, "info", duration, parent)
     
     def limpar_fila(self):
-        """Limpa a fila de notificações"""
         if self._notificacao_atual:
             self._notificacao_atual.fechar()
         self._fila.clear()
 
 
-# Instância global
 notification_manager = NotificationManager()
