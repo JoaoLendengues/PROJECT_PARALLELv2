@@ -57,6 +57,7 @@ class MateriaisWidget(QWidget):
         
         self.status_filter = QComboBox()
         self.status_filter.addItems(["Todos", "Ativo", "Inativo", "Descontinuado"])
+        self.status_filter.setProperty("class", "filter-combo")
         self.status_filter.currentTextChanged.connect(self.filtrar_materiais)
         filtros.addWidget(self.status_filter)
         
@@ -262,11 +263,13 @@ class MaterialDialog(QDialog):
         
         self.empresa_combo = QComboBox()
         self.empresa_combo.addItems(["Matriz", "Filial 1", "Filial 2", "Filial 3"])
+        self.empresa_combo.setProperty("class", "filter-combo")
         self.empresa_combo.setEditable(True)
         form_layout.addRow("Empresa:", self.empresa_combo)
         
         self.status_combo = QComboBox()
         self.status_combo.addItems(["ativo", "inativo", "descontinuado"])
+        self.status_combo.setProperty("class", "filter-combo")
         form_layout.addRow("Status:", self.status_combo)
         
         layout.addLayout(form_layout)
