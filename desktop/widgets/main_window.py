@@ -89,7 +89,8 @@ class MainWindow(QMainWindow):
             ("🎫 Demandas", self.show_demandas),
             ("📈 Relatórios", self.show_relatorios),
             ("👥 Usuários", self.show_usuarios),
-            ("⚙️ Parâmetros", self.show_parametros)
+            ("⚙️ Parâmetros", self.show_parametros),
+            ("🔄 Atualizações", self.show_updates)  # <-- NOVO BOTÃO ADICIONADO
         ]
 
         self.menu_buttons = []
@@ -194,6 +195,13 @@ class MainWindow(QMainWindow):
 
     def show_parametros(self):
         self.content_stack.setCurrentWidget(self.parametros_widget)
+
+    def show_updates(self):
+        """Exibe a tela de atualizações"""
+        from widgets.update_widget import UpdateWidget
+        self.update_widget = UpdateWidget(self)
+        self.content_stack.addWidget(self.update_widget)
+        self.content_stack.setCurrentWidget(self.update_widget)
     
     def trocar_usuario(self):
         """Troca o usuário atual (volta para tela de login)"""
