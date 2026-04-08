@@ -20,12 +20,10 @@ class UpdateWidget(QWidget):
         layout.setSpacing(20)
         layout.setContentsMargins(24, 24, 24, 24)
         
-        # Título
         titulo = QLabel("🔄 Atualizações do Sistema")
         titulo.setProperty("class", "page-title")
         layout.addWidget(titulo)
         
-        # Card de informações da versão atual
         info_frame = QFrame()
         info_frame.setObjectName("infoCard")
         info_layout = QVBoxLayout(info_frame)
@@ -40,12 +38,10 @@ class UpdateWidget(QWidget):
         
         layout.addWidget(info_frame)
         
-        # Progresso (inicialmente escondido)
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
         layout.addWidget(self.progress_bar)
         
-        # Área de changelog
         self.changelog_label = QLabel("📋 Novidades da versão:")
         self.changelog_label.setVisible(False)
         self.changelog_label.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
@@ -57,7 +53,6 @@ class UpdateWidget(QWidget):
         self.changelog_text.setVisible(False)
         layout.addWidget(self.changelog_text)
         
-        # Botões
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
         
@@ -71,11 +66,9 @@ class UpdateWidget(QWidget):
         btn_layout.addWidget(self.update_btn)
         
         layout.addLayout(btn_layout)
-        
         layout.addStretch()
     
     def check_for_updates(self):
-        """Verifica se há atualizações disponíveis"""
         self.status_label.setText("Verificando atualizações...")
         self.check_btn.setEnabled(False)
         
@@ -86,7 +79,6 @@ class UpdateWidget(QWidget):
         self.checker.start()
     
     def on_update_available(self, update_info):
-        """Quando há uma atualização disponível"""
         self.update_info = update_info
         self.status_label.setText(f"✅ Nova versão {update_info['version']} disponível!")
         self.status_label.setStyleSheet("color: #2a9d8f;")
@@ -99,19 +91,16 @@ class UpdateWidget(QWidget):
         self.check_btn.setEnabled(True)
     
     def on_no_update(self):
-        """Quando já está na versão mais recente"""
         self.status_label.setText("✅ Você já está usando a versão mais recente!")
         self.status_label.setStyleSheet("color: #2a9d8f;")
         self.check_btn.setEnabled(True)
     
     def on_check_error(self, error_msg):
-        """Quando ocorre erro na verificação"""
         self.status_label.setText(f"❌ Erro ao verificar atualizações: {error_msg}")
         self.status_label.setStyleSheet("color: #e76f51;")
         self.check_btn.setEnabled(True)
     
     def install_update(self):
-        """Instala a atualização"""
         if not self.update_info:
             return
         
@@ -148,7 +137,6 @@ class UpdateWidget(QWidget):
             QMessageBox.information(self, "Sucesso", 
                 "Atualização instalada com sucesso!\n\nO sistema será reiniciado.")
             
-            # Reiniciar aplicação
             QTimer.singleShot(1000, self.restart_application)
         else:
             QMessageBox.critical(self, "Erro", f"Falha na instalação: {message}")
@@ -163,10 +151,6 @@ class UpdateWidget(QWidget):
         self.check_btn.setEnabled(True)
     
     def restart_application(self):
-        """Reinicia a aplicação"""
-        import sys
-        import subprocess
-        
         python = sys.executable
         script = os.path.abspath(sys.argv[0])
         

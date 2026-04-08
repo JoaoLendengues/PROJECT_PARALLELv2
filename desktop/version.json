@@ -1,5 +1,5 @@
 {
     "version": "1.0.0",
     "release_date": "2026-04-08",
-    "changelog": "Versão inicial do sistema\n- Módulo de Materiais\n- Módulo de Máquinas\n- Módulo de Manutenções\n- Módulo de Movimentações\n- Módulo de Pedidos\n- Módulo de Colaboradores\n- Módulo de Demandas\n- Módulo de Relatórios\n- Módulo de Usuários\n- Módulo de Parâmetros"
+    "changelog": "Versão inicial do sistema\n\nNovidades:\n- Módulo de Materiais\n- Módulo de Máquinas\n- Módulo de Manutenções\n- Módulo de Movimentações\n- Módulo de Pedidos\n- Módulo de Colaboradores\n- Módulo de Demandas\n- Módulo de Relatórios\n- Sistema de notificações"
 }
