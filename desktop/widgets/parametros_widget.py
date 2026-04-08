@@ -608,19 +608,18 @@ class ParametrosWidget(QWidget):
         """Verifica e exibe alertas do sistema com pop-ups"""
         try:
             alertas = []
-            alertas_lista = []  # Para a tabela
             parent = self.window()
             
             # Duração da notificação
             duracao_texto = self.tempo_notificacao.currentText()
             if "3 segundos" in duracao_texto:
-                duracao = 3000
+                duracao = 4000
             elif "5 segundos" in duracao_texto:
-                duracao = 5000
+                duracao = 6000
             elif "10 segundos" in duracao_texto:
                 duracao = 10000
             else:
-                duracao = 30000
+                duracao = 8000
             
             # Buscar materiais
             materiais = api_client.listar_materiais()
@@ -632,9 +631,8 @@ class ParametrosWidget(QWidget):
                     qtd = mat.get("quantidade", 0)
                     nome = mat.get("nome", "")
                     if qtd <= limite_baixo and qtd > 0:
-                        msg = f"📦 Estoque baixo: '{nome}' tem apenas {qtd} unidades"
+                        msg = f"📦 ESTOQUE BAIXO!\nMaterial: {nome}\nQuantidade disponível: {qtd} unidades"
                         alertas.append(("warning", msg, duracao))
-                        alertas_lista.append(("⚠️ Alerta", msg, "ativo"))
             
             # Verificar estoque crítico
             if self.notif_estoque_critico.isChecked():
@@ -643,55 +641,36 @@ class ParametrosWidget(QWidget):
                     qtd = mat.get("quantidade", 0)
                     nome = mat.get("nome", "")
                     if qtd <= limite_critico and qtd > 0:
-                        msg = f"🔴 Estoque crítico: '{nome}' tem apenas {qtd} unidades!"
+                        msg = f"🔴 ESTOQUE CRÍTICO!\nMaterial: {nome}\nQuantidade disponível: {qtd} unidades"
                         alertas.append(("error", msg, duracao))
-                        alertas_lista.append(("🔴 Crítico", msg, "ativo"))
             
             # Verificar manutenções pendentes
             if self.notif_manutencao.isChecked():
                 manutencoes = api_client.listar_manutencoes(status="pendente")
                 for man in manutencoes:
-                    msg = f"🔧 Manutenção pendente: {man.get('descricao', '')[:50]}"
+                    maquina = man.get('maquina_nome', 'Máquina')
+                    msg = f"🔧 MANUTENÇÃO PENDENTE!\nMáquina: {maquina}\nDescrição: {man.get('descricao', '')[:50]}"
                     alertas.append(("warning", msg, duracao))
-                    alertas_lista.append(("🔧 Manutenção", msg, "ativo"))
             
             # Verificar pedidos pendentes
             if self.notif_pedidos.isChecked():
                 pedidos = api_client.listar_pedidos(status="pendente")
                 for ped in pedidos:
-                    msg = f"📋 Pedido pendente: {ped.get('quantidade')} x {ped.get('material_nome', '')}"
+                    msg = f"📋 PEDIDO PENDENTE!\nMaterial: {ped.get('material_nome', '')}\nQuantidade: {ped.get('quantidade')}\nSolicitante: {ped.get('solicitante')}"
                     alertas.append(("info", msg, duracao))
-                    alertas_lista.append(("📋 Pedido", msg, "ativo"))
             
             # Verificar demandas abertas
             if self.notif_demandas.isChecked():
                 demandas = api_client.listar_demandas(status="aberto")
                 for dem in demandas:
                     prioridade = dem.get("prioridade", "media")
-                    icon = "🔥" if prioridade == "alta" else "⚠️" if prioridade == "media" else "📌"
-                    msg = f"{icon} Demanda: {dem.get('titulo', '')[:50]}"
-                    alertas.append(("warning" if prioridade == "alta" else "info", msg, duracao))
-                    alertas_lista.append((f"{icon} Demanda", msg, "ativo"))
+                    prioridade_texto = "ALTA" if prioridade == "alta" else "MÉDIA" if prioridade == "media" else "BAIXA"
+                    msg = f"🎫 DEMANDA {prioridade_texto}!\nTítulo: {dem.get('titulo', '')[:50]}\nSolicitante: {dem.get('solicitante')}"
+                    alertas.append(("error" if prioridade == "alta" else "warning", msg, duracao))
             
             # Exibir notificações pop-up (máximo 5 por vez)
             for alerta in alertas[:5]:
                 notification_manager.show(alerta[1], alerta[0], alerta[2], parent)
-            
-            # Atualizar tabela de alertas
-            self.lista_alertas.setRowCount(len(alertas_lista))
-            for row, (tipo, msg, status) in enumerate(alertas_lista):
-                self.lista_alertas.setItem(row, 0, QTableWidgetItem(tipo))
-                self.lista_alertas.setItem(row, 1, QTableWidgetItem(msg))
-                
-                status_item = QTableWidgetItem(status)
-                status_item.setForeground(QColor(231, 111, 81))
-                self.lista_alertas.setItem(row, 2, status_item)
-                
-                self.lista_alertas.setItem(row, 3, QTableWidgetItem(datetime.now().strftime("%d/%m/%Y %H:%M")))
-                
-                btn_resolver = QPushButton("Resolver")
-                btn_resolver.clicked.connect(lambda checked, r=row: self.resolver_alerta(r))
-                self.lista_alertas.setCellWidget(row, 4, btn_resolver)
             
             print(f"✅ {len(alertas)} alertas encontrados")
             
@@ -776,4 +755,3 @@ class ParametrosWidget(QWidget):
     def carregar_dados(self):
         self.carregar_configuracoes()
         self.carregar_info_servidor()
-        
