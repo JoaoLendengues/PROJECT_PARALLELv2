@@ -51,6 +51,7 @@ class ColaboradoresWidget(QWidget):
         self.tabela.setAlternatingRowColors(True)
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabela.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.tabela.verticalHeader().setVisible(False)
         
         # Estilo da tabela
         self.tabela.setStyleSheet("""

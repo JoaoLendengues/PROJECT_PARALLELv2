@@ -117,22 +117,33 @@ QLabel[class="page-title"] {
 }
 
 /* =====================================================
-   TABELAS - SEM BORDA EXTERNA
+   TABELAS - SEM CABEÇALHO VERTICAL
    ===================================================== */
 QTableWidget {
     background-color: #ffffff;
     alternate-background-color: #f8fafc;
-    gridline-color: #e2e8f0;
+    gridline-color: #f1f5f9;
     selection-background-color: #e6f0ff;
     selection-color: #1e293b;
     border: none;
     border-radius: 12px;
     padding: 4px;
+    outline: 0;
+}
+
+/* Remove o cabeçalho vertical (indicador de linha) */
+QTableWidget::verticalHeader {
+    width: 0px;
+    min-width: 0px;
+    max-width: 0px;
 }
 
 QTableWidget::item {
     padding: 10px 8px;
-    border-bottom: 1px solid #eef2f6;
+    border-bottom: 1px solid #f1f5f9;
+    border-right: none;
+    border-left: none;
+    border-top: none;
 }
 
 QTableWidget::item:selected {
@@ -149,9 +160,16 @@ QHeaderView::section {
     font-size: 13px;
 }
 
+/* Remove a célula do canto superior esquerdo */
 QTableCornerButton::section {
-    background-color: #f1f5f9;
+    background-color: transparent;
     border: none;
+    width: 0px;
+    height: 0px;
+}
+
+QTableWidget:focus {
+    outline: none;
 }
 
 /* =====================================================

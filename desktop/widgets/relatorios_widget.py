@@ -123,6 +123,7 @@ class RelatoriosWidget(QWidget):
         self.mov_tabela = QTableWidget()
         self.mov_tabela.setAlternatingRowColors(True)
         self.mov_tabela.setSelectionBehavior(QTableWidget.SelectRows)
+        self.mov_tabela.verticalHeader().setVisible(False)
         
         # Estilo da tabela
         self.mov_tabela.setStyleSheet("""
@@ -210,6 +211,7 @@ class RelatoriosWidget(QWidget):
         # Tabela com estilo melhorado
         self.est_tabela = QTableWidget()
         self.est_tabela.setAlternatingRowColors(True)
+        self.est_tabela.verticalHeader().setVisible(False)
         
         # Estilo da tabela
         self.est_tabela.setStyleSheet("""
@@ -303,6 +305,7 @@ class RelatoriosWidget(QWidget):
         # Tabela com estilo melhorado
         self.ped_tabela = QTableWidget()
         self.ped_tabela.setAlternatingRowColors(True)
+        self.ped_tabela.verticalHeader().setVisible(False)
         
         # Estilo da tabela
         self.ped_tabela.setStyleSheet("""
@@ -393,6 +396,7 @@ class RelatoriosWidget(QWidget):
         # Tabela com estilo melhorado
         self.dem_tabela = QTableWidget()
         self.dem_tabela.setAlternatingRowColors(True)
+        self.dem_tabela.verticalHeader().setVisible(False)
         
         # Estilo da tabela
         self.dem_tabela.setStyleSheet("""
