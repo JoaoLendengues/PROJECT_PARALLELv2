@@ -26,6 +26,7 @@ class ParametrosWidget(QWidget):
         self.carregar_info_servidor()
         self.carregar_alertas()
         self.configurar_timer_alertas()
+        notification_manager.set_parent(self)
     
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -605,12 +606,10 @@ class ParametrosWidget(QWidget):
         self.verificar_alertas()
     
     def verificar_alertas(self):
-        """Verifica e exibe alertas do sistema com pop-ups"""
+        """Verifica e exibe alertas do sistema - UMA POR VEZ"""
         try:
-            alertas = []
             parent = self.window()
             
-            # Duração da notificação
             duracao_texto = self.tempo_notificacao.currentText()
             if "3 segundos" in duracao_texto:
                 duracao = 4000
@@ -631,8 +630,9 @@ class ParametrosWidget(QWidget):
                     qtd = mat.get("quantidade", 0)
                     nome = mat.get("nome", "")
                     if qtd <= limite_baixo and qtd > 0:
-                        msg = f"📦 ESTOQUE BAIXO!\nMaterial: {nome}\nQuantidade disponível: {qtd} unidades"
-                        alertas.append(("warning", msg, duracao))
+                        msg = f"📦 ESTOQUE BAIXO!\n\nMaterial: {nome}\nQuantidade disponível: {qtd} unidades"
+                        notification_manager.show(msg, "warning", duracao, parent)
+                        return  # Exibe uma por vez
             
             # Verificar estoque crítico
             if self.notif_estoque_critico.isChecked():
@@ -641,23 +641,26 @@ class ParametrosWidget(QWidget):
                     qtd = mat.get("quantidade", 0)
                     nome = mat.get("nome", "")
                     if qtd <= limite_critico and qtd > 0:
-                        msg = f"🔴 ESTOQUE CRÍTICO!\nMaterial: {nome}\nQuantidade disponível: {qtd} unidades"
-                        alertas.append(("error", msg, duracao))
+                        msg = f"🔴 ESTOQUE CRÍTICO!\n\nMaterial: {nome}\nQuantidade disponível: {qtd} unidades"
+                        notification_manager.show(msg, "error", duracao, parent)
+                        return
             
             # Verificar manutenções pendentes
             if self.notif_manutencao.isChecked():
                 manutencoes = api_client.listar_manutencoes(status="pendente")
                 for man in manutencoes:
                     maquina = man.get('maquina_nome', 'Máquina')
-                    msg = f"🔧 MANUTENÇÃO PENDENTE!\nMáquina: {maquina}\nDescrição: {man.get('descricao', '')[:50]}"
-                    alertas.append(("warning", msg, duracao))
+                    msg = f"🔧 MANUTENÇÃO PENDENTE!\n\nMáquina: {maquina}\nDescrição: {man.get('descricao', '')[:50]}"
+                    notification_manager.show(msg, "warning", duracao, parent)
+                    return
             
             # Verificar pedidos pendentes
             if self.notif_pedidos.isChecked():
                 pedidos = api_client.listar_pedidos(status="pendente")
                 for ped in pedidos:
-                    msg = f"📋 PEDIDO PENDENTE!\nMaterial: {ped.get('material_nome', '')}\nQuantidade: {ped.get('quantidade')}\nSolicitante: {ped.get('solicitante')}"
-                    alertas.append(("info", msg, duracao))
+                    msg = f"📋 PEDIDO PENDENTE!\n\nMaterial: {ped.get('material_nome', '')}\nQuantidade: {ped.get('quantidade')}\nSolicitante: {ped.get('solicitante')}"
+                    notification_manager.show(msg, "info", duracao, parent)
+                    return
             
             # Verificar demandas abertas
             if self.notif_demandas.isChecked():
@@ -665,15 +668,12 @@ class ParametrosWidget(QWidget):
                 for dem in demandas:
                     prioridade = dem.get("prioridade", "media")
                     prioridade_texto = "ALTA" if prioridade == "alta" else "MÉDIA" if prioridade == "media" else "BAIXA"
-                    msg = f"🎫 DEMANDA {prioridade_texto}!\nTítulo: {dem.get('titulo', '')[:50]}\nSolicitante: {dem.get('solicitante')}"
-                    alertas.append(("error" if prioridade == "alta" else "warning", msg, duracao))
+                    msg = f"🎫 DEMANDA {prioridade_texto}!\n\nTítulo: {dem.get('titulo', '')[:50]}\nSolicitante: {dem.get('solicitante')}"
+                    notification_manager.show(msg, "error" if prioridade == "alta" else "warning", duracao, parent)
+                    return
             
-            # Exibir notificações pop-up (máximo 5 por vez)
-            for alerta in alertas[:5]:
-                notification_manager.show(alerta[1], alerta[0], alerta[2], parent)
-            
-            print(f"✅ {len(alertas)} alertas encontrados")
-            
+            print("✅ Nenhum alerta encontrado")
+        
         except Exception as e:
             print(f"❌ Erro ao verificar alertas: {e}")
     
