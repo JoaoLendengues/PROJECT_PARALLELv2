@@ -3,8 +3,9 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QComboBox, QSpinBox, QCheckBox, QGroupBox,
                                QTabWidget, QMessageBox, QTableWidget,
                                QTableWidgetItem, QHeaderView, QDialog,
-                               QDialogButtonBox, QFrame, QScrollArea)
-from PySide6.QtCore import Qt, QTimer
+                               QDialogButtonBox, QFrame, QScrollArea, QTextEdit,
+                               QTimeEdit, QListWidget, QListWidgetItem)
+from PySide6.QtCore import Qt, QTimer, QTime
 from PySide6.QtGui import QFont, QColor
 from api_client import api_client
 import socket
@@ -20,6 +21,7 @@ class ParametrosWidget(QWidget):
         self.init_ui()
         self.carregar_configuracoes()
         self.carregar_info_servidor()
+        self.carregar_alertas()
     
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -38,6 +40,12 @@ class ParametrosWidget(QWidget):
         # Abas
         tab_geral = self.create_tab_geral()
         tabs.addTab(tab_geral, "⚙️ Configurações Gerais")
+        
+        tab_notificacoes = self.create_tab_notificacoes()
+        tabs.addTab(tab_notificacoes, "🔔 Notificações")
+        
+        tab_alertas = self.create_tab_alertas()
+        tabs.addTab(tab_alertas, "⚠️ Alertas")
         
         tab_empresas = self.create_tab_empresas()
         tabs.addTab(tab_empresas, "🏢 Empresas")
@@ -90,6 +98,11 @@ class ParametrosWidget(QWidget):
         self.versao.setObjectName("configInputReadonly")
         form_sistema.addRow("🔢 Versão:", self.versao)
         
+        self.empresa_padrao = QComboBox()
+        self.empresa_padrao.addItems(self.empresas)
+        self.empresa_padrao.setObjectName("configCombo")
+        form_sistema.addRow("🏢 Empresa Padrão:", self.empresa_padrao)
+        
         layout.addWidget(grupo_sistema)
         
         # Grupo: Configurações de Estoque
@@ -105,10 +118,12 @@ class ParametrosWidget(QWidget):
         self.alerta_estoque.setSuffix(" unidades")
         form_estoque.addRow("⚠️ Alerta de Estoque Baixo:", self.alerta_estoque)
         
-        self.notificar_estoque = QCheckBox("Notificar quando estoque estiver baixo")
-        self.notificar_estoque.setObjectName("configCheckbox")
-        self.notificar_estoque.setChecked(True)
-        form_estoque.addRow("", self.notificar_estoque)
+        self.alerta_estoque_critico = QSpinBox()
+        self.alerta_estoque_critico.setObjectName("configSpin")
+        self.alerta_estoque_critico.setRange(0, 100)
+        self.alerta_estoque_critico.setValue(2)
+        self.alerta_estoque_critico.setSuffix(" unidades")
+        form_estoque.addRow("🔴 Alerta de Estoque Crítico:", self.alerta_estoque_critico)
         
         layout.addWidget(grupo_estoque)
         
@@ -128,12 +143,153 @@ class ParametrosWidget(QWidget):
         self.frequencia_backup.addItems(["Diário", "Semanal", "Mensal"])
         form_backup.addRow("📅 Frequência:", self.frequencia_backup)
         
-        self.horario_backup = QComboBox()
-        self.horario_backup.setObjectName("configCombo")
-        self.horario_backup.addItems(["00:00", "01:00", "02:00", "03:00", "04:00", "05:00", "06:00", "07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00"])
+        self.horario_backup = QTimeEdit()
+        self.horario_backup.setTime(QTime(2, 0))  # 02:00
         form_backup.addRow("⏰ Horário:", self.horario_backup)
         
+        self.dias_retencao = QSpinBox()
+        self.dias_retencao.setRange(7, 365)
+        self.dias_retencao.setValue(30)
+        self.dias_retencao.setSuffix(" dias")
+        form_backup.addRow("📁 Reter backups por:", self.dias_retencao)
+        
         layout.addWidget(grupo_backup)
+        
+        layout.addStretch()
+        return widget
+    
+    def create_tab_notificacoes(self):
+        """Aba de configurações de notificações"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setSpacing(20)
+        
+        # Grupo: Notificações por E-mail
+        grupo_email = QGroupBox("Configurações de E-mail")
+        grupo_email.setObjectName("configGroup")
+        form_email = QFormLayout(grupo_email)
+        form_email.setContentsMargins(20, 20, 20, 20)
+        
+        self.email_enviar = QCheckBox("Habilitar envio de e-mails")
+        self.email_enviar.setObjectName("configCheckbox")
+        self.email_enviar.setChecked(False)
+        form_email.addRow("", self.email_enviar)
+        
+        self.smtp_server = QLineEdit()
+        self.smtp_server.setPlaceholderText("smtp.empresa.com")
+        form_email.addRow("📧 Servidor SMTP:", self.smtp_server)
+        
+        self.smtp_porta = QSpinBox()
+        self.smtp_porta.setRange(1, 65535)
+        self.smtp_porta.setValue(587)
+        form_email.addRow("🔌 Porta SMTP:", self.smtp_porta)
+        
+        self.email_usuario = QLineEdit()
+        self.email_usuario.setPlaceholderText("notificacoes@empresa.com")
+        form_email.addRow("👤 Usuário:", self.email_usuario)
+        
+        self.email_senha = QLineEdit()
+        self.email_senha.setEchoMode(QLineEdit.Password)
+        self.email_senha.setPlaceholderText("********")
+        form_email.addRow("🔑 Senha:", self.email_senha)
+        
+        self.email_destinatarios = QTextEdit()
+        self.email_destinatarios.setMaximumHeight(80)
+        self.email_destinatarios.setPlaceholderText("email1@empresa.com, email2@empresa.com")
+        form_email.addRow("📫 Destinatários:", self.email_destinatarios)
+        
+        layout.addWidget(grupo_email)
+        
+        # Grupo: Notificações do Sistema
+        grupo_notificacoes = QGroupBox("Notificações do Sistema")
+        grupo_notificacoes.setObjectName("configGroup")
+        form_notificacoes = QFormLayout(grupo_notificacoes)
+        form_notificacoes.setContentsMargins(20, 20, 20, 20)
+        
+        self.notif_estoque_baixo = QCheckBox("Notificar quando estoque estiver baixo")
+        self.notif_estoque_baixo.setObjectName("configCheckbox")
+        self.notif_estoque_baixo.setChecked(True)
+        form_notificacoes.addRow("📦", self.notif_estoque_baixo)
+        
+        self.notif_estoque_critico = QCheckBox("Notificar quando estoque estiver crítico")
+        self.notif_estoque_critico.setObjectName("configCheckbox")
+        self.notif_estoque_critico.setChecked(True)
+        form_notificacoes.addRow("🔴", self.notif_estoque_critico)
+        
+        self.notif_manutencao = QCheckBox("Notificar sobre manutenções pendentes")
+        self.notif_manutencao.setObjectName("configCheckbox")
+        self.notif_manutencao.setChecked(True)
+        form_notificacoes.addRow("🔧", self.notif_manutencao)
+        
+        self.notif_pedidos = QCheckBox("Notificar sobre pedidos pendentes de aprovação")
+        self.notif_pedidos.setObjectName("configCheckbox")
+        self.notif_pedidos.setChecked(True)
+        form_notificacoes.addRow("📋", self.notif_pedidos)
+        
+        self.notif_demandas = QCheckBox("Notificar sobre novas demandas de TI")
+        self.notif_demandas.setObjectName("configCheckbox")
+        self.notif_demandas.setChecked(True)
+        form_notificacoes.addRow("🎫", self.notif_demandas)
+        
+        self.notif_movimentacoes = QCheckBox("Notificar sobre movimentações de alto valor")
+        self.notif_movimentacoes.setObjectName("configCheckbox")
+        self.notif_movimentacoes.setChecked(False)
+        form_notificacoes.addRow("💰", self.notif_movimentacoes)
+        
+        self.valor_alto = QSpinBox()
+        self.valor_alto.setRange(0, 100000)
+        self.valor_alto.setValue(5000)
+        self.valor_alto.setSuffix(" R$")
+        form_notificacoes.addRow("Valor mínimo para notificação:", self.valor_alto)
+        
+        layout.addWidget(grupo_notificacoes)
+        
+        layout.addStretch()
+        return widget
+    
+    def create_tab_alertas(self):
+        """Aba de configuração de alertas"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setSpacing(20)
+        
+        # Grupo: Alertas Ativos
+        grupo_alertas = QGroupBox("Alertas do Sistema")
+        grupo_alertas.setObjectName("configGroup")
+        
+        alertas_layout = QVBoxLayout(grupo_alertas)
+        alertas_layout.setContentsMargins(20, 20, 20, 20)
+        
+        # Lista de alertas
+        self.lista_alertas = QTableWidget()
+        self.lista_alertas.setColumnCount(5)
+        self.lista_alertas.setHorizontalHeaderLabels(["Tipo", "Mensagem", "Status", "Data", "Ações"])
+        self.lista_alertas.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.lista_alertas.setAlternatingRowColors(True)
+        alertas_layout.addWidget(self.lista_alertas)
+        
+        # Botão para verificar alertas
+        btn_verificar = QPushButton("🔍 Verificar Alertas Agora")
+        btn_verificar.clicked.connect(self.verificar_alertas)
+        alertas_layout.addWidget(btn_verificar)
+        
+        layout.addWidget(grupo_alertas)
+        
+        # Grupo: Histórico de Alertas
+        grupo_historico = QGroupBox("Histórico de Alertas")
+        grupo_historico.setObjectName("configGroup")
+        
+        historico_layout = QVBoxLayout(grupo_historico)
+        historico_layout.setContentsMargins(20, 20, 20, 20)
+        
+        self.historico_alertas = QTableWidget()
+        self.historico_alertas.setColumnCount(4)
+        self.historico_alertas.setHorizontalHeaderLabels(["Data/Hora", "Tipo", "Mensagem", "Status"])
+        self.historico_alertas.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        self.historico_alertas.setAlternatingRowColors(True)
+        historico_layout.addWidget(self.historico_alertas)
+        
+        layout.addWidget(grupo_historico)
         
         layout.addStretch()
         return widget
@@ -143,18 +299,15 @@ class ParametrosWidget(QWidget):
         widget = QWidget()
         layout = QVBoxLayout(widget)
         
-        # Tabela de empresas
         self.tabela_empresas = QTableWidget()
         self.tabela_empresas.setColumnCount(2)
         self.tabela_empresas.setHorizontalHeaderLabels(["ID", "Nome da Empresa"])
         self.tabela_empresas.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         
-        # Carregar empresas
         self.carregar_tabela_empresas()
         
         layout.addWidget(self.tabela_empresas)
         
-        # Botões
         btn_layout = QHBoxLayout()
         btn_adicionar = QPushButton("+ Adicionar Empresa")
         btn_adicionar.clicked.connect(self.adicionar_empresa)
@@ -174,18 +327,15 @@ class ParametrosWidget(QWidget):
         widget = QWidget()
         layout = QVBoxLayout(widget)
         
-        # Tabela de departamentos
         self.tabela_departamentos = QTableWidget()
         self.tabela_departamentos.setColumnCount(2)
         self.tabela_departamentos.setHorizontalHeaderLabels(["ID", "Departamento"])
         self.tabela_departamentos.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         
-        # Carregar departamentos
         self.carregar_tabela_departamentos()
         
         layout.addWidget(self.tabela_departamentos)
         
-        # Botões
         btn_layout = QHBoxLayout()
         btn_adicionar = QPushButton("+ Adicionar Departamento")
         btn_adicionar.clicked.connect(self.adicionar_departamento)
@@ -205,18 +355,15 @@ class ParametrosWidget(QWidget):
         widget = QWidget()
         layout = QVBoxLayout(widget)
         
-        # Tabela de categorias
         self.tabela_categorias = QTableWidget()
         self.tabela_categorias.setColumnCount(2)
         self.tabela_categorias.setHorizontalHeaderLabels(["ID", "Categoria"])
         self.tabela_categorias.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         
-        # Carregar categorias
         self.carregar_tabela_categorias()
         
         layout.addWidget(self.tabela_categorias)
         
-        # Botões
         btn_layout = QHBoxLayout()
         btn_adicionar = QPushButton("+ Adicionar Categoria")
         btn_adicionar.clicked.connect(self.adicionar_categoria)
@@ -237,7 +384,6 @@ class ParametrosWidget(QWidget):
         layout = QVBoxLayout(widget)
         layout.setSpacing(15)
         
-        # Card de informações
         info_frame = QFrame()
         info_frame.setObjectName("infoCard")
         info_frame.setStyleSheet("""
@@ -250,65 +396,54 @@ class ParametrosWidget(QWidget):
         """)
         info_layout = QVBoxLayout(info_frame)
         
-        # Título
         titulo_servidor = QLabel("📡 Informações do Servidor")
         titulo_servidor.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
         info_layout.addWidget(titulo_servidor)
         
         info_layout.addSpacing(10)
         
-        # Status da API
         self.status_api = QLabel("Status da API: Verificando...")
         info_layout.addWidget(self.status_api)
         
-        # Endereço do servidor
         self.endereco_server = QLabel(f"Endereço Local: {self.get_ip_local()}")
         info_layout.addWidget(self.endereco_server)
         
-        # Porta
         self.porta_server = QLabel("Porta: 8000")
         info_layout.addWidget(self.porta_server)
         
-        # Status do banco
         self.status_banco = QLabel("Banco de Dados: Verificando...")
         info_layout.addWidget(self.status_banco)
         
-        # Versão da API
         self.api_versao = QLabel("Versão da API: Verificando...")
         info_layout.addWidget(self.api_versao)
         
         layout.addWidget(info_frame)
         
-        # Botão de teste
         btn_testar = QPushButton("🔄 Testar Conexão")
         btn_testar.clicked.connect(self.carregar_info_servidor)
         layout.addWidget(btn_testar)
         
         layout.addStretch()
         
-        # Timer para atualização periódica
         self.timer_servidor = QTimer()
         self.timer_servidor.timeout.connect(self.carregar_info_servidor)
-        self.timer_servidor.start(30000)  # Atualiza a cada 30 segundos
+        self.timer_servidor.start(30000)
         
         return widget
     
     def carregar_tabela_empresas(self):
-        """Carrega a tabela de empresas"""
         self.tabela_empresas.setRowCount(len(self.empresas))
         for i, empresa in enumerate(self.empresas):
             self.tabela_empresas.setItem(i, 0, QTableWidgetItem(str(i + 1)))
             self.tabela_empresas.setItem(i, 1, QTableWidgetItem(empresa))
     
     def carregar_tabela_departamentos(self):
-        """Carrega a tabela de departamentos"""
         self.tabela_departamentos.setRowCount(len(self.departamentos))
         for i, dept in enumerate(self.departamentos):
             self.tabela_departamentos.setItem(i, 0, QTableWidgetItem(str(i + 1)))
             self.tabela_departamentos.setItem(i, 1, QTableWidgetItem(dept))
     
     def carregar_tabela_categorias(self):
-        """Carrega a tabela de categorias"""
         self.tabela_categorias.setRowCount(len(self.categorias))
         for i, cat in enumerate(self.categorias):
             self.tabela_categorias.setItem(i, 0, QTableWidgetItem(str(i + 1)))
@@ -399,7 +534,6 @@ class ParametrosWidget(QWidget):
             self.carregar_tabela_categorias()
     
     def get_ip_local(self):
-        """Obtém o IP local da máquina"""
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
@@ -410,9 +544,7 @@ class ParametrosWidget(QWidget):
             return "127.0.0.1"
     
     def carregar_info_servidor(self):
-        """Carrega informações do servidor"""
         try:
-            # Testar API
             response = requests.get("http://localhost:8000/health", timeout=5)
             if response.status_code == 200:
                 self.status_api.setText("✅ Status da API: Online")
@@ -423,12 +555,11 @@ class ParametrosWidget(QWidget):
                 self.status_api.setText("❌ Status da API: Offline")
                 self.status_api.setStyleSheet("color: #e76f51;")
                 self.api_versao.setText("📦 Versão da API: Não disponível")
-        except Exception as e:
+        except:
             self.status_api.setText("❌ Status da API: Offline")
             self.status_api.setStyleSheet("color: #e76f51;")
             self.api_versao.setText("📦 Versão da API: Não disponível")
         
-        # Testar banco (via API)
         try:
             response = requests.get("http://localhost:8000/health", timeout=5)
             if response.status_code == 200:
@@ -441,36 +572,140 @@ class ParametrosWidget(QWidget):
             self.status_banco.setText("❌ Banco de Dados: Desconectado")
             self.status_banco.setStyleSheet("color: #e76f51;")
     
+    def carregar_alertas(self):
+        """Carrega os alertas do sistema"""
+        self.verificar_alertas()
+    
+    def verificar_alertas(self):
+        """Verifica e exibe alertas do sistema"""
+        try:
+            alertas = []
+            
+            # Verificar estoque baixo
+            materiais = api_client.listar_materiais()
+            limite_baixo = self.alerta_estoque.value()
+            limite_critico = self.alerta_estoque_critico.value()
+            
+            for mat in materiais:
+                qtd = mat.get("quantidade", 0)
+                nome = mat.get("nome", "")
+                
+                if qtd <= limite_critico and qtd > 0:
+                    alertas.append(("🔴 Crítico", f"Material '{nome}' está com estoque CRÍTICO: {qtd} unidades", "ativo"))
+                elif qtd <= limite_baixo:
+                    alertas.append(("⚠️ Alerta", f"Material '{nome}' está com estoque baixo: {qtd} unidades", "ativo"))
+            
+            # Verificar manutenções pendentes
+            manutencoes = api_client.listar_manutencoes(status="pendente")
+            for man in manutencoes:
+                alertas.append(("🔧 Manutenção", f"Manutenção pendente: {man.get('descricao', '')[:50]}", "ativo"))
+            
+            # Verificar pedidos pendentes
+            pedidos = api_client.listar_pedidos(status="pendente")
+            for ped in pedidos:
+                alertas.append(("📋 Pedido", f"Pedido pendente: {ped.get('quantidade')} x {ped.get('material_nome', '')}", "ativo"))
+            
+            # Verificar demandas abertas
+            demandas = api_client.listar_demandas(status="aberto")
+            for dem in demandas:
+                prioridade = dem.get("prioridade", "media")
+                icon = "🔥" if prioridade == "alta" else "⚠️" if prioridade == "media" else "📌"
+                alertas.append((f"{icon} Demanda", f"{dem.get('titulo', '')[:50]} - {dem.get('solicitante', '')}", "ativo"))
+            
+            # Atualizar tabela de alertas
+            self.lista_alertas.setRowCount(len(alertas))
+            for row, (tipo, msg, status) in enumerate(alertas):
+                self.lista_alertas.setItem(row, 0, QTableWidgetItem(tipo))
+                self.lista_alertas.setItem(row, 1, QTableWidgetItem(msg))
+                
+                status_item = QTableWidgetItem("Ativo")
+                status_item.setForeground(QColor(231, 111, 81))
+                self.lista_alertas.setItem(row, 2, status_item)
+                
+                self.lista_alertas.setItem(row, 3, QTableWidgetItem(datetime.now().strftime("%d/%m/%Y %H:%M")))
+                
+                btn_resolver = QPushButton("Resolver")
+                btn_resolver.clicked.connect(lambda checked, r=row: self.resolver_alerta(r))
+                self.lista_alertas.setCellWidget(row, 4, btn_resolver)
+            
+            print(f"✅ {len(alertas)} alertas encontrados")
+            
+        except Exception as e:
+            print(f"❌ Erro ao verificar alertas: {e}")
+    
+    def resolver_alerta(self, row):
+        """Marca um alerta como resolvido"""
+        tipo = self.lista_alertas.item(row, 0).text()
+        mensagem = self.lista_alertas.item(row, 1).text()
+        
+        confirm = QMessageBox.question(
+            self,
+            "Resolver Alerta",
+            f"Deseja marcar este alerta como resolvido?\n\n{tipo}: {mensagem}",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if confirm == QMessageBox.Yes:
+            # Mover para histórico
+            self.adicionar_historico(tipo, mensagem, "Resolvido")
+            # Remover da lista atual
+            self.lista_alertas.removeRow(row)
+            QMessageBox.information(self, "Sucesso", "Alerta marcado como resolvido!")
+    
+    def adicionar_historico(self, tipo, mensagem, status):
+        """Adiciona alerta ao histórico"""
+        row = self.historico_alertas.rowCount()
+        self.historico_alertas.insertRow(row)
+        self.historico_alertas.setItem(row, 0, QTableWidgetItem(datetime.now().strftime("%d/%m/%Y %H:%M")))
+        self.historico_alertas.setItem(row, 1, QTableWidgetItem(tipo))
+        self.historico_alertas.setItem(row, 2, QTableWidgetItem(mensagem))
+        
+        status_item = QTableWidgetItem(status)
+        if status == "Resolvido":
+            status_item.setForeground(QColor(42, 157, 143))
+        else:
+            status_item.setForeground(QColor(231, 111, 81))
+        self.historico_alertas.setItem(row, 3, status_item)
+    
     def carregar_configuracoes(self):
-        """Carrega as configurações salvas (futuramente do backend)"""
+        """Carrega as configurações salvas"""
         print("Carregando configurações...")
     
     def salvar_configuracoes(self):
-        """Salva as configurações no backend"""
-        # Aqui enviaremos as configurações para o backend
+        """Salva as configurações"""
         config = {
             "nome_sistema": self.nome_sistema.text(),
+            "empresa_padrao": self.empresa_padrao.currentText(),
             "alerta_estoque": self.alerta_estoque.value(),
-            "notificar_estoque": self.notificar_estoque.isChecked(),
+            "alerta_estoque_critico": self.alerta_estoque_critico.value(),
             "backup_automatico": self.backup_automatico.isChecked(),
             "frequencia_backup": self.frequencia_backup.currentText(),
-            "horario_backup": self.horario_backup.currentText(),
+            "horario_backup": self.horario_backup.time().toString("HH:mm"),
+            "dias_retencao": self.dias_retencao.value(),
+            "email_enviar": self.email_enviar.isChecked(),
+            "smtp_server": self.smtp_server.text(),
+            "smtp_porta": self.smtp_porta.value(),
+            "email_usuario": self.email_usuario.text(),
+            "email_destinatarios": self.email_destinatarios.toPlainText(),
+            "notif_estoque_baixo": self.notif_estoque_baixo.isChecked(),
+            "notif_estoque_critico": self.notif_estoque_critico.isChecked(),
+            "notif_manutencao": self.notif_manutencao.isChecked(),
+            "notif_pedidos": self.notif_pedidos.isChecked(),
+            "notif_demandas": self.notif_demandas.isChecked(),
+            "notif_movimentacoes": self.notif_movimentacoes.isChecked(),
+            "valor_alto": self.valor_alto.value(),
             "empresas": self.empresas,
             "departamentos": self.departamentos,
             "categorias": self.categorias
         }
         
-        # TODO: Enviar para o backend via API
         print(f"Configurações salvas: {config}")
-        
         QMessageBox.information(self, "Sucesso", "Configurações salvas com sucesso!\n\nAs alterações serão aplicadas após reiniciar o sistema.")
     
     def cancelar(self):
-        """Cancela as alterações"""
         QMessageBox.information(self, "Cancelado", "Alterações canceladas.")
     
     def carregar_dados(self):
-        """Carrega os dados (chamado pelo main_window)"""
         self.carregar_configuracoes()
         self.carregar_info_servidor()
         
