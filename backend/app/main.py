@@ -2,12 +2,14 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
-from app.database import engine, Base, get_db, test_connection
+from app.database import engine, Base, get_db, test_connection, get_pool_status
 from app.routers import (materiais, maquinas, manutencoes, movimentacoes, pedidos,
                          auth, usuarios_sistema, colaboradores, dashboard, demandas)
 from sqlalchemy import text
 from datetime import datetime
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+import psutil
+import os
 
 # Criar as tabelas no banco (se não existirem)
 print("📦 Criando/verificando tabelas no banco de dados...")
@@ -21,10 +23,10 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Configurar CORS para permitir múltiplos clientes
+# Configurar CORS para múltiplos clientes
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Em produção, especifique os IPs
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -58,10 +60,12 @@ def health_check(db: Session = Depends(get_db)):
     """Verifica a saúde da aplicação e conexão com o banco"""
     try:
         db.execute(text("SELECT 1"))
+        pool_status = get_pool_status()
         return {
             "status": "healthy",
             "database": "connected",
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
+            "pool_status": pool_status
         }
     except Exception as e:
         return {
@@ -69,6 +73,31 @@ def health_check(db: Session = Depends(get_db)):
             "database": "disconnected",
             "error": str(e)
         }
+
+@app.get("/status")
+def system_status():
+    """Retorna status detalhado do sistema para monitoramento"""
+    try:
+        cpu_percent = psutil.cpu_percent(interval=1)
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        
+        pool_status = get_pool_status()
+        
+        return {
+            "server": {
+                "cpu_percent": cpu_percent,
+                "memory_percent": memory.percent,
+                "memory_used_gb": memory.used // (1024**3),
+                "memory_total_gb": memory.total // (1024**3),
+                "disk_percent": disk.percent,
+                "disk_free_gb": disk.free // (1024**3)
+            },
+            "database_pool": pool_status,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.get("/test-db")
 def test_database():
@@ -153,35 +182,35 @@ def login_page():
         </div>
 
         <script>
-            function fazerLogin() {
-                var codigo = document.getElementById('codigo').value;
-                var senha = document.getElementById('senha').value;
-                var resultDiv = document.getElementById('result');
+            async function fazerLogin() {
+                const codigo = document.getElementById('codigo').value;
+                const senha = document.getElementById('senha').value;
+                const resultDiv = document.getElementById('result');
                 
                 resultDiv.innerHTML = '🔄 Carregando...';
                 
-                var xhr = new XMLHttpRequest();
-                xhr.open('POST', '/api/auth/login', true);
-                xhr.setRequestHeader('Content-Type', 'application/json');
-                
-                xhr.onload = function() {
-                    if (xhr.status === 200) {
-                        var data = JSON.parse(xhr.responseText);
-                        resultDiv.innerHTML = '<span class="success">✅ Login realizado!</span><br><br>' +
-                            '<strong>Token:</strong><br>' +
-                            '<code>' + data.access_token + '</code><br><br>' +
-                            '<a href="/docs" target="_blank">📚 Abrir Swagger</a>';
+                try {
+                    const response = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({codigo: codigo, senha: senha})
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        resultDiv.innerHTML = `
+                            ✅ <strong>Login realizado!</strong><br><br>
+                            📋 <strong>Token:</strong><br>
+                            <code>${data.access_token}</code><br><br>
+                            🔗 <a href="/docs?token=${data.access_token}" target="_blank">Abrir Swagger com Token</a>
+                        `;
                     } else {
-                        var data = JSON.parse(xhr.responseText);
-                        resultDiv.innerHTML = '<span class="error">❌ Erro: ' + (data.detail || 'Login inválido') + '</span>';
+                        resultDiv.innerHTML = `❌ Erro: ${data.detail || 'Login inválido'}`;
                     }
-                };
-                
-                xhr.onerror = function() {
-                    resultDiv.innerHTML = '<span class="error">❌ Erro de conexão com o servidor</span>';
-                };
-                
-                xhr.send(JSON.stringify({codigo: codigo, senha: senha}));
+                } catch (error) {
+                    resultDiv.innerHTML = `❌ Erro de conexão: ${error.message}`;
+                }
             }
         </script>
     </body>

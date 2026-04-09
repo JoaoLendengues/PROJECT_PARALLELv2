@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import QueuePool
 import os
 from dotenv import load_dotenv
 
@@ -8,17 +9,31 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/project_parallel")
 
-# Configuração para PRODUÇÃO - Pool de conexões otimizado
+# Configuração para ALTA PERFORMANCE - 200 usuários
 engine = create_engine(
     DATABASE_URL,
-    pool_size=20,           # Número de conexões mantidas no pool
-    max_overflow=10,        # Conexões extras quando todas estão em uso
-    pool_pre_ping=True,     # Verifica se a conexão está ativa antes de usar
-    pool_recycle=3600,      # Reconecta após 1 hora
-    echo=False              # Não mostrar SQLs (melhor performance)
+    poolclass=QueuePool,
+    pool_size=50,               # Conexões mantidas no pool
+    max_overflow=100,           # Conexões extras (total máximo: 150)
+    pool_pre_ping=True,         # Verifica conexão antes de usar
+    pool_recycle=3600,          # Reconecta após 1 hora
+    pool_timeout=30,            # Timeout para conseguir conexão
+    echo=False,
+    connect_args={
+        "connect_timeout": 10,
+        "keepalives": 1,
+        "keepalives_idle": 30,
+        "keepalives_interval": 10,
+        "keepalives_count": 5
+    }
 )
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(
+    autocommit=False, 
+    autoflush=False, 
+    bind=engine,
+    expire_on_commit=False
+)
 
 Base = declarative_base()
 
@@ -43,4 +58,13 @@ def test_connection():
     except Exception as e:
         print(f"❌ Erro na conexão: {e}")
         return False
-    
+
+def get_pool_status():
+    """Retorna status do pool de conexões"""
+    return {
+        "pool_size": engine.pool.size(),
+        "checked_in": engine.pool.checkedin(),
+        "checked_out": engine.pool.checkedout(),
+        "overflow": engine.pool.overflow(),
+        "total": engine.pool.total()
+    }
