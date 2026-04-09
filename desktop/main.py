@@ -74,11 +74,77 @@ def main():
     _app = QApplication(sys.argv)
     _app.setStyle('Fusion')
     
-    # Carregar estilo
+    # Estilo global forte para todos os combobox
+    global_style = """
+        /* Força estilo para TODOS os combobox */
+        QComboBox {
+            background-color: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 6px 10px;
+            color: #1e293b;
+            font-size: 13px;
+            min-height: 30px;
+        }
+        
+        QComboBox::drop-down {
+            border: none;
+            width: 20px;
+        }
+        
+        QComboBox::down-arrow {
+            image: none;
+        }
+        
+        QComboBox QAbstractItemView {
+            background-color: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 4px;
+        }
+        
+        QComboBox QAbstractItemView::item {
+            padding: 6px 10px;
+            border: none;
+            color: #1e293b;
+        }
+        
+        QComboBox QAbstractItemView::item:selected {
+            background-color: #e6f0ff;
+        }
+        
+        QComboBox QAbstractItemView::item:hover {
+            background-color: #f1f5f9;
+        }
+        
+        /* Força estilo para QDateEdit */
+        QDateEdit {
+            background-color: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 6px 10px;
+            color: #1e293b;
+            min-height: 30px;
+        }
+        
+        QDateEdit::drop-down {
+            border: none;
+            width: 20px;
+        }
+        
+        QDateEdit::down-arrow {
+            image: none;
+        }
+    """
+    
+    # Carregar estilo do arquivo
     style_path = os.path.join(os.path.dirname(__file__), 'styles', 'style.qss')
     if os.path.exists(style_path):
         with open(style_path, 'r', encoding='utf-8') as f:
-            _app.setStyleSheet(f.read())
+            base_style = f.read()
+        _app.setStyleSheet(base_style + global_style)
+    else:
+        _app.setStyleSheet(global_style)
     
     # Mostrar tela de login
     show_login()

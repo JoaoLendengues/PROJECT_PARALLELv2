@@ -50,12 +50,14 @@ class MateriaisWidget(QWidget):
         self.pesquisa_edit.textChanged.connect(self.filtrar_materiais)
         filtros.addWidget(self.pesquisa_edit)
         
-        self.categoria_filter = QComboBox()
+        from widgets.custom_combobox import CustomComboBox
+        self.categoria_filter = CustomComboBox()
         self.categoria_filter.addItem("Todas as categorias")
         self.categoria_filter.currentTextChanged.connect(self.filtrar_materiais)
         filtros.addWidget(self.categoria_filter)
         
-        self.status_filter = QComboBox()
+        from widgets.custom_combobox import CustomComboBox
+        self.status_filter = CustomComboBox()
         self.status_filter.addItems(["Todos", "Ativo", "Inativo", "Descontinuado"])
         self.status_filter.setProperty("class", "filter-combo")
         self.status_filter.currentTextChanged.connect(self.filtrar_materiais)
