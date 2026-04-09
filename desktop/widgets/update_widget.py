@@ -7,6 +7,7 @@ import sys
 import os
 import subprocess
 from updater import UpdateChecker, UpdateDownloader, UpdateInstaller
+from version import CURRENT_VERSION
 
 
 class UpdateWidget(QWidget):
