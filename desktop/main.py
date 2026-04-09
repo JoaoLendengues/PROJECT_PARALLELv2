@@ -72,7 +72,7 @@ def main():
     global _app
     
     _app = QApplication(sys.argv)
-    _app.setStyle('Fusion')
+    _app.setStyle('Windows')
     
     # Estilo global forte para todos os combobox
     global_style = """

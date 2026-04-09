@@ -50,22 +50,117 @@ class MateriaisWidget(QWidget):
         self.pesquisa_edit.textChanged.connect(self.filtrar_materiais)
         filtros.addWidget(self.pesquisa_edit)
         
-        from widgets.custom_combobox import CustomComboBox
-        self.categoria_filter = CustomComboBox()
+        # Filtro Categoria
+        self.categoria_filter = QComboBox()
+        self.categoria_filter.setStyleSheet("""
+            QComboBox {
+                background-color: #ffffff;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                padding: 6px 12px;
+                color: #1e293b;
+                font-size: 13px;
+                min-width: 130px;
+                min-height: 34px;
+                outline: none;
+            }
+            QComboBox:focus {
+                outline: none;
+                border: 1px solid #cbd5e1;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 25px;
+                background: transparent;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border: none;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #ffffff;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                padding: 4px;
+                outline: none;
+            }
+            QComboBox QAbstractItemView::item {
+                padding: 8px 12px;
+                border: none;
+                color: #1e293b;
+                outline: none;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                background-color: #e6f0ff;
+                color: #1e293b;
+                border: none;
+            }
+            QComboBox QAbstractItemView::item:hover {
+                background-color: #f1f5f9;
+                border: none;
+            }
+        """)
         self.categoria_filter.addItem("Todas as categorias")
         self.categoria_filter.currentTextChanged.connect(self.filtrar_materiais)
         filtros.addWidget(self.categoria_filter)
         
-        from widgets.custom_combobox import CustomComboBox
-        self.status_filter = CustomComboBox()
+        # Filtro Status
+        self.status_filter = QComboBox()
+        self.status_filter.setStyleSheet("""
+            QComboBox {
+                background-color: #ffffff;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                padding: 6px 12px;
+                color: #1e293b;
+                font-size: 13px;
+                min-width: 130px;
+                min-height: 34px;
+                outline: none;
+            }
+            QComboBox:focus {
+                outline: none;
+                border: 1px solid #cbd5e1;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 25px;
+                background: transparent;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border: none;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #ffffff;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                padding: 4px;
+                outline: none;
+            }
+            QComboBox QAbstractItemView::item {
+                padding: 8px 12px;
+                border: none;
+                color: #1e293b;
+                outline: none;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                background-color: #e6f0ff;
+                color: #1e293b;
+                border: none;
+            }
+            QComboBox QAbstractItemView::item:hover {
+                background-color: #f1f5f9;
+                border: none;
+            }
+        """)
         self.status_filter.addItems(["Todos", "Ativo", "Inativo", "Descontinuado"])
-        self.status_filter.setProperty("class", "filter-combo")
         self.status_filter.currentTextChanged.connect(self.filtrar_materiais)
         filtros.addWidget(self.status_filter)
         
         layout.addLayout(filtros)
         
-        # Tabela de materiais com estilo melhorado
+        # Tabela de materiais
         self.tabela = QTableWidget()
         self.tabela.setAlternatingRowColors(True)
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
@@ -215,7 +310,7 @@ class MateriaisWidget(QWidget):
                 QMessageBox.critical(self, "Erro", f"Erro ao deletar: {e}")
 
 
-# CLASSE DO DIALOG - SEPARADA E CORRETA COM ESTILO MELHORADO
+# CLASSE DO DIALOG
 class MaterialDialog(QDialog):
     def __init__(self, item_data=None, parent=None):
         super().__init__(parent)
@@ -259,19 +354,122 @@ class MaterialDialog(QDialog):
         form_layout.addRow("Quantidade:", self.quantidade_spin)
         
         self.categoria_combo = QComboBox()
+        self.categoria_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #ffffff;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                padding: 6px 12px;
+                color: #1e293b;
+                min-height: 34px;
+                outline: none;
+            }
+            QComboBox:focus {
+                outline: none;
+                border: 1px solid #cbd5e1;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 25px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #ffffff;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+            }
+            QComboBox QAbstractItemView::item {
+                padding: 8px 12px;
+                border: none;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                background-color: #e6f0ff;
+                border: none;
+            }
+        """)
         self.categoria_combo.setEditable(True)
         self.carregar_categorias()
         form_layout.addRow("Categoria:", self.categoria_combo)
         
         self.empresa_combo = QComboBox()
+        self.empresa_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #ffffff;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                padding: 6px 12px;
+                color: #1e293b;
+                min-height: 34px;
+                outline: none;
+            }
+            QComboBox:focus {
+                outline: none;
+                border: 1px solid #cbd5e1;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 25px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #ffffff;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+            }
+            QComboBox QAbstractItemView::item {
+                padding: 8px 12px;
+                border: none;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                background-color: #e6f0ff;
+                border: none;
+            }
+        """)
         self.empresa_combo.addItems(["Matriz", "Filial 1", "Filial 2", "Filial 3"])
-        self.empresa_combo.setProperty("class", "filter-combo")
         self.empresa_combo.setEditable(True)
         form_layout.addRow("Empresa:", self.empresa_combo)
         
         self.status_combo = QComboBox()
+        self.status_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #ffffff;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                padding: 6px 12px;
+                color: #1e293b;
+                min-height: 34px;
+                outline: none;
+            }
+            QComboBox:focus {
+                outline: none;
+                border: 1px solid #cbd5e1;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 25px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #ffffff;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+            }
+            QComboBox QAbstractItemView::item {
+                padding: 8px 12px;
+                border: none;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                background-color: #e6f0ff;
+                border: none;
+            }
+        """)
         self.status_combo.addItems(["ativo", "inativo", "descontinuado"])
-        self.status_combo.setProperty("class", "filter-combo")
         form_layout.addRow("Status:", self.status_combo)
         
         layout.addLayout(form_layout)
@@ -300,7 +498,6 @@ class MaterialDialog(QDialog):
             print(f"Erro ao carregar categorias: {e}")
     
     def carregar_dados_edicao(self):
-        """Carrega os dados do item para edição"""
         if self.dados_item is None:
             return
         
@@ -343,7 +540,6 @@ class MaterialDialog(QDialog):
     
         try:
             if self.dados_item:
-                # Atualizar
                 response = api_client.atualizar_material(self.dados_item["id"], dados)
                 if response and response.get("id"):
                     QMessageBox.information(self, "Sucesso", "Material atualizado com sucesso!")
@@ -351,7 +547,6 @@ class MaterialDialog(QDialog):
                 else:
                     QMessageBox.warning(self, "Erro", "Erro ao atualizar material")
             else:
-                # Criar
                 response = api_client.criar_material(dados)
                 if response:
                     QMessageBox.information(self, "Sucesso", "Material criado com sucesso!")
