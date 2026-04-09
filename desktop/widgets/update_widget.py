@@ -81,7 +81,7 @@ class UpdateWidget(QWidget):
         self.status_label.setText("Verificando...")
         self.check_btn.setEnabled(False)
         
-        self.checker = UpdateChecker(self.current_version)
+        self.checker = UpdateChecker()
         
         # Conectar os sinais
         self.checker.update_available.connect(self.on_update_available)
