@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from app.database import engine, Base, get_db, test_connection
@@ -20,7 +21,16 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Configurar segurança para o Swagger
+# Configurar CORS para permitir múltiplos clientes
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Em produção, especifique os IPs
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Configurar segurança
 security = HTTPBearer()
 
 # Incluir routers
@@ -35,7 +45,6 @@ app.include_router(colaboradores.router)
 app.include_router(dashboard.router)
 app.include_router(demandas.router)
 
-
 @app.get("/")
 def read_root():
     return {
@@ -48,7 +57,6 @@ def read_root():
 def health_check(db: Session = Depends(get_db)):
     """Verifica a saúde da aplicação e conexão com o banco"""
     try:
-        # Testar conexão com o banco
         db.execute(text("SELECT 1"))
         return {
             "status": "healthy",
@@ -70,7 +78,6 @@ def test_database():
         return {"status": "success", "message": "Conexão com PostgreSQL OK!"}
     else:
         return {"status": "error", "message": "Falha na conexão com PostgreSQL"}
-
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page():
