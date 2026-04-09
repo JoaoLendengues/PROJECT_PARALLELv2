@@ -15,11 +15,10 @@ class UpdateChecker(QThread):
     no_update = Signal()
     error = Signal(str)
     
-    def __init__(self, current_version="1.0.0"):
+    def __init__(self):
         super().__init__()
-        self.current_version = current_version
-        # URL da API do GitHub para o seu repositório
-        # Troque "SEU_USUARIO" e "SEU_REPOSITORIO" pelos seus
+        self.current_version = CURRENT_VERSION
+        # URL da API do GitHub - SUBSTITUA PELO SEU REPOSITORIO
         self.update_url = "https://api.github.com/repos/JoaoLendengues/PROJECT_PARALLELv2/releases/latest"
     
     def run(self):
@@ -29,6 +28,8 @@ class UpdateChecker(QThread):
             response = requests.get(self.update_url, timeout=10, headers={
                 "Accept": "application/vnd.github.v3+json"
             })
+            
+            print(f"📡 Status code: {response.status_code}")
             
             if response.status_code == 200:
                 data = response.json()
@@ -47,6 +48,8 @@ class UpdateChecker(QThread):
                             download_url = asset.get("browser_download_url")
                             break
                     
+                    print(f"✅ Atualização disponível! Download: {download_url}")
+                    
                     self.update_available.emit({
                         "version": latest_version,
                         "download_url": download_url,
@@ -55,6 +58,7 @@ class UpdateChecker(QThread):
                         "release_name": data.get("name", "")
                     })
                 else:
+                    print("ℹ️ Sistema já está atualizado")
                     self.no_update.emit()
             else:
                 print(f"❌ GitHub retornou status: {response.status_code}")
@@ -66,7 +70,7 @@ class UpdateChecker(QThread):
 
 
 class UpdateDownloader(QThread):
-    """Baixa a atualização do GitHub"""
+    """Baixa a atualização"""
     
     progress = Signal(int)
     finished = Signal(str)
@@ -129,3 +133,4 @@ class UpdateInstaller:
         except Exception as e:
             print(f"❌ Erro na instalação: {e}")
             return False, str(e)
+        

@@ -17,7 +17,7 @@ from widgets.colaboradores_widget import ColaboradoresWidget
 from widgets.demandas_widget import DemandasWidget
 from widgets.relatorios_widget import RelatoriosWidget
 from api_client import api_client
-
+from version import get_version
 
 class MainWindow(QMainWindow):
     def __init__(self, usuario):
@@ -120,7 +120,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(btn_sair)
 
         # Rodapé
-        footer = QLabel('v1.0.0')
+        footer = QLabel(f'v{get_version()}')
         footer.setAlignment(Qt.AlignCenter)
         footer.setProperty('class', 'footer')
         layout.addWidget(footer)

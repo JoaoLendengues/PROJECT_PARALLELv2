@@ -12,7 +12,7 @@ from updater import UpdateChecker, UpdateDownloader, UpdateInstaller
 class UpdateWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.current_version = "1.0.0"
+        self.current_version = CURRENT_VERSION
         self.update_info = None
         self.downloader = None
         self.init_ui()
@@ -33,7 +33,7 @@ class UpdateWidget(QWidget):
         card.setObjectName("infoCard")
         card_layout = QVBoxLayout(card)
         
-        self.version_label = QLabel(f"Versão atual: {self.current_version}")
+        self.version_label = QLabel(f"Versão atual: V{self.current_version}")
         self.version_label.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         card_layout.addWidget(self.version_label)
         
@@ -81,12 +81,17 @@ class UpdateWidget(QWidget):
         self.check_btn.setEnabled(False)
         
         self.checker = UpdateChecker(self.current_version)
+        
+        # Conectar os sinais
         self.checker.update_available.connect(self.on_update_available)
         self.checker.no_update.connect(self.on_no_update)
         self.checker.error.connect(self.on_check_error)
+    
+        # Iniciar a thread
         self.checker.start()
     
     def on_update_available(self, update_info):
+        print(f"✅ Atualização recebida: {update_info}")  # Debug
         self.update_info = update_info
         self.status_label.setText(f"✅ Nova versão {update_info['version']} disponível!")
         self.status_label.setStyleSheet("color: #2a9d8f;")
@@ -99,6 +104,7 @@ class UpdateWidget(QWidget):
         self.check_btn.setEnabled(True)
     
     def on_no_update(self):
+        print("ℹ️ Nenhuma atualização encontrada")  # Debug
         self.status_label.setText("✅ Você já tem a versão mais recente!")
         self.status_label.setStyleSheet("color: #2a9d8f;")
         self.check_btn.setEnabled(True)
