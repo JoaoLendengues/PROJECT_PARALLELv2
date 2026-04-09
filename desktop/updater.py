@@ -6,6 +6,7 @@ import shutil
 import zipfile
 from datetime import datetime
 from PySide6.QtCore import QThread, Signal
+from version import CURRENT_VERSION
 
 
 class UpdateChecker(QThread):
