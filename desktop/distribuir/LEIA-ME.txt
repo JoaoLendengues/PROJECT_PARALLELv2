@@ -1,0 +1,22 @@
+PROJECT PARALLEL v1.0.2
+Sistema de Controle de Estoque
+
+INSTALAÇÃO:
+1. Execute instalar.bat
+2. O programa será instalado no Desktop
+
+CONFIGURAÇÃO:
+1. Abra a pasta ProjectParallel no Desktop
+2. Execute configurar.bat
+3. Digite o IP do servidor (10.1.1.151)
+
+LOGIN PADRÃO:
+- Código: 1001
+- Senha: admin123
+
+REQUISITOS:
+- Windows 10 ou superior
+- Conexão com o servidor 10.1.1.151:8000
+
+SUPORTE: ti@pinheiroferragens.com.br
+
