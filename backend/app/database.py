@@ -4,24 +4,22 @@ from sqlalchemy.orm import sessionmaker
 import os
 from dotenv import load_dotenv
 
-# Carregar variáveis de ambiente
 load_dotenv()
 
-# URL de conexão com o banco de dados
-DATABASE_URL = os.getenv('DATABASE_URL')
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/project_parallel")
 
-# Criar engine de conexão
+# Configuração para PRODUÇÃO - Pool de conexões otimizado
 engine = create_engine(
-    DATABASE_URL,   
-    pool_pre_ping=True, # Verifica se a conexão está ativa antes de usar
-    pool_recycle=3600, # Reconecta após 1 hora
-    echo=True   # Mostra os SQLs executados (útil para debug)
+    DATABASE_URL,
+    pool_size=20,           # Número de conexões mantidas no pool
+    max_overflow=10,        # Conexões extras quando todas estão em uso
+    pool_pre_ping=True,     # Verifica se a conexão está ativa antes de usar
+    pool_recycle=3600,      # Reconecta após 1 hora
+    echo=False              # Não mostrar SQLs (melhor performance)
 )
 
-# Criar fábrica de sessões
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Criar classe base para os modelos
 Base = declarative_base()
 
 def get_db():
@@ -37,7 +35,7 @@ def test_connection():
     try:
         from sqlalchemy import text
         with engine.connect() as conn:
-            result = conn.execute(text('SELECT version()'))
+            result = conn.execute(text("SELECT version()"))
             version = result.fetchone()
             print(f"✅ Conexão bem sucedida!")
             print(f"📦 PostgreSQL: {version[0]}")
