@@ -13,11 +13,11 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localho
 engine = create_engine(
     DATABASE_URL,
     poolclass=QueuePool,
-    pool_size=50,               # Conexões mantidas no pool
-    max_overflow=100,           # Conexões extras (total máximo: 150)
-    pool_pre_ping=True,         # Verifica conexão antes de usar
-    pool_recycle=3600,          # Reconecta após 1 hora
-    pool_timeout=30,            # Timeout para conseguir conexão
+    pool_size=50,
+    max_overflow=100,
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    pool_timeout=30,
     echo=False,
     connect_args={
         "connect_timeout": 10,
@@ -60,11 +60,12 @@ def test_connection():
         return False
 
 def get_pool_status():
-    """Retorna status do pool de conexões"""
+    """Retorna status do pool de conexões - CORRIGIDO"""
+    pool = engine.pool
     return {
-        "pool_size": engine.pool.size(),
-        "checked_in": engine.pool.checkedin(),
-        "checked_out": engine.pool.checkedout(),
-        "overflow": engine.pool.overflow(),
-        "total": engine.pool.total()
+        "pool_size": pool.size(),
+        "checked_in": pool.checkedin(),
+        "checked_out": pool.checkedout(),
+        "overflow": pool.overflow(),
+        # "total" removido pois não existe no QueuePool
     }
