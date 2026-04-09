@@ -2,14 +2,14 @@ import requests
 import json
 import os
 import sys
-import subprocess
 import shutil
+import zipfile
 from datetime import datetime
 from PySide6.QtCore import QThread, Signal
 
 
 class UpdateChecker(QThread):
-    """Thread para verificar atualizações em segundo plano"""
+    """Verifica se há atualizações disponíveis no GitHub"""
     
     update_available = Signal(dict)
     no_update = Signal()
@@ -18,50 +18,55 @@ class UpdateChecker(QThread):
     def __init__(self, current_version="1.0.0"):
         super().__init__()
         self.current_version = current_version
-        # Altere para o seu repositório
+        # URL da API do GitHub para o seu repositório
+        # Troque "SEU_USUARIO" e "SEU_REPOSITORIO" pelos seus
         self.update_url = "https://api.github.com/repos/JoaoLendengues/PROJECT_PARALLELv2/releases/latest"
     
     def run(self):
         try:
-            response = requests.get(self.update_url, timeout=10)
+            print(f"🔍 Verificando atualizações em: {self.update_url}")
+            
+            response = requests.get(self.update_url, timeout=10, headers={
+                "Accept": "application/vnd.github.v3+json"
+            })
             
             if response.status_code == 200:
                 data = response.json()
                 latest_version = data.get("tag_name", "0.0.0").replace("v", "")
                 
-                if self._compare_versions(latest_version, self.current_version) > 0:
-                    # Nova versão disponível
+                print(f"📦 Versão atual: {self.current_version}")
+                print(f"📦 Versão disponível: {latest_version}")
+                
+                if latest_version > self.current_version:
+                    # Encontrar o asset (arquivo zip)
+                    assets = data.get("assets", [])
+                    download_url = None
+                    
+                    for asset in assets:
+                        if asset.get("name", "").endswith(".zip"):
+                            download_url = asset.get("browser_download_url")
+                            break
+                    
                     self.update_available.emit({
                         "version": latest_version,
-                        "download_url": data.get("assets", [{}])[0].get("browser_download_url", ""),
-                        "changelog": data.get("body", "Melhorias e correções de bugs"),
-                        "release_date": data.get("published_at", "")
+                        "download_url": download_url,
+                        "changelog": data.get("body", "Nova versão disponível"),
+                        "release_date": data.get("published_at", ""),
+                        "release_name": data.get("name", "")
                     })
                 else:
                     self.no_update.emit()
             else:
+                print(f"❌ GitHub retornou status: {response.status_code}")
                 self.no_update.emit()
                 
         except Exception as e:
+            print(f"❌ Erro ao verificar: {e}")
             self.error.emit(str(e))
-    
-    def _compare_versions(self, v1, v2):
-        v1_parts = [int(x) for x in v1.split('.')]
-        v2_parts = [int(x) for x in v2.split('.')]
-        
-        for i in range(max(len(v1_parts), len(v2_parts))):
-            v1_val = v1_parts[i] if i < len(v1_parts) else 0
-            v2_val = v2_parts[i] if i < len(v2_parts) else 0
-            
-            if v1_val > v2_val:
-                return 1
-            elif v1_val < v2_val:
-                return -1
-        return 0
 
 
 class UpdateDownloader(QThread):
-    """Thread para baixar atualização"""
+    """Baixa a atualização do GitHub"""
     
     progress = Signal(int)
     finished = Signal(str)
@@ -73,6 +78,8 @@ class UpdateDownloader(QThread):
     
     def run(self):
         try:
+            print(f"📥 Baixando de: {self.download_url}")
+            
             temp_dir = os.path.join(os.environ.get('TEMP', '/tmp'), 'project_parallel_update')
             os.makedirs(temp_dir, exist_ok=True)
             
@@ -90,31 +97,35 @@ class UpdateDownloader(QThread):
                         progress = int((downloaded / total_size) * 100)
                         self.progress.emit(progress)
             
+            print(f"✅ Download concluído: {download_path}")
             self.finished.emit(download_path)
             
         except Exception as e:
+            print(f"❌ Erro no download: {e}")
             self.error.emit(str(e))
 
 
 class UpdateInstaller:
-    """Gerencia a instalação de atualizações"""
+    """Instala a atualização"""
     
     @staticmethod
-    def install_update(update_file, backup=True):
+    def install_update(update_file):
         try:
-            current_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(__file__)
+            # Pasta atual do programa
+            current_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
             
-            if backup:
-                backup_dir = os.path.join(current_dir, 'backup_' + datetime.now().strftime('%Y%m%d_%H%M%S'))
-                shutil.copytree(current_dir, backup_dir, dirs_exist_ok=True)
+            print(f"📁 Instalando em: {current_dir}")
             
-            import zipfile
+            # Extrair arquivos
             with zipfile.ZipFile(update_file, 'r') as zip_ref:
                 zip_ref.extractall(current_dir)
             
+            # Remover arquivo temporário
             os.remove(update_file)
             
+            print("✅ Instalação concluída")
             return True, "Atualização instalada com sucesso!"
             
         except Exception as e:
+            print(f"❌ Erro na instalação: {e}")
             return False, str(e)

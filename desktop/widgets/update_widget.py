@@ -3,6 +3,9 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QMessageBox, QFrame)
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont
+import sys
+import os
+import subprocess
 from updater import UpdateChecker, UpdateDownloader, UpdateInstaller
 
 
@@ -17,32 +20,36 @@ class UpdateWidget(QWidget):
     
     def init_ui(self):
         layout = QVBoxLayout(self)
-        layout.setSpacing(20)
         layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(20)
         
-        titulo = QLabel("🔄 Atualizações do Sistema")
+        # Título
+        titulo = QLabel("🔄 Atualizações")
         titulo.setProperty("class", "page-title")
         layout.addWidget(titulo)
         
-        info_frame = QFrame()
-        info_frame.setObjectName("infoCard")
-        info_layout = QVBoxLayout(info_frame)
+        # Card de informações
+        card = QFrame()
+        card.setObjectName("infoCard")
+        card_layout = QVBoxLayout(card)
         
         self.version_label = QLabel(f"Versão atual: {self.current_version}")
         self.version_label.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        info_layout.addWidget(self.version_label)
+        card_layout.addWidget(self.version_label)
         
         self.status_label = QLabel("Verificando atualizações...")
         self.status_label.setStyleSheet("color: #64748b;")
-        info_layout.addWidget(self.status_label)
+        card_layout.addWidget(self.status_label)
         
-        layout.addWidget(info_frame)
+        layout.addWidget(card)
         
+        # Barra de progresso
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
         layout.addWidget(self.progress_bar)
         
-        self.changelog_label = QLabel("📋 Novidades da versão:")
+        # Changelog
+        self.changelog_label = QLabel("📋 Novidades:")
         self.changelog_label.setVisible(False)
         self.changelog_label.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         layout.addWidget(self.changelog_label)
@@ -53,14 +60,15 @@ class UpdateWidget(QWidget):
         self.changelog_text.setVisible(False)
         layout.addWidget(self.changelog_text)
         
+        # Botões
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
         
-        self.check_btn = QPushButton("🔍 Verificar Atualizações")
+        self.check_btn = QPushButton("🔍 Verificar")
         self.check_btn.clicked.connect(self.check_for_updates)
         btn_layout.addWidget(self.check_btn)
         
-        self.update_btn = QPushButton("📥 Instalar Atualização")
+        self.update_btn = QPushButton("📥 Instalar")
         self.update_btn.setVisible(False)
         self.update_btn.clicked.connect(self.install_update)
         btn_layout.addWidget(self.update_btn)
@@ -69,7 +77,7 @@ class UpdateWidget(QWidget):
         layout.addStretch()
     
     def check_for_updates(self):
-        self.status_label.setText("Verificando atualizações...")
+        self.status_label.setText("Verificando...")
         self.check_btn.setEnabled(False)
         
         self.checker = UpdateChecker(self.current_version)
@@ -91,12 +99,12 @@ class UpdateWidget(QWidget):
         self.check_btn.setEnabled(True)
     
     def on_no_update(self):
-        self.status_label.setText("✅ Você já está usando a versão mais recente!")
+        self.status_label.setText("✅ Você já tem a versão mais recente!")
         self.status_label.setStyleSheet("color: #2a9d8f;")
         self.check_btn.setEnabled(True)
     
     def on_check_error(self, error_msg):
-        self.status_label.setText(f"❌ Erro ao verificar atualizações: {error_msg}")
+        self.status_label.setText(f"❌ Erro: {error_msg}")
         self.status_label.setStyleSheet("color: #e76f51;")
         self.check_btn.setEnabled(True)
     
@@ -106,15 +114,13 @@ class UpdateWidget(QWidget):
         
         confirm = QMessageBox.question(
             self,
-            "Confirmar atualização",
-            f"Deseja instalar a versão {self.update_info['version']}?\n\n"
-            "O sistema será reiniciado após a instalação.",
+            "Confirmar",
+            f"Instalar versão {self.update_info['version']}?\n\nO sistema será reiniciado.",
             QMessageBox.Yes | QMessageBox.No
         )
         
         if confirm == QMessageBox.Yes:
             self.progress_bar.setVisible(True)
-            self.progress_bar.setValue(0)
             self.update_btn.setEnabled(False)
             self.check_btn.setEnabled(False)
             
@@ -129,31 +135,27 @@ class UpdateWidget(QWidget):
     
     def on_download_finished(self, file_path):
         self.progress_bar.setVisible(False)
-        self.status_label.setText("Instalando atualização...")
+        self.status_label.setText("Instalando...")
         
         success, message = UpdateInstaller.install_update(file_path)
         
         if success:
-            QMessageBox.information(self, "Sucesso", 
-                "Atualização instalada com sucesso!\n\nO sistema será reiniciado.")
-            
-            QTimer.singleShot(1000, self.restart_application)
+            QMessageBox.information(self, "Sucesso", "Atualização instalada! O sistema vai reiniciar.")
+            QTimer.singleShot(1000, self.restart_app)
         else:
-            QMessageBox.critical(self, "Erro", f"Falha na instalação: {message}")
-            self.status_label.setText("❌ Falha na instalação")
+            QMessageBox.critical(self, "Erro", f"Falha: {message}")
             self.update_btn.setEnabled(True)
             self.check_btn.setEnabled(True)
     
     def on_download_error(self, error_msg):
         self.progress_bar.setVisible(False)
-        self.status_label.setText(f"❌ Erro no download: {error_msg}")
+        self.status_label.setText(f"❌ Erro no download")
         self.update_btn.setEnabled(True)
         self.check_btn.setEnabled(True)
     
-    def restart_application(self):
+    def restart_app(self):
         python = sys.executable
         script = os.path.abspath(sys.argv[0])
-        
         subprocess.Popen([python, script])
         sys.exit(0)
         

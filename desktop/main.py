@@ -37,10 +37,10 @@ def on_login_success(usuario):
     _current_window.show()
     
     # Verificar atualizações em segundo plano após o login
-    verificar_atualizacoes_background()
+    verificar_atualizacoes()
 
 
-def verificar_atualizacoes_background():
+def verificar_atualizacoes():
     """Verifica atualizações em segundo plano e exibe notificação"""
     current_version = "1.0.0"  # Atualize conforme a versão atual
     
