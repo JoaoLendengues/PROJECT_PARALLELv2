@@ -4,9 +4,9 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QTabWidget, QMessageBox, QTableWidget,
                                QTableWidgetItem, QHeaderView, QDialog,
                                QDialogButtonBox, QFrame, QScrollArea, QTextEdit,
-                               QTimeEdit)
+                               QTimeEdit, QApplication)
 from PySide6.QtCore import Qt, QTimer, QTime
-from PySide6.QtGui import QFont, QColor
+from PySide6.QtGui import QFont, QColor, QCursor
 from api_client import api_client
 from widgets.toast_notification import notification_manager
 import socket
@@ -17,11 +17,13 @@ from datetime import datetime
 class ParametrosWidget(QWidget):
     def __init__(self):
         super().__init__()
-        self.empresas = ["Matriz", "Filial 1", "Filial 2", "Filial 3"]
-        self.departamentos = ["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logística"]
-        self.categorias = ["Periféricos", "Hardware", "Armazenamento", "Monitores", "Cabos", "Redes", "Consumíveis", "Softwares"]
+        # Inicializar listas vazias (serão carregadas do backend)
+        self.empresas = []
+        self.departamentos = []
+        self.categorias = []
         self.timer_alertas = None
         self.init_ui()
+        self.carregar_listas()
         self.carregar_configuracoes()
         self.carregar_info_servidor()
         self.carregar_alertas()
@@ -104,7 +106,6 @@ class ParametrosWidget(QWidget):
         form_sistema.addRow("🔢 Versão:", self.versao)
         
         self.empresa_padrao = QComboBox()
-        self.empresa_padrao.addItems(self.empresas)
         self.empresa_padrao.setObjectName("configCombo")
         form_sistema.addRow("🏢 Empresa Padrão:", self.empresa_padrao)
         
@@ -255,14 +256,12 @@ class ParametrosWidget(QWidget):
         alertas_layout = QVBoxLayout(grupo_alertas)
         alertas_layout.setContentsMargins(20, 20, 20, 20)
         
-        # Lista de alertas com estilo
         self.lista_alertas = QTableWidget()
         self.lista_alertas.setColumnCount(5)
         self.lista_alertas.setHorizontalHeaderLabels(["Tipo", "Mensagem", "Status", "Data", "Ações"])
         self.lista_alertas.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self.lista_alertas.setAlternatingRowColors(True)
         
-        # Estilo da tabela de alertas
         self.lista_alertas.setStyleSheet("""
             QTableWidget::item {
                 padding: 10px 8px;
@@ -273,7 +272,6 @@ class ParametrosWidget(QWidget):
         """)
         alertas_layout.addWidget(self.lista_alertas)
         
-        # Botão para verificar alertas
         btn_verificar = QPushButton("🔍 Verificar Alertas Agora")
         btn_verificar.clicked.connect(self.verificar_alertas)
         alertas_layout.addWidget(btn_verificar)
@@ -287,7 +285,6 @@ class ParametrosWidget(QWidget):
         historico_layout = QVBoxLayout(grupo_historico)
         historico_layout.setContentsMargins(20, 20, 20, 20)
         
-        # Estilo da tabela de histórico
         self.historico_alertas = QTableWidget()
         self.historico_alertas.setColumnCount(4)
         self.historico_alertas.setHorizontalHeaderLabels(["Data/Hora", "Tipo", "Mensagem", "Status"])
@@ -320,7 +317,6 @@ class ParametrosWidget(QWidget):
         self.tabela_empresas.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self.tabela_empresas.verticalHeader().setVisible(False)
         
-        # Estilo da tabela
         self.tabela_empresas.setStyleSheet("""
             QTableWidget::item {
                 padding: 10px 8px;
@@ -359,7 +355,6 @@ class ParametrosWidget(QWidget):
         self.tabela_departamentos.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self.tabela_departamentos.verticalHeader().setVisible(False)
         
-        # Estilo da tabela
         self.tabela_departamentos.setStyleSheet("""
             QTableWidget::item {
                 padding: 10px 8px;
@@ -398,7 +393,6 @@ class ParametrosWidget(QWidget):
         self.tabela_categorias.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self.tabela_categorias.verticalHeader().setVisible(False)
         
-        # Estilo da tabela
         self.tabela_categorias.setStyleSheet("""
             QTableWidget::item {
                 padding: 10px 8px;
@@ -479,6 +473,51 @@ class ParametrosWidget(QWidget):
         
         return widget
     
+    # =====================================================
+    # CARREGAMENTO DE LISTAS DO BACKEND
+    # =====================================================
+    
+    def carregar_listas(self):
+        """Carrega empresas, departamentos e categorias do backend"""
+        try:
+            QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+            
+            self.empresas = api_client.get_empresas()
+            self.departamentos = api_client.get_departamentos()
+            self.categorias = api_client.get_categorias()
+            
+            if not self.empresas:
+                self.empresas = ["Matriz", "Filial 1", "Filial 2", "Filial 3"]
+            if not self.departamentos:
+                self.departamentos = ["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logística"]
+            if not self.categorias:
+                self.categorias = ["Periféricos", "Hardware", "Armazenamento", "Monitores", "Cabos", "Redes", "Consumíveis", "Softwares"]
+            
+            self.carregar_tabela_empresas()
+            self.carregar_tabela_departamentos()
+            self.carregar_tabela_categorias()
+            self.atualizar_combos()
+            
+            QApplication.restoreOverrideCursor()
+            
+        except Exception as e:
+            QApplication.restoreOverrideCursor()
+            print(f"❌ Erro ao carregar listas: {e}")
+            notification_manager.error(f"Erro ao carregar listas: {e}", self.window(), 3000)
+    
+    def atualizar_combos(self):
+        """Atualiza todos os comboboxes com as listas carregadas"""
+        if hasattr(self, 'empresa_padrao'):
+            current = self.empresa_padrao.currentText()
+            self.empresa_padrao.clear()
+            self.empresa_padrao.addItems(self.empresas)
+            if current in self.empresas:
+                self.empresa_padrao.setCurrentText(current)
+    
+    # =====================================================
+    # CARREGAMENTO DE TABELAS
+    # =====================================================
+    
     def carregar_tabela_empresas(self):
         self.tabela_empresas.setRowCount(len(self.empresas))
         for i, empresa in enumerate(self.empresas):
@@ -497,13 +536,16 @@ class ParametrosWidget(QWidget):
             self.tabela_categorias.setItem(i, 0, QTableWidgetItem(str(i + 1)))
             self.tabela_categorias.setItem(i, 1, QTableWidgetItem(cat))
     
+    # =====================================================
+    # CRUD EMPRESAS
+    # =====================================================
+    
     def adicionar_empresa(self):
         dialog = QDialog(self)
         dialog.setWindowTitle("Adicionar Empresa")
         dialog.setModal(True)
         dialog.setMinimumWidth(300)
         
-        # Estilo do diálogo
         dialog.setStyleSheet("""
             QDialog {
                 background-color: #f5f7fa;
@@ -526,15 +568,54 @@ class ParametrosWidget(QWidget):
         
         if dialog.exec():
             nome = nome_edit.text().strip()
-            if nome and nome not in self.empresas:
-                self.empresas.append(nome)
-                self.carregar_tabela_empresas()
+            if not nome:
+                QMessageBox.warning(self, "Atenção", "Digite o nome da empresa!")
+                return
+            
+            if nome in self.empresas:
+                QMessageBox.warning(self, "Atenção", f"Empresa '{nome}' já existe!")
+                return
+            
+            QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+            success = api_client.add_empresa(nome)
+            QApplication.restoreOverrideCursor()
+            
+            if success:
+                notification_manager.success(f"Empresa '{nome}' adicionada com sucesso!", self.window(), 3000)
+                self.carregar_listas()
+            else:
+                QMessageBox.warning(self, "Erro", "Erro ao adicionar empresa")
     
     def remover_empresa(self):
         row = self.tabela_empresas.currentRow()
-        if row >= 0 and row < len(self.empresas):
-            self.empresas.pop(row)
-            self.carregar_tabela_empresas()
+        if row < 0:
+            QMessageBox.warning(self, "Atenção", "Selecione uma empresa para remover")
+            return
+        
+        empresa = self.empresas[row]
+        
+        confirm = QMessageBox.question(
+            self,
+            "Confirmar exclusão",
+            f"Tem certeza que deseja remover a empresa '{empresa}'?\n\n"
+            f"Esta ação não poderá ser desfeita e só será permitida se nenhum material ou máquina estiver usando esta empresa.",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if confirm == QMessageBox.Yes:
+            QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+            success = api_client.delete_empresa(empresa)
+            QApplication.restoreOverrideCursor()
+            
+            if success:
+                notification_manager.success(f"Empresa '{empresa}' removida com sucesso!", self.window(), 3000)
+                self.carregar_listas()
+            else:
+                QMessageBox.warning(self, "Erro", "Erro ao remover empresa. Verifique se não está sendo usada.")
+    
+    # =====================================================
+    # CRUD DEPARTAMENTOS
+    # =====================================================
     
     def adicionar_departamento(self):
         dialog = QDialog(self)
@@ -542,7 +623,6 @@ class ParametrosWidget(QWidget):
         dialog.setModal(True)
         dialog.setMinimumWidth(300)
         
-        # Estilo do diálogo
         dialog.setStyleSheet("""
             QDialog {
                 background-color: #f5f7fa;
@@ -565,15 +645,54 @@ class ParametrosWidget(QWidget):
         
         if dialog.exec():
             nome = nome_edit.text().strip()
-            if nome and nome not in self.departamentos:
-                self.departamentos.append(nome)
-                self.carregar_tabela_departamentos()
+            if not nome:
+                QMessageBox.warning(self, "Atenção", "Digite o nome do departamento!")
+                return
+            
+            if nome in self.departamentos:
+                QMessageBox.warning(self, "Atenção", f"Departamento '{nome}' já existe!")
+                return
+            
+            QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+            success = api_client.add_departamento(nome)
+            QApplication.restoreOverrideCursor()
+            
+            if success:
+                notification_manager.success(f"Departamento '{nome}' adicionado com sucesso!", self.window(), 3000)
+                self.carregar_listas()
+            else:
+                QMessageBox.warning(self, "Erro", "Erro ao adicionar departamento")
     
     def remover_departamento(self):
         row = self.tabela_departamentos.currentRow()
-        if row >= 0 and row < len(self.departamentos):
-            self.departamentos.pop(row)
-            self.carregar_tabela_departamentos()
+        if row < 0:
+            QMessageBox.warning(self, "Atenção", "Selecione um departamento para remover")
+            return
+        
+        departamento = self.departamentos[row]
+        
+        confirm = QMessageBox.question(
+            self,
+            "Confirmar exclusão",
+            f"Tem certeza que deseja remover o departamento '{departamento}'?\n\n"
+            f"Esta ação não poderá ser desfeita e só será permitida se nenhuma máquina estiver usando este departamento.",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if confirm == QMessageBox.Yes:
+            QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+            success = api_client.delete_departamento(departamento)
+            QApplication.restoreOverrideCursor()
+            
+            if success:
+                notification_manager.success(f"Departamento '{departamento}' removido com sucesso!", self.window(), 3000)
+                self.carregar_listas()
+            else:
+                QMessageBox.warning(self, "Erro", "Erro ao remover departamento. Verifique se não está sendo usado.")
+    
+    # =====================================================
+    # CRUD CATEGORIAS
+    # =====================================================
     
     def adicionar_categoria(self):
         dialog = QDialog(self)
@@ -581,7 +700,6 @@ class ParametrosWidget(QWidget):
         dialog.setModal(True)
         dialog.setMinimumWidth(300)
         
-        # Estilo do diálogo
         dialog.setStyleSheet("""
             QDialog {
                 background-color: #f5f7fa;
@@ -604,15 +722,54 @@ class ParametrosWidget(QWidget):
         
         if dialog.exec():
             nome = nome_edit.text().strip()
-            if nome and nome not in self.categorias:
-                self.categorias.append(nome)
-                self.carregar_tabela_categorias()
+            if not nome:
+                QMessageBox.warning(self, "Atenção", "Digite o nome da categoria!")
+                return
+            
+            if nome in self.categorias:
+                QMessageBox.warning(self, "Atenção", f"Categoria '{nome}' já existe!")
+                return
+            
+            QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+            success = api_client.add_categoria(nome)
+            QApplication.restoreOverrideCursor()
+            
+            if success:
+                notification_manager.success(f"Categoria '{nome}' adicionada com sucesso!", self.window(), 3000)
+                self.carregar_listas()
+            else:
+                QMessageBox.warning(self, "Erro", "Erro ao adicionar categoria")
     
     def remover_categoria(self):
         row = self.tabela_categorias.currentRow()
-        if row >= 0 and row < len(self.categorias):
-            self.categorias.pop(row)
-            self.carregar_tabela_categorias()
+        if row < 0:
+            QMessageBox.warning(self, "Atenção", "Selecione uma categoria para remover")
+            return
+        
+        categoria = self.categorias[row]
+        
+        confirm = QMessageBox.question(
+            self,
+            "Confirmar exclusão",
+            f"Tem certeza que deseja remover a categoria '{categoria}'?\n\n"
+            f"Esta ação não poderá ser desfeita e só será permitida se nenhum material estiver usando esta categoria.",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if confirm == QMessageBox.Yes:
+            QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+            success = api_client.delete_categoria(categoria)
+            QApplication.restoreOverrideCursor()
+            
+            if success:
+                notification_manager.success(f"Categoria '{categoria}' removida com sucesso!", self.window(), 3000)
+                self.carregar_listas()
+            else:
+                QMessageBox.warning(self, "Erro", "Erro ao remover categoria. Verifique se não está sendo usada.")
+    
+    # =====================================================
+    # MÉTODOS EXISTENTES
+    # =====================================================
     
     def get_ip_local(self):
         try:
@@ -654,7 +811,6 @@ class ParametrosWidget(QWidget):
             self.status_banco.setStyleSheet("color: #e76f51;")
     
     def configurar_timer_alertas(self):
-        """Configura o timer para verificação periódica de alertas"""
         if self.timer_alertas:
             self.timer_alertas.stop()
         
@@ -674,12 +830,10 @@ class ParametrosWidget(QWidget):
             self.timer_alertas.start(3600000)
     
     def verificar_alertas_periodico(self):
-        """Verifica alertas periodicamente (se habilitado)"""
         if self.verificar_alertas_auto.isChecked():
             self.verificar_alertas()
     
     def testar_notificacao(self):
-        """Testa a notificação"""
         notification_manager.info(
             "Esta é uma notificação de teste!\n\nSe você está vendo isso, as notificações estão funcionando.",
             self.window(),
@@ -687,11 +841,9 @@ class ParametrosWidget(QWidget):
         )
     
     def carregar_alertas(self):
-        """Carrega os alertas do sistema"""
         self.verificar_alertas()
     
     def verificar_alertas(self):
-        """Verifica e exibe alertas do sistema - UMA POR VEZ"""
         try:
             parent = self.window()
             
@@ -757,7 +909,6 @@ class ParametrosWidget(QWidget):
             print(f"❌ Erro ao verificar alertas: {e}")
     
     def resolver_alerta(self, row):
-        """Marca um alerta como resolvido"""
         tipo = self.lista_alertas.item(row, 0).text()
         mensagem = self.lista_alertas.item(row, 1).text()
         
@@ -774,7 +925,6 @@ class ParametrosWidget(QWidget):
             notification_manager.success("Alerta resolvido com sucesso!", self.window(), 3000)
     
     def adicionar_historico(self, tipo, mensagem, status):
-        """Adiciona alerta ao histórico"""
         row = self.historico_alertas.rowCount()
         self.historico_alertas.insertRow(row)
         self.historico_alertas.setItem(row, 0, QTableWidgetItem(datetime.now().strftime("%d/%m/%Y %H:%M")))
@@ -789,14 +939,84 @@ class ParametrosWidget(QWidget):
         self.historico_alertas.setItem(row, 3, status_item)
     
     def carregar_configuracoes(self):
-        """Carrega as configurações salvas"""
+        """Carrega as configurações salvas do backend"""
         print("Carregando configurações...")
+        try:
+            config = api_client.get_configuracoes()
+            
+            if config:
+                if "empresa_padrao" in config:
+                    idx = self.empresa_padrao.findText(config["empresa_padrao"])
+                    if idx >= 0:
+                        self.empresa_padrao.setCurrentIndex(idx)
+                
+                if "alerta_estoque" in config:
+                    self.alerta_estoque.setValue(int(config["alerta_estoque"]))
+                
+                if "alerta_estoque_critico" in config:
+                    self.alerta_estoque_critico.setValue(int(config["alerta_estoque_critico"]))
+                
+                if "backup_automatico" in config:
+                    self.backup_automatico.setChecked(config["backup_automatico"] == True or config["backup_automatico"] == "true")
+                
+                if "frequencia_backup" in config:
+                    idx = self.frequencia_backup.findText(config["frequencia_backup"])
+                    if idx >= 0:
+                        self.frequencia_backup.setCurrentIndex(idx)
+                
+                if "horario_backup" in config:
+                    self.horario_backup.setTime(QTime.fromString(config["horario_backup"], "HH:mm"))
+                
+                if "dias_retencao" in config:
+                    self.dias_retencao.setValue(int(config["dias_retencao"]))
+                
+                if "notif_estoque_baixo" in config:
+                    self.notif_estoque_baixo.setChecked(config["notif_estoque_baixo"] == True or config["notif_estoque_baixo"] == "true")
+                
+                if "notif_estoque_critico" in config:
+                    self.notif_estoque_critico.setChecked(config["notif_estoque_critico"] == True or config["notif_estoque_critico"] == "true")
+                
+                if "notif_manutencao" in config:
+                    self.notif_manutencao.setChecked(config["notif_manutencao"] == True or config["notif_manutencao"] == "true")
+                
+                if "notif_pedidos" in config:
+                    self.notif_pedidos.setChecked(config["notif_pedidos"] == True or config["notif_pedidos"] == "true")
+                
+                if "notif_demandas" in config:
+                    self.notif_demandas.setChecked(config["notif_demandas"] == True or config["notif_demandas"] == "true")
+                
+                if "notif_movimentacoes" in config:
+                    self.notif_movimentacoes.setChecked(config["notif_movimentacoes"] == True or config["notif_movimentacoes"] == "true")
+                
+                if "valor_alto" in config:
+                    self.valor_alto.setValue(int(config["valor_alto"]))
+                
+                if "verificar_alertas_auto" in config:
+                    self.verificar_alertas_auto.setChecked(config["verificar_alertas_auto"] == True or config["verificar_alertas_auto"] == "true")
+                
+                if "intervalo_verificacao" in config:
+                    idx = self.intervalo_verificacao.findText(config["intervalo_verificacao"])
+                    if idx >= 0:
+                        self.intervalo_verificacao.setCurrentIndex(idx)
+                
+                if "tempo_notificacao" in config:
+                    idx = self.tempo_notificacao.findText(config["tempo_notificacao"])
+                    if idx >= 0:
+                        self.tempo_notificacao.setCurrentIndex(idx)
+                
+                print("✅ Configurações carregadas com sucesso")
+            
+        except Exception as e:
+            print(f"❌ Erro ao carregar configurações: {e}")
+        
         self.configurar_timer_alertas()
     
     def salvar_configuracoes(self):
-        """Salva as configurações"""
+        """Salva as configurações no backend"""
+        
+        QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+        
         config = {
-            "nome_sistema": self.nome_sistema.text(),
             "empresa_padrao": self.empresa_padrao.currentText(),
             "alerta_estoque": self.alerta_estoque.value(),
             "alerta_estoque_critico": self.alerta_estoque_critico.value(),
@@ -813,17 +1033,22 @@ class ParametrosWidget(QWidget):
             "valor_alto": self.valor_alto.value(),
             "verificar_alertas_auto": self.verificar_alertas_auto.isChecked(),
             "intervalo_verificacao": self.intervalo_verificacao.currentText(),
-            "tempo_notificacao": self.tempo_notificacao.currentText(),
-            "empresas": self.empresas,
-            "departamentos": self.departamentos,
-            "categorias": self.categorias
+            "tempo_notificacao": self.tempo_notificacao.currentText()
         }
         
-        print(f"Configurações salvas: {config}")
-        
-        self.configurar_timer_alertas()
-        
-        notification_manager.success("Configurações salvas com sucesso!", self.window(), 3000)
+        try:
+            success = api_client.salvar_configuracoes(config)
+            
+            QApplication.restoreOverrideCursor()
+            
+            if success:
+                notification_manager.success("Configurações salvas com sucesso!", self.window(), 3000)
+                self.configurar_timer_alertas()
+            else:
+                notification_manager.error("Erro ao salvar configurações", self.window(), 3000)
+        except Exception as e:
+            QApplication.restoreOverrideCursor()
+            notification_manager.error(f"Erro ao salvar: {e}", self.window(), 3000)
     
     def cancelar(self):
         notification_manager.info("Alterações canceladas.", self.window(), 2000)

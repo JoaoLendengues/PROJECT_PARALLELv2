@@ -76,7 +76,6 @@ class APIClient:
             
             if response.status_code == 200:
                 data = response.json()
-                # O backend retorna {"items": [...], "total": ...}
                 if isinstance(data, dict) and "items" in data:
                     return data["items"]
                 elif isinstance(data, list):
@@ -757,6 +756,169 @@ class APIClient:
             return {"resumo": {}}
         except:
             return {"resumo": {}}
+
+    # =====================================================
+    # CRUD para Empresas, Departamentos e Categorias
+    # =====================================================
+
+    def get_empresas(self):
+        """Retorna lista de empresas do backend"""
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/configuracoes/empresas",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            if response.status_code == 200:
+                return response.json()
+            return []
+        except Exception as e:
+            print(f"❌ Erro ao carregar empresas: {e}")
+            return []
+
+    def add_empresa(self, nome):
+        """Adiciona uma nova empresa"""
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/configuracoes/empresas",
+                json={"nome": nome},
+                headers=self.get_headers(),
+                timeout=30
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"❌ Erro ao adicionar empresa: {e}")
+            return False
+
+    def delete_empresa(self, nome):
+        """Remove uma empresa"""
+        try:
+            response = requests.delete(
+                f"{self.base_url}/api/configuracoes/empresas/{nome}",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"❌ Erro ao remover empresa: {e}")
+            return False
+
+    def get_departamentos(self):
+        """Retorna lista de departamentos do backend"""
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/configuracoes/departamentos",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            if response.status_code == 200:
+                return response.json()
+            return []
+        except Exception as e:
+            print(f"❌ Erro ao carregar departamentos: {e}")
+            return []
+
+    def add_departamento(self, nome):
+        """Adiciona um novo departamento"""
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/configuracoes/departamentos",
+                json={"nome": nome},
+                headers=self.get_headers(),
+                timeout=30
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"❌ Erro ao adicionar departamento: {e}")
+            return False
+
+    def delete_departamento(self, nome):
+        """Remove um departamento"""
+        try:
+            response = requests.delete(
+                f"{self.base_url}/api/configuracoes/departamentos/{nome}",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"❌ Erro ao remover departamento: {e}")
+            return False
+
+    def get_categorias(self):
+        """Retorna lista de categorias do backend"""
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/configuracoes/categorias",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            if response.status_code == 200:
+                return response.json()
+            return []
+        except Exception as e:
+            print(f"❌ Erro ao carregar categorias: {e}")
+            return []
+
+    def add_categoria(self, nome):
+        """Adiciona uma nova categoria"""
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/configuracoes/categorias",
+                json={"nome": nome},
+                headers=self.get_headers(),
+                timeout=30
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"❌ Erro ao adicionar categoria: {e}")
+            return False
+
+    def delete_categoria(self, nome):
+        """Remove uma categoria"""
+        try:
+            response = requests.delete(
+                f"{self.base_url}/api/configuracoes/categorias/{nome}",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"❌ Erro ao remover categoria: {e}")
+            return False
+
+    # =====================================================
+    # Configurações Gerais do Sistema
+    # =====================================================
+
+    def get_configuracoes(self):
+        """Obtém as configurações gerais do sistema"""
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/configuracoes",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            if response.status_code == 200:
+                return response.json()
+            return {}
+        except Exception as e:
+            print(f"❌ Erro ao carregar configurações: {e}")
+            return {}
+
+    def salvar_configuracoes(self, configuracoes):
+        """Salva as configurações gerais do sistema"""
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/configuracoes",
+                json=configuracoes,
+                headers=self.get_headers(),
+                timeout=30
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"❌ Erro ao salvar configurações: {e}")
+            return False
 
 
 # Instância global do cliente

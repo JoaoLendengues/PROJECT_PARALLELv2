@@ -218,3 +218,89 @@ def delete_categoria(
     _salvar_lista(db, 'categorias', categorias)
     
     return {"success": True, "message": f"Categoria '{nome}' removida", "lista": categorias}
+
+# =====================================================
+# CONFIGURAÇÕES GERAIS DO SISTEMA
+# =====================================================
+
+@router.get('/')
+def get_configuracoes(
+    db: Session = Depends(get_db),
+    current_user: models.UsuarioSistema = Depends(auth.get_current_user)
+):
+    """Obtém todas as configurações gerais do sistema"""
+    
+    configs = db.query(models.Configuracao).all()
+    
+    result = {}
+    for config in configs:
+        valor = config.valor
+        # Converter tipos quando possível
+        if valor == 'true':
+            valor = True
+        elif valor == 'false':
+            valor = False
+        elif valor and valor.isdigit():
+            valor = int(valor)
+        result[config.chave] = valor
+    
+    # Valores padrão se não existirem
+    defaults = {
+        "alerta_estoque": 5,
+        "alerta_estoque_critico": 2,
+        "backup_automatico": True,
+        "frequencia_backup": "Diário",
+        "horario_backup": "02:00",
+        "dias_retencao": 30,
+        "notif_estoque_baixo": True,
+        "notif_estoque_critico": True,
+        "notif_manutencao": True,
+        "notif_pedidos": True,
+        "notif_demandas": True,
+        "notif_movimentacoes": False,
+        "valor_alto": 5000,
+        "verificar_alertas_auto": True,
+        "intervalo_verificacao": "5 minutos",
+        "tempo_notificacao": "5 segundos",
+        "empresa_padrao": "Matriz"
+    }
+    
+    for key, default in defaults.items():
+        if key not in result:
+            result[key] = default
+    
+    return result
+
+
+@router.post('/')
+def salvar_configuracoes(
+    configuracoes: dict,
+    db: Session = Depends(get_db),
+    current_user: models.UsuarioSistema = Depends(auth.verificar_admin)
+):
+    """Salva as configurações gerais do sistema (apenas admin)"""
+    
+    for chave, valor in configuracoes.items():
+        # Pular listas (empresas, departamentos, categorias) - já têm endpoints próprios
+        if chave in ['empresas', 'departamentos', 'categorias']:
+            continue
+        
+        # Converter para string para salvar
+        if isinstance(valor, bool):
+            valor_str = str(valor).lower()
+        else:
+            valor_str = str(valor)
+        
+        existing = db.query(models.Configuracao).filter(
+            models.Configuracao.chave == chave
+        ).first()
+        
+        if existing:
+            existing.valor = valor_str
+        else:
+            nova_config = models.Configuracao(chave=chave, valor=valor_str)
+            db.add(nova_config)
+    
+    db.commit()
+    
+    return {"message": "Configurações salvas com sucesso"}
