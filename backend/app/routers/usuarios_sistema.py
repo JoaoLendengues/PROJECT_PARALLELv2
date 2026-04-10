@@ -169,3 +169,31 @@ def alterar_senha(
     db.commit()
     
     return {"message": "Senha alterada com sucesso"}
+
+
+# =====================================================
+# GERAR PRÓXIMO CÓDIGO AUTOMATICAMENTE
+# =====================================================
+
+@router.get('/proximo-codigo')
+def get_proximo_codigo(
+    db: Session = Depends(get_db),
+    admin: models.UsuarioSistema = Depends(auth.verificar_admin)
+):
+    """Retorna o próximo código disponível para novo usuário (apenas administradores)"""
+    
+    # Buscar todos os códigos
+    usuarios = db.query(models.UsuarioSistema.codigo).all()
+    
+    max_codigo = 0
+    for u in usuarios:
+        try:
+            codigo_int = int(u.codigo)
+            if codigo_int > max_codigo:
+                max_codigo = codigo_int
+        except ValueError:
+            # Se o código não for numérico, ignorar (ex: "ADMIN001")
+            pass
+    
+    proximo = max_codigo + 1
+    return {"proximo_codigo": str(proximo)}

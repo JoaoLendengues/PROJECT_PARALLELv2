@@ -739,23 +739,20 @@ class APIClient:
         except:
             return False
 
-    # =====================================================
-    # Dashboard
-    # =====================================================
-
-    def get_dashboard_resumo(self):
-        """Obtém resumo para o dashboard"""
+    def get_proximo_codigo(self):
+        """Obtém o próximo código disponível para novo usuário"""
         try:
             response = requests.get(
-                f"{self.base_url}/api/dashboard/resumo",
+                f"{self.base_url}/api/usuarios/proximo-codigo",
                 headers=self.get_headers(),
                 timeout=30
             )
             if response.status_code == 200:
                 return response.json()
-            return {"resumo": {}}
-        except:
-            return {"resumo": {}}
+            return {"proximo_codigo": "1"}
+        except Exception as e:
+            print(f"❌ Erro ao buscar próximo código: {e}")
+            return {"proximo_codigo": "1"}
 
     # =====================================================
     # CRUD para Empresas, Departamentos e Categorias
@@ -919,6 +916,24 @@ class APIClient:
         except Exception as e:
             print(f"❌ Erro ao salvar configurações: {e}")
             return False
+
+    # =====================================================
+    # Dashboard
+    # =====================================================
+
+    def get_dashboard_resumo(self):
+        """Obtém resumo para o dashboard"""
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/dashboard/resumo",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            if response.status_code == 200:
+                return response.json()
+            return {"resumo": {}}
+        except:
+            return {"resumo": {}}
 
 
 # Instância global do cliente

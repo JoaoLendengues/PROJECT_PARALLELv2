@@ -42,9 +42,8 @@ def on_login_success(usuario):
 
 def verificar_atualizacoes():
     """Verifica atualizações em segundo plano e exibe notificação"""
-    current_version = "1.0.0"  # Atualize conforme a versão atual
-    
-    checker = UpdateChecker(current_version)
+    # CORREÇÃO: Não passar argumento - o UpdateChecker já lê a versão do version.json
+    checker = UpdateChecker()  # <--- REMOVIDO o argumento current_version
     
     def on_update_available(update_info):
         notification_manager.info(

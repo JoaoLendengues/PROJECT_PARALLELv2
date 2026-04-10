@@ -1,9 +1,9 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
                                QTableWidgetItem, QPushButton, QLabel, QLineEdit,
                                QComboBox, QDialog, QFormLayout, QCheckBox,
-                               QMessageBox, QHeaderView)
+                               QMessageBox, QHeaderView, QApplication)
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont, QColor
+from PySide6.QtGui import QFont, QColor, QCursor
 from api_client import api_client
 
 
@@ -60,14 +60,13 @@ class UsuariosWidget(QWidget):
         
         layout.addLayout(filtros)
         
-        # Tabela de usuários com estilo melhorado
+        # Tabela de usuários
         self.tabela = QTableWidget()
         self.tabela.setAlternatingRowColors(True)
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabela.setEditTriggers(QTableWidget.NoEditTriggers)
         self.tabela.verticalHeader().setVisible(False)
         
-        # Estilo da tabela
         self.tabela.setStyleSheet("""
             QTableWidget::item {
                 padding: 10px 8px;
@@ -80,7 +79,6 @@ class UsuariosWidget(QWidget):
         headers = ["ID", "Código", "Nome", "Cargo", "Empresa", "Nível", "Status", "Primeiro Acesso"]
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
-        
         self.tabela.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
         
         layout.addWidget(self.tabela)
@@ -124,16 +122,12 @@ class UsuariosWidget(QWidget):
         
         filtered = []
         for usuario in self.usuarios:
-            # Filtro por status
             if status == "ativos" and not usuario.get("ativo", True):
                 continue
             if status == "inativos" and usuario.get("ativo", True):
                 continue
-            
-            # Filtro por nível
             if nivel != "todos os níveis" and usuario.get("nivel_acesso", "").lower() != nivel:
                 continue
-            
             filtered.append(usuario)
         
         self.atualizar_tabela(filtered)
@@ -169,7 +163,20 @@ class UsuariosWidget(QWidget):
             self.tabela.setItem(row, 7, QTableWidgetItem(primeiro_acesso))
     
     def novo_usuario(self):
-        dialog = UsuarioDialog(parent=self)
+        """Abre diálogo para criar novo usuário com código automático"""
+        
+        QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+        
+        try:
+            response = api_client.get_proximo_codigo()
+            proximo_codigo = response.get("proximo_codigo", "1")
+        except Exception as e:
+            print(f"❌ Erro ao buscar próximo código: {e}")
+            proximo_codigo = "1"
+        
+        QApplication.restoreOverrideCursor()
+        
+        dialog = UsuarioDialog(proximo_codigo=proximo_codigo, parent=self)
         if dialog.exec():
             self.carregar_usuarios()
     
@@ -188,7 +195,6 @@ class UsuariosWidget(QWidget):
                 self.carregar_usuarios()
     
     def alterar_senha(self):
-        """Altera a senha do usuário selecionado (administrador pode alterar)"""
         current_row = self.tabela.currentRow()
         if current_row < 0:
             QMessageBox.warning(self, "Atenção", "Selecione um usuário para alterar a senha")
@@ -198,13 +204,11 @@ class UsuariosWidget(QWidget):
         usuario_nome = self.tabela.item(current_row, 2).text()
         usuario_codigo = self.tabela.item(current_row, 1).text()
         
-        # Criar diálogo para digitar a nova senha
         senha_dialog = QDialog(self)
         senha_dialog.setWindowTitle("Alterar Senha")
         senha_dialog.setModal(True)
         senha_dialog.setMinimumWidth(400)
         
-        # Estilo do diálogo de alteração de senha
         senha_dialog.setStyleSheet("""
             QDialog {
                 background-color: #f5f7fa;
@@ -216,33 +220,28 @@ class UsuariosWidget(QWidget):
         
         layout = QVBoxLayout(senha_dialog)
         
-        # Informação do usuário
         info_label = QLabel(f"Alterando senha do usuário: <b>{usuario_nome}</b><br>Código: <b>{usuario_codigo}</b>")
         info_label.setStyleSheet("margin-bottom: 15px;")
         layout.addWidget(info_label)
         
         form_layout = QFormLayout()
         
-        # Campo para nova senha
         nova_senha_edit = QLineEdit()
         nova_senha_edit.setEchoMode(QLineEdit.Password)
         nova_senha_edit.setPlaceholderText("Digite a nova senha")
         form_layout.addRow("Nova Senha:", nova_senha_edit)
         
-        # Campo para confirmar senha
         confirmar_senha_edit = QLineEdit()
         confirmar_senha_edit.setEchoMode(QLineEdit.Password)
         confirmar_senha_edit.setPlaceholderText("Confirme a nova senha")
         form_layout.addRow("Confirmar Senha:", confirmar_senha_edit)
         
-        # Requisitos da senha
         requisitos_label = QLabel("🔒 Requisitos:<br>• Mínimo de 6 caracteres")
         requisitos_label.setStyleSheet("color: #64748b; font-size: 11px; margin-top: 10px;")
         form_layout.addRow("", requisitos_label)
         
         layout.addLayout(form_layout)
         
-        # Botões
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
         
@@ -282,11 +281,9 @@ class UsuariosWidget(QWidget):
                 QMessageBox.critical(senha_dialog, "Erro", f"Erro ao alterar senha: {e}")
         
         btn_alterar.clicked.connect(confirmar_alteracao)
-        
         senha_dialog.exec()
     
     def resetar_senha(self):
-        """Reseta a senha do usuário para o padrão '123456'"""
         current_row = self.tabela.currentRow()
         if current_row < 0:
             QMessageBox.warning(self, "Atenção", "Selecione um usuário para resetar a senha")
@@ -340,14 +337,14 @@ class UsuariosWidget(QWidget):
 
 
 class UsuarioDialog(QDialog):
-    def __init__(self, usuario_data=None, parent=None):
+    def __init__(self, usuario_data=None, proximo_codigo=None, parent=None):
         super().__init__(parent)
         self.dados_item = usuario_data
+        self.proximo_codigo = proximo_codigo
         self.setWindowTitle("Novo Usuário" if not usuario_data else "Editar Usuário")
         self.setModal(True)
         self.setMinimumWidth(500)
         
-        # Estilo do diálogo
         self.setStyleSheet("""
             QDialog {
                 background-color: #f5f7fa;
@@ -361,6 +358,9 @@ class UsuarioDialog(QDialog):
         
         if usuario_data:
             self.carregar_dados_edicao()
+        elif proximo_codigo:
+            self.codigo_edit.setText(proximo_codigo)
+            self.codigo_edit.setReadOnly(True)
     
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -368,28 +368,23 @@ class UsuarioDialog(QDialog):
         form_layout = QFormLayout()
         form_layout.setSpacing(15)
         
-        # Código
         self.codigo_edit = QLineEdit()
         self.codigo_edit.setPlaceholderText("Código numérico único (ex: 1001)")
         form_layout.addRow("Código:", self.codigo_edit)
         
-        # Nome
         self.nome_edit = QLineEdit()
         self.nome_edit.setPlaceholderText("Nome completo")
         form_layout.addRow("Nome:", self.nome_edit)
         
-        # Cargo
         self.cargo_edit = QLineEdit()
         self.cargo_edit.setPlaceholderText("Cargo do usuário")
         form_layout.addRow("Cargo:", self.cargo_edit)
         
-        # Empresa
         self.empresa_combo = QComboBox()
         self.empresa_combo.addItems(["Matriz", "Filial 1", "Filial 2", "Filial 3"])
         self.empresa_combo.setEditable(True)
         form_layout.addRow("Empresa:", self.empresa_combo)
         
-        # Nível de Acesso
         self.nivel_combo = QComboBox()
         self.nivel_combo.addItems(["admin", "gerente", "usuario"])
         self.nivel_combo.setToolTip(
@@ -399,12 +394,10 @@ class UsuarioDialog(QDialog):
         )
         form_layout.addRow("Nível de Acesso:", self.nivel_combo)
         
-        # Status (ativo)
         self.ativo_check = QCheckBox("Usuário ativo")
         self.ativo_check.setChecked(True)
         form_layout.addRow("", self.ativo_check)
         
-        # Observação sobre senha
         if not self.dados_item:
             senha_info = QLabel("⚠️ A senha padrão será '123456'.\nO usuário deverá trocar no primeiro acesso.")
             senha_info.setStyleSheet("color: #64748b; font-size: 11px;")
@@ -432,6 +425,7 @@ class UsuarioDialog(QDialog):
             return
         
         self.codigo_edit.setText(str(self.dados_item.get("codigo", "")))
+        self.codigo_edit.setReadOnly(False)
         self.nome_edit.setText(str(self.dados_item.get("nome", "")))
         self.cargo_edit.setText(str(self.dados_item.get("cargo", "")))
         
@@ -448,9 +442,6 @@ class UsuarioDialog(QDialog):
             self.nivel_combo.setCurrentIndex(idx)
         
         self.ativo_check.setChecked(self.dados_item.get("ativo", True))
-        
-        # Desabilitar edição do código (não pode ser alterado)
-        self.codigo_edit.setReadOnly(True)
     
     def salvar(self):
         codigo = self.codigo_edit.text().strip()
@@ -477,13 +468,11 @@ class UsuarioDialog(QDialog):
             "ativo": ativo
         }
         
-        # Se for criação, adicionar a senha (será tratada pelo backend)
         if not self.dados_item:
             dados["senha"] = "123456"
         
         try:
             if self.dados_item:
-                # Atualizar
                 response = api_client.atualizar_usuario(self.dados_item["id"], dados)
                 if response:
                     QMessageBox.information(self, "Sucesso", "Usuário atualizado com sucesso!")
@@ -491,7 +480,6 @@ class UsuarioDialog(QDialog):
                 else:
                     QMessageBox.warning(self, "Erro", "Erro ao atualizar usuário")
             else:
-                # Criar
                 response = api_client.criar_usuario(dados)
                 if response:
                     QMessageBox.information(self, "Sucesso", "Usuário criado com sucesso!\n\nSenha padrão: 123456")
