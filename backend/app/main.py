@@ -4,7 +4,7 @@ from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from app.database import engine, Base, get_db, test_connection, get_pool_status
 from app.routers import (materiais, maquinas, manutencoes, movimentacoes, pedidos,
-                         auth, usuarios_sistema, colaboradores, dashboard, demandas)
+                         auth, usuarios_sistema, colaboradores, dashboard, demandas, configuracoes)
 from sqlalchemy import text
 from datetime import datetime
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -46,6 +46,7 @@ app.include_router(usuarios_sistema.router)
 app.include_router(colaboradores.router)
 app.include_router(dashboard.router)
 app.include_router(demandas.router)
+app.include_router(configuracoes.router)
 
 @app.get("/")
 def read_root():

@@ -160,5 +160,13 @@ class Demanda(Base):
     criado_em = Column(DateTime, server_default=func.now())
     atualizado_em = Column(DateTime, server_default=func.now(), onupdate=func.now())
     
-
+class Configuracao(Base):
+    __tablename__ = "configuracoes"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    chave = Column(String(100), unique=True, index=True, nullable=False)
+    valor = Column(Text, nullable=True)
+    criado_em = Column(DateTime, server_default=func.now())
+    atualizado_em = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    
     
