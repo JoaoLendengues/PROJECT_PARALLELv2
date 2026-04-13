@@ -172,6 +172,10 @@ class HomeWidget(QWidget):
                 background-color: {config['cor_hover']};
                 border: 1px solid {config['cor_icone']};
             }}
+            QFrame > QLabel{{
+                border: none;
+                outline: none;
+            }}
         """)
         
         # Layout interno
@@ -182,30 +186,30 @@ class HomeWidget(QWidget):
         # Ícone
         icon_label = QLabel(config['icono'])
         icon_label.setFont(QFont("Segoe UI", 24))
-        icon_label.setStyleSheet(f"color: {config['cor_icone']}; background: transparent;")
+        icon_label.setStyleSheet(f"color: {config['cor_icone']}; background: transparent; border: none; outline: none;")
         layout.addWidget(icon_label)
         
         # Título
         title_label = QLabel(config['titulo'])
-        title_label.setStyleSheet("color: #64748b; font-size: 13px; font-weight: 500; background: transparent;")
+        title_label.setStyleSheet("color: #64748b; font-size: 13px; font-weight: 500; background: transparent; border: none; outline: none;")
         layout.addWidget(title_label)
         
         # Valor (será atualizado dinamicamente)
         valor_label = QLabel("0")
-        valor_label.setStyleSheet(f"color: {config['cor_icone']}; font-size: 28px; font-weight: bold; background: transparent;")
+        valor_label.setStyleSheet(f"color: {config['cor_icone']}; font-size: 28px; font-weight: bold; background: transparent; border: none; outline: none;")
         layout.addWidget(valor_label)
         
         # Subtítulo
         subtitle_label = QLabel(config['subtitulo'])
-        subtitle_label.setStyleSheet("color: #94a3b8; font-size: 11px; background: transparent;")
+        subtitle_label.setStyleSheet("color: #94a3b8; font-size: 11px; background: transparent; border: none; outline: none;")
         subtitle_label.setWordWrap(True)
         layout.addWidget(subtitle_label)
         
         layout.addStretch()
         
-        # Link
+        # Link (SEM BORDA) - LINHA CORRIGIDA
         link_label = QLabel(config['link'])
-        link_label.setStyleSheet(f"color: {config['cor_icone']}; font-size: 11px; font-weight: 500; border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 4px; background: transparent;")
+        link_label.setStyleSheet(f"color: {config['cor_icone']}; font-size: 11px; font-weight: 500; background: transparent; border: none; outline: none;")
         layout.addWidget(link_label)
         
         # Armazenar o valor_label como atributo do card para fácil acesso
@@ -241,4 +245,3 @@ class HomeWidget(QWidget):
             
         except Exception as e:
             print(f"❌ Erro ao carregar dashboard: {e}")
-            
