@@ -454,8 +454,10 @@ class APIClient:
                 timeout=30
             )
             return response.status_code == 200
-        except:
+        except Exception as e:
+            print(f'❌ Erro ao concluir pedido> {e}')
             return False
+            
     
     def cancelar_pedido(self, pedido_id):
         """Cancela um pedido"""

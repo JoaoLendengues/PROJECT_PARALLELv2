@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
                                QTableWidgetItem, QPushButton, QLabel, QLineEdit,
                                QComboBox, QDialog, QFormLayout, QSpinBox,
-                               QTextEdit, QMessageBox, QHeaderView, QDateEdit)
+                               QTextEdit, QMessageBox, QHeaderView, QDateEdit, QApplication)
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QFont, QColor
 from api_client import api_client
@@ -239,32 +239,47 @@ class PedidosWidget(QWidget):
             return
         
         pedido_id = int(self.tabela.item(current_row, 0).text())
-        pedido = next((p for p in self.pedidos if p["id"] == pedido_id), None)
+        pedido_material = self.tabela.item(current_row, 1).text()
+        pedido_qtd = self.tabela.item(current_row, 2).text()
+        pedido_status = self.tabela.item(current_row, 8).text().lower()
         
-        if not pedido:
-            return
         
-        if pedido.get("status") != "aprovado":
-            QMessageBox.warning(self, "Atenção", "Apenas pedidos aprovados podem ser concluídos!")
+        if pedido.status != "aprovado":
+            QMessageBox.warning(
+                self,
+                'Atenção',
+                f'Este pedido está com status "{pedido_status.upper()}". Apenas pedidos APROVADOS podem ser concluídos.'
+            )
             return
         
         confirm = QMessageBox.question(
             self,
-            "Confirmar conclusão",
-            f"Deseja concluir o pedido de {pedido.get('quantidade')} unidade(s) de '{pedido.get('material_nome')}'?\n\nIsso irá atualizar o estoque.",
+            'Confirmar conclusão',
+            f'Deseja concluir pedido de {pedido_id} unidade(s) de "{pedido_material}"?\n\n'
+            f'⚠️ Esta ação irá atualizar o estoque e não poderá ser desfeita',
             QMessageBox.Yes | QMessageBox.No
         )
         
         if confirm == QMessageBox.Yes:
             try:
-                if api_client.concluir_pedido(pedido_id):
-                    QMessageBox.information(self, "Sucesso", "Pedido concluído com sucesso! Estoque atualizado.")
-                    self.carregar_pedidos()
+                # Mostrar cursor de espera
+                QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+
+                success = api_client.concluir_pedido(pedido_id)
+
+                QApplication.restoreOverrideCursor()
+
+                if success:
+                    notification_manager.success('Pedido concluído com sucesso! Estoque atualizado.', self.window(), 3000)
+                    self.carregar_pedidos() #Recarregar a lista
                 else:
-                    QMessageBox.warning(self, "Erro", "Erro ao concluir pedido")
+                    notification_manager.error('Erro ao concluir pedido. Verifique o estoque.', self.window(), 3000)
+
             except Exception as e:
-                QMessageBox.critical(self, "Erro", f"Erro ao concluir: {e}")
-    
+                QApplication.restoreOverrideCursor()
+                QMessageBox.critical(self, 'Erro', f'Erro ao concluir pedido: {e}')
+
+                
     def cancelar_pedido(self):
         current_row = self.tabela.currentRow()
         if current_row < 0:

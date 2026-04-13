@@ -206,16 +206,23 @@ def concluir_pedido(
         raise HTTPException(status_code=404, detail='Pedido não encontrado')
     
     if pedido.status != 'aprovado':
-        raise HTTPException(status_code=400, detail='Apenas pedidos aprovados podem ser concluídos')
+        raise HTTPException(
+            status_code=400,
+            detail=f'Apenas pedidos aprovados podem ser concluídos. Status atual: {pedido.status}'
+        )
     
     # Verificar estoque
     material = db.query(models.Material).filter(models.Material.id == pedido.material_id).first()
     if material.quantidade < pedido.quantidade:
         raise HTTPException(
             status_code=400,
-            detail=f'Estoque insuficiente. Disponível {material.quantidade}'
+            detail=f'Estoque insuficiente. Disponível {material.quantidade}, solicitado: {pedido.quantidade}'
         )
     
+
+    # Atualizar estoque (diminuir)
+    material.quantidade -= pedido.quantidade
+
     # Atualizar status do pedido
     pedido.status = 'concluido'
     pedido.data_conclusao = date.today()
@@ -228,7 +235,7 @@ def concluir_pedido(
         usuario_id=usuario_id,
         empresa=pedido.empresa,
         destinatario=pedido.solicitante,
-        observacao=f'Pedido #{pedido_id} - {pedido.observacao}'
+        observacao=f'Pedido #{pedido_id} concluído - {pedido.observacao or ""}'
     )
     db.add(movimentacao)
 
