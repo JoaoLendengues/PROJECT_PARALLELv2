@@ -949,6 +949,21 @@ class APIClient:
             return {"resumo": {}}
         except:
             return {"resumo": {}}
+        
+    def get_status_internet(self):
+        """Obtém o status da internet (latência e qualidade)"""
+        try:
+            response = requests.get(
+                f'{self.base_url}/api/dashboard/status-internet',
+                headers=self.get_headers(),
+                timeout=10
+            )
+            if response.status_code == 200:
+                return response.json()
+            return {'status': 'offline', 'qualidade': 'erro', 'latencia_ms': None}
+        except Exception as e:
+            print(f'❌ Erro ao obter status da internet: {e}')
+            return {'status': 'offline', 'qualidade': 'erro', 'latencia_ms': None}
 
 
 # Instância global do cliente
