@@ -35,13 +35,15 @@ def get_dashboard_resumo(db: Session = Depends(get_db)):
         models.Movimentacao.data_hora >= date.today()
     ).count()
 
+    # Contar demandas abertas
+    demandas_abertas = db.query(models.Demanda).filter(
+        models.Demanda.status == 'aberto'
+    ).count()
 
-    # Contar items com estoque baixo (se tiver campo quantidade_minima)
+
+    # Contar items com estoque baixo
     itens_baixo_estoque = 0
-    # Se tiver campo quantidade_minima, descomente:
-    # itens_baixo_estoque = db.query(models.Material).filter(
-    #     models.Material.quantidade <= models.Material.quantidade_minima
-    # ).count() 
+    
 
     return {
         'resumo': {
