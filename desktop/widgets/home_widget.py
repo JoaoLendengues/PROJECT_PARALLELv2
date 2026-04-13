@@ -134,6 +134,16 @@ class HomeWidget(QWidget):
                 "subtitulo": "Pedidos de compra.",
                 "link": "Aguardando aprovação",
                 "acao": "show_pedidos"
+            },
+            {
+                'Nome': 'demandas',
+                'icono': '🎫',
+                'titulo': 'Demandas Abertas',
+                'cor_icone': '#ef4444',
+                'cor_hover': '#fee2e2',
+                'subtitulo': 'Chamados de TI pendentes.',
+                'link': 'Ver demandas',
+                'acao': 'show_demandas'
             }
         ]
         
@@ -143,6 +153,7 @@ class HomeWidget(QWidget):
             (0, 1),  # Máquinas
             (1, 0),  # Manutenções
             (1, 1),  # Pedidos
+            (2, 0),  # Demandas
         ]
         
         for config, pos in zip(cards_config, posicoes):
@@ -240,6 +251,7 @@ class HomeWidget(QWidget):
             self.value_maquinas.setText(str(resumo.get("maquinas_ativas", 0)))
             self.value_manutencoes.setText(str(resumo.get("manutencoes_pendentes", 0)))
             self.value_pedidos.setText(str(resumo.get("pedidos_pendentes", 0)))
+            self.value_demandas.setText(str(resumo.get('demandas_abertas', 0)))
             
             print(f"✅ Dashboard atualizado: Materiais={resumo.get('total_materiais', 0)}")
             
