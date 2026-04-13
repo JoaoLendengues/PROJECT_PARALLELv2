@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime
 from app.database import get_db
-from app import models, schemas
+from app import models, schemas, auth
 
 router = APIRouter(prefix='/api/movimentacoes', tags=['Movimentações'])
 
@@ -172,19 +172,64 @@ def atualizar_movimentacao(
 @router.delete('/{movimentacao_id}')
 def deletar_movimentacao(
     movimentacao_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.UsuarioSistema = Depends(auth.verificar_admin)
 ):
-    """Remove uma movimentação (não reverte o estoque)"""
+    """Remove uma movimentação (NÃO REVERTE o estoque - apenas registro)
+       Apenas administradores podem deletar movimentações"""
     
-    movimentacao = db.query(models.Movimentacao).filter(models.Movimentacao.id == movimentacao_id).first()
+    print(f"=" * 50)
+    print(f"🔧 Deletando movimentação ID: {movimentacao_id}")
+    print(f"👤 Usuário: {current_user.nome} (ID: {current_user.id}, Nível: {current_user.nivel_acesso})")
     
-    if not movimentacao:
-        raise HTTPException(status_code=404, detail='Movimentação não encontrada')
+    try:
+        # Buscar a movimentação
+        movimentacao = db.query(models.Movimentacao).filter(models.Movimentacao.id == movimentacao_id).first()
+        
+        if not movimentacao:
+            print(f"❌ Movimentação {movimentacao_id} não encontrada")
+            raise HTTPException(status_code=404, detail='Movimentação não encontrada')
+        
+        print(f"✅ Movimentação encontrada: ID={movimentacao.id}, Tipo={movimentacao.tipo}, Qtd={movimentacao.quantidade}")
+        
+        # Tentar registrar log de auditoria (se a tabela existir)
+        try:
+            log = models.LogAuditoria(
+                usuario_id=current_user.id,
+                acao='DELETE',
+                tabela_afetada='movimentacoes',
+                registro_id=movimentacao_id,
+                dados_anteriores={
+                    'material_id': movimentacao.material_id,
+                    'tipo': movimentacao.tipo,
+                    'quantidade': movimentacao.quantidade,
+                    'data_hora': str(movimentacao.data_hora)
+                },
+                ip_origem="127.0.0.1"
+            )
+            db.add(log)
+            print(f"✅ Log de auditoria adicionado")
+        except Exception as log_error:
+            print(f"⚠️ Erro ao criar log (continuando): {log_error}")
+        
+        # Deletar a movimentação
+        db.delete(movimentacao)
+        db.commit()
+        
+        print(f"✅ Movimentação {movimentacao_id} deletada com sucesso!")
+        print(f"=" * 50)
+        
+        return {'message': 'Movimentação deletada com sucesso'}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ ERRO INESPERADO: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        print(f"=" * 50)
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
     
-    db.delete(movimentacao)
-    db.commit()
-    
-    return {'message': 'Movimentação deletada com sucesso'}
 
 
 @router.get('/resumo/por-periodo')

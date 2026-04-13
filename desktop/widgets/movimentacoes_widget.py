@@ -1,11 +1,12 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
                                QTableWidgetItem, QPushButton, QLabel, QLineEdit,
                                QComboBox, QDialog, QFormLayout, QSpinBox,
-                               QTextEdit, QMessageBox, QHeaderView)
+                               QTextEdit, QMessageBox, QHeaderView, QApplication)
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont, QColor
+from PySide6.QtGui import QFont, QColor, QCursor
 from datetime import datetime
 from api_client import api_client
+from widgets.toast_notification import notification_manager
 
 
 class MovimentacoesWidget(QWidget):
@@ -183,26 +184,51 @@ class MovimentacoesWidget(QWidget):
             self.carregar_colaboradores()
     
     def deletar_movimentacao(self):
+        """Deleta a movimentação selecionada (apenas administradores)"""
+        from widgets.toast_notification import notification_manager
+        
         current_row = self.tabela.currentRow()
         if current_row < 0:
             QMessageBox.warning(self, "Atenção", "Selecione uma movimentação para deletar")
             return
         
+        # Buscar os dados diretamente da tabela
         mov_id = int(self.tabela.item(current_row, 0).text())
-        mov_desc = self.tabela.item(current_row, 1).text()
+        mov_material = self.tabela.item(current_row, 1).text()
+        mov_tipo = self.tabela.item(current_row, 2).text()
+        mov_qtd = self.tabela.item(current_row, 3).text()
+        mov_data = self.tabela.item(current_row, 6).text()
         
         confirm = QMessageBox.question(
             self,
             "Confirmar exclusão",
-            f"Tem certeza que deseja deletar a movimentação do material '{mov_desc}'?",
+            f"Tem certeza que deseja deletar esta movimentação?\n\n"
+            f"📦 Material: {mov_material}\n"
+            f"📊 Tipo: {mov_tipo}\n"
+            f"🔢 Quantidade: {mov_qtd}\n"
+            f"📅 Data: {mov_data}\n\n"
+            f"⚠️ ATENÇÃO: Esta ação NÃO reverte o estoque e só pode ser feita por administradores.\n"
+            f"⚠️ Esta ação não pode ser desfeita!",
             QMessageBox.Yes | QMessageBox.No
         )
         
         if confirm == QMessageBox.Yes:
             try:
-                QMessageBox.warning(self, "Aviso", "Exclusão de movimentações não permitida para manter a integridade do estoque.")
+                # Mostrar cursor de espera
+                QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+                
+                success = api_client.deletar_movimentacao(mov_id)
+                
+                QApplication.restoreOverrideCursor()
+                
+                if success:
+                    notification_manager.success("Movimentação deletada com sucesso!", self.window(), 3000)
+                    self.carregar_movimentacoes()  # Recarregar a lista
+                else:
+                    notification_manager.error("Erro ao deletar movimentação. Verifique suas permissões.", self.window(), 3000)
             except Exception as e:
-                QMessageBox.critical(self, "Erro", f"Erro ao deletar: {e}")
+                QApplication.restoreOverrideCursor()
+                QMessageBox.critical(self, "Erro", f"Erro ao deletar movimentação: {e}")
 
 
 class MovimentacaoDialog(QDialog):

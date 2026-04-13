@@ -290,6 +290,19 @@ class APIClient:
     def listar_colaboradores_para_movimentacao(self):
         """Lista colaboradores para combo box"""
         return self.listar_colaboradores()
+    
+    def deletar_movimentacao(self, movimentacao_id):
+        """Deleta uma movimentação (requer admin)"""
+        try:
+            response = requests.delete(
+                f"{self.base_url}/api/movimentacoes/{movimentacao_id}",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"❌ Erro ao deletar movimentação: {e}")
+            return False
 
     # =====================================================
     # Manutenções

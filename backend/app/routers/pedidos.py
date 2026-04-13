@@ -198,52 +198,68 @@ def concluir_pedido(
     db: Session = Depends(get_db),
     usuario_id: int = Query(1, description='ID do usuário logado')
 ):
-    """Conclui um pedido e atualiza o estoque (saída do material)"""
+    """Conclui um pedido de COMPRA e atualiza o estoque (ENTRADA no estoque)"""
 
+    print(f"🔧 Concluindo pedido de COMPRA ID: {pedido_id}")
+    
+    # Buscar o pedido
     pedido = db.query(models.Pedido).filter(models.Pedido.id == pedido_id).first()
 
     if not pedido:
+        print(f"❌ Pedido {pedido_id} não encontrado")
         raise HTTPException(status_code=404, detail='Pedido não encontrado')
     
+    print(f"📋 Pedido: status={pedido.status}, material_id={pedido.material_id}, quantidade={pedido.quantidade}")
+    
+    # Verificar se o pedido está aprovado
     if pedido.status != 'aprovado':
+        print(f"❌ Status inválido: {pedido.status}")
         raise HTTPException(
             status_code=400,
             detail=f'Apenas pedidos aprovados podem ser concluídos. Status atual: {pedido.status}'
         )
     
-    # Verificar estoque
+    # Buscar o material
     material = db.query(models.Material).filter(models.Material.id == pedido.material_id).first()
-    if material.quantidade < pedido.quantidade:
-        raise HTTPException(
-            status_code=400,
-            detail=f'Estoque insuficiente. Disponível {material.quantidade}, solicitado: {pedido.quantidade}'
-        )
+    if not material:
+        print(f"❌ Material ID {pedido.material_id} não encontrado")
+        raise HTTPException(status_code=404, detail='Material não encontrado')
     
-
-    # Atualizar estoque (diminuir)
-    material.quantidade -= pedido.quantidade
-
-    # Atualizar status do pedido
+    print(f"📦 Material: {material.nome}, Estoque atual: {material.quantidade}")
+    
+    # ATUALIZAR ESTOQUE (ADICIONAR - pois é um pedido de COMPRA)
+    material.quantidade += pedido.quantidade
+    print(f"✅ Estoque atualizado (COMPRA): {material.quantidade - pedido.quantidade} -> {material.quantidade}")
+    
+    # ATUALIZAR STATUS DO PEDIDO
     pedido.status = 'concluido'
     pedido.data_conclusao = date.today()
-
-    # Criar movimentação de saída
+    print(f"✅ Pedido status atualizado para 'concluido'")
+    
+    # CRIAR MOVIMENTAÇÃO DE ENTRADA
     movimentacao = models.Movimentacao(
         material_id=pedido.material_id,
-        tipo='saida',
+        tipo='entrada',  # <--- MUDOU para 'entrada'
         quantidade=pedido.quantidade,
         usuario_id=usuario_id,
         empresa=pedido.empresa,
         destinatario=pedido.solicitante,
-        observacao=f'Pedido #{pedido_id} concluído - {pedido.observacao or ""}'
+        observacao=f'Pedido de compra #{pedido_id} concluído - {pedido.observacao or ""}'
     )
     db.add(movimentacao)
-
+    print(f"✅ Movimentação de ENTRADA criada")
+    
+    # COMMIT NO BANCO
     db.commit()
-
-    print(f'✅ Pedido {pedido_id} concluído. Estoque atualizado: {material.nome} -> {material.quantidade - pedido.quantidade}')
-
-    return {'message': 'Pedido concluído com sucesso', 'pedido_id': pedido_id}
+    print(f"🎉 Pedido de compra {pedido_id} concluído com sucesso! +{pedido.quantidade} unidades adicionadas ao estoque.")
+    
+    return {
+        'message': 'Pedido de compra concluído com sucesso! Estoque atualizado.',
+        'pedido_id': pedido_id,
+        'material': material.nome,
+        'quantidade_adicionada': pedido.quantidade,
+        'novo_estoque': material.quantidade
+    }
 
 
 @router.put('/{pedido_id}/cancelar')
@@ -283,7 +299,7 @@ def deletar_pedido(
     return {'message': 'Pedido deletado com sucesso'}
 
 
-@router.get('/status/lsta')
+@router.get('/status/lista')
 def listar_status():
     """Lista todos os status de pedido"""
     return {
