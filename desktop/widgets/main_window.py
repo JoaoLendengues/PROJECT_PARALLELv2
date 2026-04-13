@@ -131,6 +131,7 @@ class MainWindow(QMainWindow):
         """Inicializa todas as telas do sistema"""
         self.home_widget = HomeWidget()
         self.home_widget.set_usuario(self.usuario['nome'])
+        self.home_widget.set_main_window(self)
         self.materiais_widget = MateriaisWidget()
         self.maquinas_widget = MaquinasWidget()
         self.movimentacoes_widget = MovimentacoesWidget()

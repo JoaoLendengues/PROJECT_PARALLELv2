@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                                QFrame, QGridLayout)
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QCursor
 from datetime import datetime
 from api_client import api_client
 
@@ -10,12 +10,17 @@ class HomeWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.usuario_nome = None
+        self.main_window = None  # Referência para a janela principal
         self.init_ui()
     
     def set_usuario(self, nome):
         """Define o nome do usuário para a saudação"""
         self.usuario_nome = nome
         self.update_saudacao()
+
+    def set_main_window(self, main_window):
+        """Define a referência para a janela principal (para navegação)"""
+        self.main_window = main_window
     
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -34,7 +39,7 @@ class HomeWidget(QWidget):
         self.data_hora_label.setStyleSheet("color: #64748b; margin-bottom: 30px;")
         layout.addWidget(self.data_hora_label)
         
-        # Timer
+        # Timer para atualizar data e hora
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_datetime)
         self.timer.start(1000)
@@ -46,8 +51,8 @@ class HomeWidget(QWidget):
         self.cards_layout.setSpacing(20)
         layout.addLayout(self.cards_layout)
         
-        # Criar cards manualmente um por um
-        self.criar_cards_manualmente()
+        # Criar cards interativos
+        self.criar_cards_interativos()
 
         # Carregar dados da API
         self.carregar_dados()
@@ -56,7 +61,18 @@ class HomeWidget(QWidget):
     
     def update_datetime(self):
         now = datetime.now()
-        self.data_hora_label.setText(now.strftime("%A, %d de %B de %Y - %H:%M"))
+        # Formatar data em Português
+        dias_semana = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo']
+        meses = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+                 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+        
+        dia_semana = dias_semana[now.weekday()]
+        dia = now.day
+        mes = meses[now.month - 1]
+        ano = now.year
+        hora = now.strftime('%H:%M')
+
+        self.data_hora_label.setText(f'{dia_semana}, {dia} de {mes} de {ano} - {hora}')
         self.update_saudacao()
     
     def update_saudacao(self):
@@ -74,142 +90,138 @@ class HomeWidget(QWidget):
         else:
             self.saudacao_label.setText(f"{saudacao}!")
     
-    def criar_cards_manualmente(self):
-        """Cria os cards manualmente com design melhorado"""
+    def criar_cards_interativos(self):
+        """Cria os cards interativos com efeito hover e clique"""
         
-        # Card 1 - Materiais
-        card1 = QFrame()
-        card1.setProperty("class", "dashboard-card")
-        card1.setMinimumHeight(160)
-        card1.setMaximumHeight(190)
-        layout1 = QVBoxLayout(card1)
-        layout1.setContentsMargins(16, 14, 16, 14)
-        layout1.setSpacing(6)
+        # Configuração dos cards
+        cards_config = [
+            {
+                "nome": "materiais",
+                "icono": "📦",
+                "titulo": "Materiais em Estoque",
+                "cor_icone": "#3b82f6",
+                "cor_hover": "#dbeafe",
+                "subtitulo": "Atualmente em estoque.",
+                "link": "Clique para gerenciar",
+                "acao": "show_materiais"
+            },
+            {
+                "nome": "maquinas",
+                "icono": "🖥️",
+                "titulo": "Máquinas Ativas",
+                "cor_icone": "#10b981",
+                "cor_hover": "#d1fae5",
+                "subtitulo": "Máquinas em operação.",
+                "link": "Clique para ver",
+                "acao": "show_maquinas"
+            },
+            {
+                "nome": "manutencoes",
+                "icono": "🔧",
+                "titulo": "Manutenções Pendentes",
+                "cor_icone": "#f59e0b",
+                "cor_hover": "#fed7aa",
+                "subtitulo": "Tarefas agendadas.",
+                "link": "Ações necessárias",
+                "acao": "show_manutencoes"
+            },
+            {
+                "nome": "pedidos",
+                "icono": "📋",
+                "titulo": "Pedidos Pendentes",
+                "cor_icone": "#8b5cf6",
+                "cor_hover": "#ede9fe",
+                "subtitulo": "Pedidos de compra.",
+                "link": "Aguardando aprovação",
+                "acao": "show_pedidos"
+            }
+        ]
         
-        icon1 = QLabel("📦")
-        icon1.setFont(QFont("Segoe UI", 24))
-        layout1.addWidget(icon1)
+        # Posições dos cards no grid (linha, coluna)
+        posicoes = [
+            (0, 0),  # Materiais
+            (0, 1),  # Máquinas
+            (1, 0),  # Manutenções
+            (1, 1),  # Pedidos
+        ]
         
-        title1 = QLabel("Materiais em Estoque")
-        title1.setStyleSheet("color: #64748b; font-size: 13px; font-weight: 500;")
-        layout1.addWidget(title1)
+        for config, pos in zip(cards_config, posicoes):
+            card = self.criar_card(config)
+            self.cards_layout.addWidget(card, pos[0], pos[1])
+            
+            # Guardar referência para atualizar valores
+            setattr(self, f"value_{config['nome']}", card.valor_label)
+    
+    def criar_card(self, config):
+        """Cria um card individual com efeitos interativos"""
         
-        self.value_materiais = QLabel("0")
-        self.value_materiais.setStyleSheet("color: #3b82f6; font-size: 28px; font-weight: bold;")
-        layout1.addWidget(self.value_materiais)
+        card = QFrame()
+        card.setProperty("class", "dashboard-card")
+        card.setMinimumHeight(160)
+        card.setMaximumHeight(190)
+        card.setCursor(QCursor(Qt.PointingHandCursor))  # Mãozinha ao passar o mouse
         
-        subtitle1 = QLabel("Atualmente em estoque.")
-        subtitle1.setStyleSheet("color: #94a3b8; font-size: 11px;")
-        subtitle1.setWordWrap(True)
-        layout1.addWidget(subtitle1)
+        # Estilo do card com efeito hover
+        card.setStyleSheet(f"""
+            QFrame {{
+                background-color: white;
+                border-radius: 16px;
+                border: 1px solid #e2e8f0;
+            }}
+            QFrame:hover {{
+                background-color: {config['cor_hover']};
+                border: 1px solid {config['cor_icone']};
+            }}
+        """)
         
-        layout1.addStretch()
+        # Layout interno
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setSpacing(6)
         
-        link1 = QLabel("Clique para gerenciar")
-        link1.setStyleSheet("color: #3b82f6; font-size: 11px; font-weight: 500; border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 4px;")
-        layout1.addWidget(link1)
+        # Ícone
+        icon_label = QLabel(config['icono'])
+        icon_label.setFont(QFont("Segoe UI", 24))
+        icon_label.setStyleSheet(f"color: {config['cor_icone']}; background: transparent;")
+        layout.addWidget(icon_label)
         
-        # Card 2 - Máquinas
-        card2 = QFrame()
-        card2.setProperty("class", "dashboard-card")
-        card2.setMinimumHeight(160)
-        card2.setMaximumHeight(190)
-        layout2 = QVBoxLayout(card2)
-        layout2.setContentsMargins(16, 14, 16, 14)
-        layout2.setSpacing(6)
+        # Título
+        title_label = QLabel(config['titulo'])
+        title_label.setStyleSheet("color: #64748b; font-size: 13px; font-weight: 500; background: transparent;")
+        layout.addWidget(title_label)
         
-        icon2 = QLabel("🖥️")
-        icon2.setFont(QFont("Segoe UI", 24))
-        layout2.addWidget(icon2)
+        # Valor (será atualizado dinamicamente)
+        valor_label = QLabel("0")
+        valor_label.setStyleSheet(f"color: {config['cor_icone']}; font-size: 28px; font-weight: bold; background: transparent;")
+        layout.addWidget(valor_label)
         
-        title2 = QLabel("Máquinas Ativas")
-        title2.setStyleSheet("color: #64748b; font-size: 13px; font-weight: 500;")
-        layout2.addWidget(title2)
+        # Subtítulo
+        subtitle_label = QLabel(config['subtitulo'])
+        subtitle_label.setStyleSheet("color: #94a3b8; font-size: 11px; background: transparent;")
+        subtitle_label.setWordWrap(True)
+        layout.addWidget(subtitle_label)
         
-        self.value_maquinas = QLabel("0")
-        self.value_maquinas.setStyleSheet("color: #10b981; font-size: 28px; font-weight: bold;")
-        layout2.addWidget(self.value_maquinas)
+        layout.addStretch()
         
-        subtitle2 = QLabel("Máquinas em operação.")
-        subtitle2.setStyleSheet("color: #94a3b8; font-size: 11px;")
-        subtitle2.setWordWrap(True)
-        layout2.addWidget(subtitle2)
+        # Link
+        link_label = QLabel(config['link'])
+        link_label.setStyleSheet(f"color: {config['cor_icone']}; font-size: 11px; font-weight: 500; border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 4px; background: transparent;")
+        layout.addWidget(link_label)
         
-        layout2.addStretch()
+        # Armazenar o valor_label como atributo do card para fácil acesso
+        card.valor_label = valor_label
         
-        link2 = QLabel("Clique para ver")
-        link2.setStyleSheet("color: #10b981; font-size: 11px; font-weight: 500; border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 4px;")
-        layout2.addWidget(link2)
+        # Conectar clique
+        acao = config['acao']
+        card.mousePressEvent = lambda event, a=acao: self.executar_acao(a)
         
-        # Card 3 - Manutenções
-        card3 = QFrame()
-        card3.setProperty("class", "dashboard-card")
-        card3.setMinimumHeight(160)
-        card3.setMaximumHeight(190)
-        layout3 = QVBoxLayout(card3)
-        layout3.setContentsMargins(16, 14, 16, 14)
-        layout3.setSpacing(6)
-        
-        icon3 = QLabel("🔧")
-        icon3.setFont(QFont("Segoe UI", 24))
-        layout3.addWidget(icon3)
-        
-        title3 = QLabel("Manutenções Pendentes")
-        title3.setStyleSheet("color: #64748b; font-size: 13px; font-weight: 500;")
-        layout3.addWidget(title3)
-        
-        self.value_manutencoes = QLabel("0")
-        self.value_manutencoes.setStyleSheet("color: #f59e0b; font-size: 28px; font-weight: bold;")
-        layout3.addWidget(self.value_manutencoes)
-        
-        subtitle3 = QLabel("Tarefas agendadas.")
-        subtitle3.setStyleSheet("color: #94a3b8; font-size: 11px;")
-        subtitle3.setWordWrap(True)
-        layout3.addWidget(subtitle3)
-        
-        layout3.addStretch()
-        
-        link3 = QLabel("Ações necessárias")
-        link3.setStyleSheet("color: #f59e0b; font-size: 11px; font-weight: 500; border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 4px;")
-        layout3.addWidget(link3)
-        
-        # Card 4 - Pedidos
-        card4 = QFrame()
-        card4.setProperty("class", "dashboard-card")
-        card4.setMinimumHeight(160)
-        card4.setMaximumHeight(190)
-        layout4 = QVBoxLayout(card4)
-        layout4.setContentsMargins(16, 14, 16, 14)
-        layout4.setSpacing(6)
-        
-        icon4 = QLabel("📋")
-        icon4.setFont(QFont("Segoe UI", 24))
-        layout4.addWidget(icon4)
-        
-        title4 = QLabel("Pedidos Pendentes")
-        title4.setStyleSheet("color: #64748b; font-size: 13px; font-weight: 500;")
-        layout4.addWidget(title4)
-        
-        self.value_pedidos = QLabel("0")
-        self.value_pedidos.setStyleSheet("color: #8b5cf6; font-size: 28px; font-weight: bold;")
-        layout4.addWidget(self.value_pedidos)
-        
-        subtitle4 = QLabel("Pedidos de compra e venda.")
-        subtitle4.setStyleSheet("color: #94a3b8; font-size: 11px;")
-        subtitle4.setWordWrap(True)
-        layout4.addWidget(subtitle4)
-        
-        layout4.addStretch()
-        
-        link4 = QLabel("Aguardando aprovação")
-        link4.setStyleSheet("color: #8b5cf6; font-size: 11px; font-weight: 500; border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 4px;")
-        layout4.addWidget(link4)
-        
-        # Adicionar cards ao layout
-        self.cards_layout.addWidget(card1, 0, 0)
-        self.cards_layout.addWidget(card2, 0, 1)
-        self.cards_layout.addWidget(card3, 1, 0)
-        self.cards_layout.addWidget(card4, 1, 1)
+        return card
+    
+    def executar_acao(self, acao):
+        """Executa a ação de navegação correspondente ao card clicado"""
+        if self.main_window and hasattr(self.main_window, acao):
+            # Chamar o método da MainWindow para trocar de tela
+            getattr(self.main_window, acao)()
     
     def carregar_dados(self):
         """Carrega os dados do dashboard da API"""
