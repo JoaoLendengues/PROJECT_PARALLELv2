@@ -79,10 +79,6 @@ class ColaboradoresWidget(QWidget):
         filtros_layout.addStretch()
         layout.addLayout(filtros_layout)
 
-        # Carregar listas para os filtros
-        self.carregar_empresas()
-        self.carregar_departamentos()
-        
         # Tabela com estilo melhorado
         self.tabela = QTableWidget()
         self.tabela.setAlternatingRowColors(True)
@@ -121,6 +117,10 @@ class ColaboradoresWidget(QWidget):
         acoes.addWidget(self.deletar_btn)
         
         layout.addLayout(acoes)
+        
+        # Carregar listas para os filtros (DEPOIS de criar os comboboxes)
+        self.carregar_empresas()
+        self.carregar_departamentos()
     
     def carregar_colaboradores(self):
         """Carrega a lista de colaboradores do backend"""
@@ -410,4 +410,3 @@ class ColaboradorDialog(QDialog):
                     QMessageBox.warning(self, "Erro", "Erro ao criar colaborador")
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao salvar: {e}")
-            

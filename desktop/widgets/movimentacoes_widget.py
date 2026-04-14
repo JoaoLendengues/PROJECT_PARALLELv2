@@ -165,7 +165,7 @@ class MovimentacoesWidget(QWidget):
         material_texto = self.material_filter.currentText()
         
         filtered = []
-        for mov in self.movimentacoes:
+        for mov in self.movimentacoes_cache:
             # Filtro por tipo
             if tipo != "todos" and mov.get("tipo", "").lower() != tipo:
                 continue

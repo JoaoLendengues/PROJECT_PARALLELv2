@@ -11,6 +11,7 @@ class MateriaisWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.materiais = []
+        self.dados_cache = []
         self.categorias = []
         self.empresas = []
         self.init_ui()

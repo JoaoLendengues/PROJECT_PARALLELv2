@@ -61,6 +61,9 @@ class ParametrosWidget(QWidget):
         
         tab_categorias = self.create_tab_categorias()
         tabs.addTab(tab_categorias, "📂 Categorias")
+
+        tab_cargos = self.create_tab_cargos()
+        tabs.addTab(tab_cargos, '📋 Cargos')
         
         tab_servidor = self.create_tab_servidor()
         tabs.addTab(tab_servidor, "🖥️ Servidor")
@@ -420,6 +423,44 @@ class ParametrosWidget(QWidget):
         
         return widget
     
+    def create_tab_cargos(self):
+        widget = QWidget()
+        layout = QVBoxLayout()
+
+        self.tabela_cargos = QTableWidget()
+        self.tabela_cargos.setColumnCount(3)
+        self.tabela_cargos.setHorizontalHeaderLabels(['ID', 'Cargo', 'Status'])
+        self.tabela_cargos.verticalHeader().setVisible(False)
+
+        self.tabela_cargos.setStyleSheet("""
+            QTableWidget::item {
+                padding: 10px 8px;
+            }
+            QHeaderView::section {
+                padding: 10px 12px;
+            }
+        """)
+
+        self.carregar_tabela_cargos()
+
+        layout.addWidget(self.tabela_cargos)
+        
+        btn_layout = QHBoxLayout()
+        btn_adicionar = QPushButton('+ Adicionar Cargo')
+        btn_adicionar.clicked.connect(self.adicionar_cargo)
+        btn_layout.addWidget(btn_adicionar)
+
+        btn_remover = QPushButton('- Remover Cargo')
+        btn_remover.clicked.connect(self.remover_cargo)
+        btn_layout.addWidget(btn_remover)
+
+        btn_layout.addStretch()
+        layout.addLayout(btn_layout)
+
+        return widget
+    
+    
+    
     def create_tab_servidor(self):
         """Aba de informações do servidor"""
         widget = QWidget()
@@ -541,6 +582,18 @@ class ParametrosWidget(QWidget):
         for i, cat in enumerate(self.categorias):
             self.tabela_categorias.setItem(i, 0, QTableWidgetItem(str(i + 1)))
             self.tabela_categorias.setItem(i, 1, QTableWidgetItem(cat))
+
+    def carregar_tabela_cargos(self):
+        """Carrega a tabela de cargos do backend"""
+        try:
+            cargos = api_client.get_cargos_completo()
+            self.tabela_cargos.setRowCount(len(cargos))
+            for i, cargo in enumerate(cargos):
+                self.tabela_cargos.setItem(i, 0, QTableWidgetItem(str(cargo.get("id", ""))))
+                self.tabela_cargos.setItem(i, 1, QTableWidgetItem(cargo.get("nome", "")))
+                self.tabela_cargos.setItem(i, 2, QTableWidgetItem("Ativo" if cargo.get("ativo", True) else "Inativo"))
+        except Exception as e:
+            print(f"❌ Erro ao carregar cargos: {e}")
     
     # =====================================================
     # CRUD EMPRESAS
@@ -785,6 +838,93 @@ class ParametrosWidget(QWidget):
             else:
                 QMessageBox.warning(self, "Erro", "Erro ao remover categoria. Verifique se não está sendo usada.")
     
+    # =====================================================
+    # CRUD CARGOS
+    # =====================================================
+    
+    def adicionar_cargo(self):
+        """Adiciona um novo cargo via backend"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Adicionar Cargo")
+        dialog.setModal(True)
+        dialog.setMinimumWidth(400)
+        
+        dialog.setStyleSheet("""
+            QDialog {
+                background-color: #f5f7fa;
+            }
+            QDialog QPushButton {
+                min-width: 100px;
+            }
+        """)
+        
+        layout = QVBoxLayout(dialog)
+        
+        form_layout = QFormLayout()
+        
+        nome_edit = QLineEdit()
+        nome_edit.setPlaceholderText("Ex: Analista de Sistemas")
+        form_layout.addRow("Nome:", nome_edit)
+        
+        descricao_edit = QTextEdit()
+        descricao_edit.setMaximumHeight(80)
+        descricao_edit.setPlaceholderText("Descrição do cargo (opcional)")
+        form_layout.addRow("Descrição:", descricao_edit)
+        
+        layout.addLayout(form_layout)
+        
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        
+        if dialog.exec():
+            nome = nome_edit.text().strip()
+            if not nome:
+                QMessageBox.warning(self, "Atenção", "Digite o nome do cargo!")
+                return
+            
+            descricao = descricao_edit.toPlainText().strip() or None
+            
+            QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+            success = api_client.criar_cargo(nome, descricao)
+            QApplication.restoreOverrideCursor()
+            
+            if success:
+                notification_manager.success(f"Cargo '{nome}' adicionado com sucesso!", self.window(), 3000)
+                self.carregar_tabela_cargos()
+            else:
+                QMessageBox.warning(self, "Erro", "Erro ao adicionar cargo")
+
+    def remover_cargo(self):
+        """Remove o cargo selecionado via backend"""
+        row = self.tabela_cargos.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Atenção", "Selecione um cargo para remover")
+            return
+        
+        cargo_id = int(self.tabela_cargos.item(row, 0).text())
+        cargo_nome = self.tabela_cargos.item(row, 1).text()
+        
+        confirm = QMessageBox.question(
+            self,
+            "Confirmar exclusão",
+            f"Tem certeza que deseja remover o cargo '{cargo_nome}'?\n\n"
+            f"⚠️ Esta ação não poderá ser desfeita e só será permitida se nenhum colaborador ou usuário estiver usando este cargo.",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if confirm == QMessageBox.Yes:
+            QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+            success = api_client.deletar_cargo(cargo_id)
+            QApplication.restoreOverrideCursor()
+            
+            if success:
+                notification_manager.success(f"Cargo '{cargo_nome}' removido com sucesso!", self.window(), 3000)
+                self.carregar_tabela_cargos()
+            else:
+                QMessageBox.warning(self, "Erro", "Erro ao remover cargo. Verifique se não está sendo usado.")
+
     # =====================================================
     # MÉTODOS EXISTENTES
     # =====================================================

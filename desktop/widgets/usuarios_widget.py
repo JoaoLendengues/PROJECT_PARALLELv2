@@ -11,8 +11,11 @@ class UsuariosWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.usuarios = []
+        self.usuarios_cache = []
         self.init_ui()
+        self.carregar_empresas()
         self.carregar_usuarios()
+        self.carregar_cargos()
     
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -25,6 +28,12 @@ class UsuariosWidget(QWidget):
         titulo.setProperty("class", "page-title")
         header.addWidget(titulo)
         header.addStretch()
+        
+
+        
+
+        
+
         
         # Botão Novo Usuário
         self.novo_btn = QPushButton("+ Novo Usuário")
@@ -42,12 +51,35 @@ class UsuariosWidget(QWidget):
         
         # Filtros
         filtros = QHBoxLayout()
-        
+
+        # Filtro Empresa
+        filtros.addWidget(QLabel('Empresa:'))
+        self.empresa_filter = QComboBox()
+        self.empresa_filter.setMinimumWidth(150)
+        self.empresa_filter.addItem('Todas as empresas')
+        self.empresa_filter.currentTextChanged.connect(self.filtrar_usuarios)
+        filtros.addWidget(self.empresa_filter)
+
+        filtros.addSpacing(20)
+
+        # Filtro Cargo
+        filtros.addWidget(QLabel('Cargo:'))
+        self.cargo_filter = QComboBox()
+        self.cargo_filter.setMinimumWidth(150)
+        self.cargo_filter.addItem('Todos os cargos')
+        self. cargo_filter.currentIndexChanged.connect(self.filtrar_usuarios)
+        filtros.addWidget(self.cargo_filter)
+
+        filtros.addSpacing(20)
+
+        # Filtro Status
+        filtros.addWidget(QLabel("Status:"))
         self.ativo_filter = QComboBox()
         self.ativo_filter.addItems(["Todos", "Ativos", "Inativos"])
         self.ativo_filter.currentTextChanged.connect(self.filtrar_usuarios)
-        filtros.addWidget(QLabel("Status:"))
         filtros.addWidget(self.ativo_filter)
+
+        filtros.addStretch()
         
         self.nivel_filter = QComboBox()
         self.nivel_filter.addItem("Todos os níveis")
@@ -109,25 +141,60 @@ class UsuariosWidget(QWidget):
         """Carrega a lista de usuários do backend"""
         try:
             self.usuarios = api_client.listar_usuarios()
+            self.usuarios_cache = self.usuarios.copy()
             self.atualizar_tabela(self.usuarios)
             print(f"✅ Usuários carregados: {len(self.usuarios)}")
         except Exception as e:
             print(f"❌ Erro ao carregar usuários: {e}")
             QMessageBox.warning(self, "Erro", f"Erro ao carregar usuários: {e}")
+
+    def carregar_empresas(self):
+        """Carrega a lista de empresas para o filtro"""
+        try:
+            empresas = api_client.get_empresas()
+            self.empresa_filter.clear()
+            self.empresa_filter.addItem("Todas as empresas")
+            for emp in empresas:
+                if emp and emp.strip():
+                    self.empresa_filter.addItem(emp)
+        except Exception as e:
+            print(f"❌ Erro ao carregar empresas: {e}")
+
+    def carregar_cargos(self):
+        """Carrega a lista de cargos para o filtro"""
+        try:
+            cargos = api_client.get_cargos_lista()
+            self.cargo_filter.clear()
+            self.cargo_filter.addItem("Todos os cargos")
+            for cargo in cargos:
+                if cargo and cargo.strip():
+                    self.cargo_filter.addItem(cargo)
+        except Exception as e:
+            print(f"❌ Erro ao carregar cargos: {e}")
     
     def filtrar_usuarios(self):
         """Filtra os usuários com base nos filtros"""
+        empresa = self.empresa_filter.currentText()
+        cargo = self.cargo_filter.currentText()
         status = self.ativo_filter.currentText().lower()
-        nivel = self.nivel_filter.currentText().lower()
+
         
         filtered = []
-        for usuario in self.usuarios:
+        for usuario in self.usuarios_cache:
+            # Filtro por empresa
+            if empresa != "Todas as empresas" and usuario.get("empresa") != empresa:
+                continue
+            
+            # Filtro por cargo
+            if cargo != "Todos os cargos" and usuario.get("cargo") != cargo:
+                continue
+            
+            # Filtro por status
             if status == "ativos" and not usuario.get("ativo", True):
                 continue
             if status == "inativos" and usuario.get("ativo", True):
                 continue
-            if nivel != "todos os níveis" and usuario.get("nivel_acesso", "").lower() != nivel:
-                continue
+            
             filtered.append(usuario)
         
         self.atualizar_tabela(filtered)

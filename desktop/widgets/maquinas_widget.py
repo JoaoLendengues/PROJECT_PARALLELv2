@@ -12,6 +12,7 @@ class MaquinasWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.maquinas = []
+        self.dados_cache = []
         self.departamentos = []
         self.empresas = []  # NOVO: lista de empresas
         self.init_ui()
