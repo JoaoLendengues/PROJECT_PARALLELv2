@@ -66,7 +66,7 @@ def get_status_internet():
     import requests
 
     # Usar variável de ambiente ou valor padrão
-    SERVIDOR_DNS = os.getenv("SERVIDOR_DNS", "10.1.1.10")
+    SERVIDOR_DNS = os.getenv("SERVIDOR_DNS", "8.8.8.8")
     url = f"https://{SERVIDOR_DNS}"
     
     try:
