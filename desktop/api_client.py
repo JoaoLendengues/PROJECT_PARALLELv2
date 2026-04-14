@@ -1040,6 +1040,81 @@ class APIClient:
         except Exception as e:
             print(f"❌ Erro ao deletar departamento: {e}")
             return False
+        
+    # =====================================================
+    # Cargos (CRUD)
+    # =====================================================
+
+    def get_cargos_lista(self):
+        """Retorna lista de nomes de cargos para combobox"""
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/cargos/lista",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            if response.status_code == 200:
+                return response.json()
+            return []
+        except Exception as e:
+            print(f"❌ Erro ao carregar cargos: {e}")
+            return []
+
+    def get_cargos_completo(self):
+        """Retorna lista completa de cargos (com IDs)"""
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/cargos",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            if response.status_code == 200:
+                return response.json()
+            return []
+        except Exception as e:
+            print(f"❌ Erro ao carregar cargos: {e}")
+            return []
+
+    def criar_cargo(self, nome, descricao=None):
+        """Cria um novo cargo"""
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/cargos",
+                json={"nome": nome, "descricao": descricao},
+                headers=self.get_headers(),
+                timeout=30
+            )
+            return response.status_code == 201
+        except Exception as e:
+            print(f"❌ Erro ao criar cargo: {e}")
+            return False
+
+    def atualizar_cargo(self, cargo_id, nome, descricao=None, ativo=True):
+        """Atualiza um cargo"""
+        try:
+            response = requests.put(
+                f"{self.base_url}/api/cargos/{cargo_id}",
+                json={"nome": nome, "descricao": descricao, "ativo": ativo},
+                headers=self.get_headers(),
+                timeout=30
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"❌ Erro ao atualizar cargo: {e}")
+            return False
+
+    def deletar_cargo(self, cargo_id):
+        """Deleta um cargo"""
+        try:
+            response = requests.delete(
+                f"{self.base_url}/api/cargos/{cargo_id}",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"❌ Erro ao deletar cargo: {e}")
+            return False
 
 
 # Instância global do cliente
