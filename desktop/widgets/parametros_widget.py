@@ -353,7 +353,7 @@ class ParametrosWidget(QWidget):
         layout = QVBoxLayout(widget)
         
         self.tabela_departamentos = QTableWidget()
-        self.tabela_departamentos.setColumnCount(3)  # 3 colunas: ID, Nome, Status
+        self.tabela_departamentos.setColumnCount(3)
         self.tabela_departamentos.setHorizontalHeaderLabels(["ID", "Departamento", "Status"])
         self.tabela_departamentos.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self.tabela_departamentos.verticalHeader().setVisible(False)
@@ -424,12 +424,14 @@ class ParametrosWidget(QWidget):
         return widget
     
     def create_tab_cargos(self):
+        """Aba de gerenciamento de cargos"""
         widget = QWidget()
-        layout = QVBoxLayout()
+        layout = QVBoxLayout(widget)
 
         self.tabela_cargos = QTableWidget()
         self.tabela_cargos.setColumnCount(3)
         self.tabela_cargos.setHorizontalHeaderLabels(['ID', 'Cargo', 'Status'])
+        self.tabela_cargos.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self.tabela_cargos.verticalHeader().setVisible(False)
 
         self.tabela_cargos.setStyleSheet("""
@@ -440,8 +442,6 @@ class ParametrosWidget(QWidget):
                 padding: 10px 12px;
             }
         """)
-
-        self.carregar_tabela_cargos()
 
         layout.addWidget(self.tabela_cargos)
         
@@ -454,12 +454,17 @@ class ParametrosWidget(QWidget):
         btn_remover.clicked.connect(self.remover_cargo)
         btn_layout.addWidget(btn_remover)
 
+        btn_refresh = QPushButton('🔄 Atualizar')
+        btn_refresh.clicked.connect(self.carregar_tabela_cargos)
+        btn_layout.addWidget(btn_refresh)
+
         btn_layout.addStretch()
         layout.addLayout(btn_layout)
 
+        # Carregar os dados da tabela
+        self.carregar_tabela_cargos()
+
         return widget
-    
-    
     
     def create_tab_servidor(self):
         """Aba de informações do servidor"""
@@ -568,9 +573,9 @@ class ParametrosWidget(QWidget):
     def carregar_tabela_departamentos(self):
         """Carrega a tabela de departamentos do backend"""
         try:
-            self.departamentos = api_client.get_departamentos_completo()
-            self.tabela_departamentos.setRowCount(len(self.departamentos))
-            for i, dept in enumerate(self.departamentos):
+            departamentos = api_client.get_departamentos_completo()
+            self.tabela_departamentos.setRowCount(len(departamentos))
+            for i, dept in enumerate(departamentos):
                 self.tabela_departamentos.setItem(i, 0, QTableWidgetItem(str(dept.get("id", ""))))
                 self.tabela_departamentos.setItem(i, 1, QTableWidgetItem(dept.get("nome", "")))
                 self.tabela_departamentos.setItem(i, 2, QTableWidgetItem("Ativo" if dept.get("ativo", True) else "Inativo"))
@@ -586,14 +591,26 @@ class ParametrosWidget(QWidget):
     def carregar_tabela_cargos(self):
         """Carrega a tabela de cargos do backend"""
         try:
+            print("🔍 Carregando cargos...")
             cargos = api_client.get_cargos_completo()
+            print(f"🔍 Cargos recebidos: {len(cargos) if cargos else 0}")
+            
+            if not cargos:
+                self.tabela_cargos.setRowCount(0)
+                return
+            
             self.tabela_cargos.setRowCount(len(cargos))
             for i, cargo in enumerate(cargos):
                 self.tabela_cargos.setItem(i, 0, QTableWidgetItem(str(cargo.get("id", ""))))
                 self.tabela_cargos.setItem(i, 1, QTableWidgetItem(cargo.get("nome", "")))
                 self.tabela_cargos.setItem(i, 2, QTableWidgetItem("Ativo" if cargo.get("ativo", True) else "Inativo"))
+            
+            self.tabela_cargos.resizeColumnsToContents()
+            print(f"✅ Cargos carregados: {len(cargos)}")
         except Exception as e:
             print(f"❌ Erro ao carregar cargos: {e}")
+            import traceback
+            traceback.print_exc()
     
     # =====================================================
     # CRUD EMPRESAS
@@ -727,7 +744,7 @@ class ParametrosWidget(QWidget):
             if success:
                 notification_manager.success(f"Departamento '{nome}' adicionado com sucesso!", self.window(), 3000)
                 self.carregar_tabela_departamentos()
-                self.carregar_listas()  # Recarregar listas para atualizar comboboxes
+                self.carregar_listas()
             else:
                 QMessageBox.warning(self, "Erro", "Erro ao adicionar departamento")
     
@@ -757,7 +774,7 @@ class ParametrosWidget(QWidget):
             if success:
                 notification_manager.success(f"Departamento '{dept_nome}' removido com sucesso!", self.window(), 3000)
                 self.carregar_tabela_departamentos()
-                self.carregar_listas()  # Recarregar listas para atualizar comboboxes
+                self.carregar_listas()
             else:
                 QMessageBox.warning(self, "Erro", "Erro ao remover departamento. Verifique se não está sendo usado.")
     

@@ -171,7 +171,7 @@ class MaquinasWidget(QWidget):
         status = self.status_filter.currentText().lower()
         
         filtered = []
-        for maquina in self._dados_cache:
+        for maquina in self.dados_cache:
             # Filtro por status
             if status != "todos" and maquina.get("status", "").lower() != status:
                 continue
