@@ -171,3 +171,13 @@ class Configuracao(Base):
     atualizado_em = Column(DateTime, server_default=func.now(), onupdate=func.now())
     
     
+class Departamento(Base):
+    __tablename__ = 'departamentos'
+
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String(100), unique=True, nullable=False)
+    descricao = Column(Text, nullable=True)
+    ativo = Column(Boolean, default=True)
+    criado_em = Column(DateTime, server_default=func.now())
+    atualizado_em = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    

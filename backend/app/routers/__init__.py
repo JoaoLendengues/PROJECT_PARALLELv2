@@ -9,3 +9,4 @@ from . import colaboradores
 from . import dashboard
 from . import demandas
 from . import configuracoes
+from . import departamentos

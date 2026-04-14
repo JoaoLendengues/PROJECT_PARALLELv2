@@ -298,3 +298,29 @@ class DemandaResponse(DemandaBase):
     class Config:
         from_attributes = True
         
+
+# =====================================================
+# Schemas para Departamentos
+# =====================================================
+
+class DepartamentoBase(BaseModel):
+    nome: str
+    descricao: Optional[str] = None
+    ativo: bool = True
+
+class DepartamentoCreate(DepartamentoBase):
+    pass
+
+class DepartamentoUpdate(BaseModel):
+    nome: Optional[str] = None
+    descricao: Optional[str] = None
+    ativo: Optional[bool] = None
+
+class DepartamentoResponse(DepartamentoBase):
+    id: int
+    criado_em: datetime
+    atualizado_em: datetime
+
+    class Config:
+        from_attributes = True
+                

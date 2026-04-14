@@ -234,7 +234,8 @@ class APIClient:
             )
             if response.status_code == 200:
                 data = response.json()
-                return data.get("departamentos", [])
+                # O backend retorna {'departamentos': [...]}
+                return data
             return []
         except:
             return []

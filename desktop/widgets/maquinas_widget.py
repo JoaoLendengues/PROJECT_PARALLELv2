@@ -128,14 +128,37 @@ class MaquinasWidget(QWidget):
         layout.addLayout(acoes)
     
     def carregar_departamentos(self):
+        """Carrega a lista de departamentos do backend"""
         try:
-            self.departamentos = api_client.listar_departamentos()
+            response = api_client.listar_departamentos()
+
+            # O backend retorna {'departamentos': [...]}
+            if isinstance(response, dict):
+                self.departamentos = response.get('departamentos', [])
+            elif isinstance(response, list):
+                self.departamentos = response
+            else:
+                self.departamentos = []
+
+            # Atualizar o combobox
             self.departamento_filter.clear()
-            self.departamento_filter.addItem("Todos os departamentos")
+            self.departamento_filter.addItem('Todos os departamentos')
+
             for dept in self.departamentos:
-                self.departamento_filter.addItem(dept)
+                if dept and dept.strip():
+                    self.departamento_filter.addItem(dept)
+
+            print(f'✅ Departamentos carregados: {self.departamentos}')
+        
         except Exception as e:
-            print(f"Erro ao carregar departamentos: {e}")
+            print(f"❌ Erro ao carregar departamentos: {e}")
+            # Fallback em caso de erro
+            self.departamento_filter.clear()
+            self.departamento_filter.addItem('Todos os departamentos')
+            default_depts = ["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logística"]
+
+            for dept in default_depts:
+                self.departamento_filter.addItem(dept)
     
     def carregar_empresas(self):
         """Carrega a lista de empresas do backend"""
@@ -445,4 +468,3 @@ class MaquinaDialog(QDialog):
         except Exception as e:
             QApplication.restoreOverrideCursor()
             QMessageBox.critical(self, "Erro", f"Erro ao salvar: {e}")
-            
