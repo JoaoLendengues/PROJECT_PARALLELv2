@@ -10,3 +10,4 @@ from . import dashboard
 from . import demandas
 from . import configuracoes
 from . import departamentos
+from . import cargos

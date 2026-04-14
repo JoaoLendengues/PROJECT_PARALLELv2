@@ -11,8 +11,8 @@ class ColaboradoresWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.colaboradores = []
+        self.colaboradores_cache = []  # Cache para filtros
         self.init_ui()
-        self.carregar_departamentos()
         self.carregar_colaboradores()
     
     def init_ui(self):
@@ -44,8 +44,44 @@ class ColaboradoresWidget(QWidget):
         # Barra de pesquisa
         self.pesquisa_edit = QLineEdit()
         self.pesquisa_edit.setPlaceholderText("🔍 Pesquisar por nome...")
+        self.pesquisa_edit.setMaximumWidth(300)
         self.pesquisa_edit.textChanged.connect(self.filtrar_colaboradores)
         layout.addWidget(self.pesquisa_edit)
+
+        # Filtros
+        filtros_layout = QHBoxLayout()
+        filtros_layout.setSpacing(15)
+
+        # Filtro Status
+        filtros_layout.addWidget(QLabel('Status:'))
+        self.status_filter = QComboBox()
+        self.status_filter.setMinimumWidth(100)
+        self.status_filter.addItems(['Todos', 'Ativo', 'Inativo'])
+        self.status_filter.currentTextChanged.connect(self.filtrar_colaboradores)
+        filtros_layout.addWidget(self.status_filter)
+
+        # Filtro Empresa
+        filtros_layout.addWidget(QLabel('Empresa:'))
+        self.empresa_filter = QComboBox()
+        self.empresa_filter.setMinimumWidth(150)
+        self.empresa_filter.addItem('Todas as empresas')
+        self.empresa_filter.currentTextChanged.connect(self.filtrar_colaboradores)
+        filtros_layout.addWidget(self.empresa_filter)
+
+        # Filtro Departamento
+        filtros_layout.addWidget(QLabel('Departamento:'))
+        self.departamento_filter = QComboBox()
+        self.departamento_filter.setMinimumWidth(150)
+        self.departamento_filter.addItem('Todos os departamentos')
+        self.departamento_filter.currentTextChanged.connect(self.filtrar_colaboradores)
+        filtros_layout.addWidget(self.departamento_filter)
+
+        filtros_layout.addStretch()
+        layout.addLayout(filtros_layout)
+
+        # Carregar listas para os filtros
+        self.carregar_empresas()
+        self.carregar_departamentos()
         
         # Tabela com estilo melhorado
         self.tabela = QTableWidget()
@@ -87,8 +123,10 @@ class ColaboradoresWidget(QWidget):
         layout.addLayout(acoes)
     
     def carregar_colaboradores(self):
+        """Carrega a lista de colaboradores do backend"""
         try:
             self.colaboradores = api_client.listar_colaboradores()
+            self.colaboradores_cache = self.colaboradores.copy()
             self.atualizar_tabela(self.colaboradores)
             print(f"✅ Colaboradores carregados: {len(self.colaboradores)}")
         except Exception as e:
@@ -96,12 +134,35 @@ class ColaboradoresWidget(QWidget):
             QMessageBox.warning(self, "Erro", f"Erro ao carregar colaboradores: {e}")
     
     def filtrar_colaboradores(self):
-        search = self.pesquisa_edit.text().lower()
-        if not search:
-            self.atualizar_tabela(self.colaboradores)
-            return
-        
-        filtered = [c for c in self.colaboradores if search in c.get("nome", "").lower()]
+        """Filtra os colaboradores com base nos filtros"""
+        search_text = self.pesquisa_edit.text().lower()
+        status = self.status_filter.currentText().lower()
+        empresa = self.empresa_filter.currentText()
+        departamento = self.departamento_filter.currentText()
+
+        filtered = []
+        for colab in self.colaboradores_cache:
+            # Filtro por status
+            if status == 'ativo' and not colab.get('ativo', True):
+                continue
+            if status == 'inativo' and colab.get('ativo', True):
+                continue
+
+            # Filtro por empresa
+            if empresa != 'Todas as empresas' and colab.get('empresa') != empresa:
+                continue
+
+            # Filtro por departamento
+            if departamento != 'Todos os departamentos' and colab.get('departamento') != departamento:
+                continue
+
+            # Filtro por pesquisa
+            if search_text:
+                if search_text in colab.get('nome', '').lower():
+                    filtered.append(colab)
+            else:
+                filtered.append(colab)
+
         self.atualizar_tabela(filtered)
     
     def atualizar_tabela(self, colaboradores):
@@ -170,10 +231,27 @@ class ColaboradoresWidget(QWidget):
         """Carrega a lista de departamentos do backend para o filtro"""
         try:
             departamentos = api_client.get_departamentos_lista()
-            # Se tiver filtro de departamentos, atualize aqui
-            print(f'✅ Departamentos carregados: {len(departamentos)}')
+            self.departamento_filter.clear()
+            self.departamento_filter.addItem('Todos os departamentos')
+            for dept in departamentos:
+                if dept and dept.strip():
+                    self.departamento_filter.addItem(dept)
+            print(f"✅ Departamentos carregados para filtro: {len(departamentos)}")
         except Exception as e:
             print(f'❌ Erro ao carregar departamentos: {e}')
+
+    def carregar_empresas(self):
+        """Carrega a lista de empresas do backend para o filtro"""
+        try:
+            empresas = api_client.get_empresas()
+            self.empresa_filter.clear()
+            self.empresa_filter.addItem('Todas as empresas')
+            for emp in empresas:
+                if emp and emp.strip():
+                    self.empresa_filter.addItem(emp)
+            print(f"✅ Empresas carregadas para filtro: {len(empresas)}")
+        except Exception as e:
+            print(f'❌ Erro ao carregar empresas: {e}')
 
 
 class ColaboradorDialog(QDialog):
@@ -217,14 +295,14 @@ class ColaboradorDialog(QDialog):
         
         # Departamento
         self.departamento_combo = QComboBox()
-        self.departamento_combo.setEditable(True)
+        self.departamento_combo.setEditable(False)
         self.carregar_departamentos_combo()
         form_layout.addRow("Departamento:", self.departamento_combo)
         
         # Empresa
         self.empresa_combo = QComboBox()
-        self.empresa_combo.addItems(["Matriz", "Filial 1", "Filial 2", "Filial 3"])
-        self.empresa_combo.setEditable(True)
+        self.empresa_combo.setEditable(False)
+        self.carregar_empresas_combo()
         form_layout.addRow("Empresa:", self.empresa_combo)
         
         # Status
@@ -262,7 +340,22 @@ class ColaboradorDialog(QDialog):
             default_depts = ["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logística"]
             for dept in default_depts:
                 self.departamento_combo.addItem(dept)
-    
+
+    def carregar_empresas_combo(self):
+        """Carrega as empresas do backend para o combobox"""
+        try:
+            empresas = api_client.get_empresas()
+            self.empresa_combo.clear()
+            for emp in empresas:
+                if emp and emp.strip():
+                    self.empresa_combo.addItem(emp)
+        except Exception as e:
+            print(f'❌ Erro ao carregar empresas: {e}')
+            # Fallback em caso de erro
+            default_empresas = ["Matriz", "Filial 1", "Filial 2", "Filial 3"]
+            for emp in default_empresas:
+                self.empresa_combo.addItem(emp)
+
     def carregar_dados_edicao(self):
         """Carrega os dados do colaborador para edição"""
         if self.dados_item is None:

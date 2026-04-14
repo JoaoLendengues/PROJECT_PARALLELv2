@@ -13,11 +13,14 @@ class MovimentacoesWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.movimentacoes = []
+        self.movimentacoes_cache = []
         self.materiais = []
+        self.colaboradores = []
         self.colaboradores = []
         self.init_ui()
         self.carregar_materiais()
         self.carregar_colaboradores()
+        self.carregar_empresas()
         self.carregar_movimentacoes()
     
     def init_ui(self):
@@ -48,17 +51,29 @@ class MovimentacoesWidget(QWidget):
         
         # Barra de pesquisa e filtros
         filtros = QHBoxLayout()
-        
+
+        # Filtro Tipo
+        filtros.addWidget(QLabel("Tipo:"))
         self.tipo_filter = QComboBox()
         self.tipo_filter.addItems(["Todos", "Entrada", "Saída"])
         self.tipo_filter.currentTextChanged.connect(self.filtrar_movimentacoes)
-        filtros.addWidget(QLabel("Tipo:"))
         filtros.addWidget(self.tipo_filter)
-        
+
+        # Filtro Empresa
+        filtros.addWidget(QLabel('Empresa:'))
+        self.empresa_filter = QComboBox()
+        self.empresa_filter.setMinimumWidth(150)
+        self.empresa_filter.addItem('Todas as empresas')
+        self.empresa_filter.currentIndexChanged.connect(self.filtrar_movimentacoes)
+        filtros.addWidget(self.empresa_filter)
+
+        filtros.addSpacing(20)
+
+        # Filtro Material
+        filtros.addWidget(QLabel("Material:"))
         self.material_filter = QComboBox()
         self.material_filter.addItem("Todos os materiais")
         self.material_filter.currentTextChanged.connect(self.filtrar_movimentacoes)
-        filtros.addWidget(QLabel("Material:"))
         filtros.addWidget(self.material_filter)
         
         filtros.addStretch()
@@ -100,6 +115,19 @@ class MovimentacoesWidget(QWidget):
         acoes.addWidget(self.deletar_btn)
         
         layout.addLayout(acoes)
+
+    def carregar_empresas(self):
+        """Carrega a lista de empresas para filtro"""
+        try:
+            self.empresas = api_client.get_empresas()
+            self.empresa_filter.clear()
+            self.empresa_filter.addItem('Todas as empresas')
+            for emp in self.empresas:
+                if emp in emp.strip():
+                    self.empresa_filter.addItem(emp)
+            print(f'✅ Empresas carregadas para filtro: {len(self.empresas)}')
+        except Exception as e:
+            print(f'❌ Erro ao carregar empresas: {e}')
     
     def carregar_materiais(self):
         """Carrega a lista de materiais para o filtro"""
@@ -123,6 +151,7 @@ class MovimentacoesWidget(QWidget):
         """Carrega a lista de movimentações do backend"""
         try:
             self.movimentacoes = api_client.listar_movimentacoes()
+            self.movimentacoes_cache = self.movimentacoes.copy()
             self.atualizar_tabela(self.movimentacoes)
             print(f"✅ Movimentações carregadas: {len(self.movimentacoes)}")
         except Exception as e:
@@ -132,12 +161,17 @@ class MovimentacoesWidget(QWidget):
     def filtrar_movimentacoes(self):
         """Filtra as movimentações com base nos filtros"""
         tipo = self.tipo_filter.currentText().lower()
+        empresa = self.empresa_filter.currentText()
         material_texto = self.material_filter.currentText()
         
         filtered = []
         for mov in self.movimentacoes:
             # Filtro por tipo
             if tipo != "todos" and mov.get("tipo", "").lower() != tipo:
+                continue
+
+            # Filtro por empresa
+            if empresa != 'Todas as empresas' and mov.get('empresas') != empresa:
                 continue
             
             # Filtro por material

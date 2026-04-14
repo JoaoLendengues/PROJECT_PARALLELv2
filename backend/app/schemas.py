@@ -323,4 +323,29 @@ class DepartamentoResponse(DepartamentoBase):
 
     class Config:
         from_attributes = True
-                
+
+
+# =====================================================
+# Schemas para Cargos
+# =====================================================
+
+class CargoBase(BaseModel):
+    nome: str
+    descricao: Optional[str] = None
+    ativo: bool = True
+
+class CargoCreate(CargoBase):
+    pass
+
+class CargoUpdate(BaseModel):
+    nome: Optional[str] = None
+    descricao: Optional[str] = None
+    ativo: Optional[bool] = None
+
+class CargoResponse(CargoBase):
+    id: int
+    criado_em: datetime
+    atualizado_em: datetime
+
+    class Config:
+        from_attributes = True

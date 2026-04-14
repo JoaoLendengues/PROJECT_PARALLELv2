@@ -180,4 +180,15 @@ class Departamento(Base):
     ativo = Column(Boolean, default=True)
     criado_em = Column(DateTime, server_default=func.now())
     atualizado_em = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class Cargo(Base):
+    __tablename__ = "cargos"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String(100), unique=True, nullable=False)
+    descricao = Column(Text, nullable=True)
+    ativo = Column(Boolean, default=True)
+    criado_em = Column(DateTime, server_default=func.now())
+    atualizado_em = Column(DateTime, server_default=func.now(), onupdate=func.now())
     
