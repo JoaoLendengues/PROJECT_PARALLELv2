@@ -128,37 +128,19 @@ class MaquinasWidget(QWidget):
         layout.addLayout(acoes)
     
     def carregar_departamentos(self):
-        """Carrega a lista de departamentos do backend"""
+        """Carrega a lista de departamentos do backend para o filtro"""
         try:
-            response = api_client.listar_departamentos()
-
-            # O backend retorna {'departamentos': [...]}
-            if isinstance(response, dict):
-                self.departamentos = response.get('departamentos', [])
-            elif isinstance(response, list):
-                self.departamentos = response
-            else:
-                self.departamentos = []
-
-            # Atualizar o combobox
+            self.departamentos = api_client.get_departamentos_lista()
             self.departamento_filter.clear()
-            self.departamento_filter.addItem('Todos os departamentos')
-
+            self.departamento_filter.addItem("Todos os departamentos")
+            
             for dept in self.departamentos:
                 if dept and dept.strip():
                     self.departamento_filter.addItem(dept)
-
-            print(f'✅ Departamentos carregados: {self.departamentos}')
-        
+            
+            print(f"✅ Departamentos carregados: {len(self.departamentos)}")
         except Exception as e:
             print(f"❌ Erro ao carregar departamentos: {e}")
-            # Fallback em caso de erro
-            self.departamento_filter.clear()
-            self.departamento_filter.addItem('Todos os departamentos')
-            default_depts = ["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logística"]
-
-            for dept in default_depts:
-                self.departamento_filter.addItem(dept)
     
     def carregar_empresas(self):
         """Carrega a lista de empresas do backend"""
@@ -387,15 +369,19 @@ class MaquinaDialog(QDialog):
             self.empresa_combo.addItems(["Matriz", "Filial 1", "Filial 2", "Filial 3"])
     
     def carregar_departamentos_combo(self):
-        """Carrega departamentos do backend para o combo"""
+        """Carrega os departamentos do backend para o combobox"""
         try:
-            departamentos = api_client.get_departamentos()
+            departamentos = api_client.get_departamentos_lista()
             self.departamento_combo.clear()
             for dept in departamentos:
-                self.departamento_combo.addItem(dept)
+                if dept and dept.strip():
+                    self.departamento_combo.addItem(dept)
         except Exception as e:
-            print(f"Erro ao carregar departamentos: {e}")
-            self.departamento_combo.addItems(["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logística"])
+            print(f"❌ Erro ao carregar departamentos: {e}")
+            # Fallback em caso de erro
+            default_depts = ["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logística"]
+            for dept in default_depts:
+                self.departamento_combo.addItem(dept)
     
     def carregar_dados_edicao(self):
         """Carrega os dados do item para edição"""

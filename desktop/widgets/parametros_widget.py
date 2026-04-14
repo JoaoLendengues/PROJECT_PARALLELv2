@@ -350,8 +350,8 @@ class ParametrosWidget(QWidget):
         layout = QVBoxLayout(widget)
         
         self.tabela_departamentos = QTableWidget()
-        self.tabela_departamentos.setColumnCount(2)
-        self.tabela_departamentos.setHorizontalHeaderLabels(["ID", "Departamento"])
+        self.tabela_departamentos.setColumnCount(3)  # 3 colunas: ID, Nome, Status
+        self.tabela_departamentos.setHorizontalHeaderLabels(["ID", "Departamento", "Status"])
         self.tabela_departamentos.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self.tabela_departamentos.verticalHeader().setVisible(False)
         
@@ -525,10 +525,16 @@ class ParametrosWidget(QWidget):
             self.tabela_empresas.setItem(i, 1, QTableWidgetItem(empresa))
     
     def carregar_tabela_departamentos(self):
-        self.tabela_departamentos.setRowCount(len(self.departamentos))
-        for i, dept in enumerate(self.departamentos):
-            self.tabela_departamentos.setItem(i, 0, QTableWidgetItem(str(i + 1)))
-            self.tabela_departamentos.setItem(i, 1, QTableWidgetItem(dept))
+        """Carrega a tabela de departamentos do backend"""
+        try:
+            self.departamentos = api_client.get_departamentos_completo()
+            self.tabela_departamentos.setRowCount(len(self.departamentos))
+            for i, dept in enumerate(self.departamentos):
+                self.tabela_departamentos.setItem(i, 0, QTableWidgetItem(str(dept.get("id", ""))))
+                self.tabela_departamentos.setItem(i, 1, QTableWidgetItem(dept.get("nome", "")))
+                self.tabela_departamentos.setItem(i, 2, QTableWidgetItem("Ativo" if dept.get("ativo", True) else "Inativo"))
+        except Exception as e:
+            print(f"❌ Erro ao carregar departamentos: {e}")
     
     def carregar_tabela_categorias(self):
         self.tabela_categorias.setRowCount(len(self.categorias))
@@ -618,10 +624,11 @@ class ParametrosWidget(QWidget):
     # =====================================================
     
     def adicionar_departamento(self):
+        """Adiciona um novo departamento via backend"""
         dialog = QDialog(self)
         dialog.setWindowTitle("Adicionar Departamento")
         dialog.setModal(True)
-        dialog.setMinimumWidth(300)
+        dialog.setMinimumWidth(400)
         
         dialog.setStyleSheet("""
             QDialog {
@@ -633,10 +640,19 @@ class ParametrosWidget(QWidget):
         """)
         
         layout = QVBoxLayout(dialog)
+        
+        form_layout = QFormLayout()
+        
         nome_edit = QLineEdit()
-        nome_edit.setPlaceholderText("Nome do departamento")
-        nome_edit.setObjectName("configInput")
-        layout.addWidget(nome_edit)
+        nome_edit.setPlaceholderText("Ex: Departamento de TI")
+        form_layout.addRow("Nome:", nome_edit)
+        
+        descricao_edit = QTextEdit()
+        descricao_edit.setMaximumHeight(80)
+        descricao_edit.setPlaceholderText("Descrição do departamento (opcional)")
+        form_layout.addRow("Descrição:", descricao_edit)
+        
+        layout.addLayout(form_layout)
         
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(dialog.accept)
@@ -649,44 +665,46 @@ class ParametrosWidget(QWidget):
                 QMessageBox.warning(self, "Atenção", "Digite o nome do departamento!")
                 return
             
-            if nome in self.departamentos:
-                QMessageBox.warning(self, "Atenção", f"Departamento '{nome}' já existe!")
-                return
+            descricao = descricao_edit.toPlainText().strip() or None
             
             QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
-            success = api_client.add_departamento(nome)
+            success = api_client.criar_departamento(nome, descricao)
             QApplication.restoreOverrideCursor()
             
             if success:
                 notification_manager.success(f"Departamento '{nome}' adicionado com sucesso!", self.window(), 3000)
-                self.carregar_listas()
+                self.carregar_tabela_departamentos()
+                self.carregar_listas()  # Recarregar listas para atualizar comboboxes
             else:
                 QMessageBox.warning(self, "Erro", "Erro ao adicionar departamento")
     
     def remover_departamento(self):
+        """Remove o departamento selecionado via backend"""
         row = self.tabela_departamentos.currentRow()
         if row < 0:
             QMessageBox.warning(self, "Atenção", "Selecione um departamento para remover")
             return
         
-        departamento = self.departamentos[row]
+        dept_id = int(self.tabela_departamentos.item(row, 0).text())
+        dept_nome = self.tabela_departamentos.item(row, 1).text()
         
         confirm = QMessageBox.question(
             self,
             "Confirmar exclusão",
-            f"Tem certeza que deseja remover o departamento '{departamento}'?\n\n"
-            f"Esta ação não poderá ser desfeita e só será permitida se nenhuma máquina estiver usando este departamento.",
+            f"Tem certeza que deseja remover o departamento '{dept_nome}'?\n\n"
+            f"⚠️ Esta ação não poderá ser desfeita e só será permitida se nenhuma máquina ou colaborador estiver usando este departamento.",
             QMessageBox.Yes | QMessageBox.No
         )
         
         if confirm == QMessageBox.Yes:
             QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
-            success = api_client.delete_departamento(departamento)
+            success = api_client.deletar_departamento(dept_id)
             QApplication.restoreOverrideCursor()
             
             if success:
-                notification_manager.success(f"Departamento '{departamento}' removido com sucesso!", self.window(), 3000)
-                self.carregar_listas()
+                notification_manager.success(f"Departamento '{dept_nome}' removido com sucesso!", self.window(), 3000)
+                self.carregar_tabela_departamentos()
+                self.carregar_listas()  # Recarregar listas para atualizar comboboxes
             else:
                 QMessageBox.warning(self, "Erro", "Erro ao remover departamento. Verifique se não está sendo usado.")
     

@@ -12,6 +12,7 @@ class ColaboradoresWidget(QWidget):
         super().__init__()
         self.colaboradores = []
         self.init_ui()
+        self.carregar_departamentos()
         self.carregar_colaboradores()
     
     def init_ui(self):
@@ -165,6 +166,15 @@ class ColaboradoresWidget(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, "Erro", f"Erro ao deletar: {e}")
 
+    def carregar_departamentos(self):
+        """Carrega a lista de departamentos do backend para o filtro"""
+        try:
+            departamentos = api_client.get_departamentos_lista()
+            # Se tiver filtro de departamentos, atualize aqui
+            print(f'✅ Departamentos carregados: {len(departamentos)}')
+        except Exception as e:
+            print(f'❌ Erro ao carregar departamentos: {e}')
+
 
 class ColaboradorDialog(QDialog):
     def __init__(self, item_data=None, parent=None):
@@ -207,8 +217,8 @@ class ColaboradorDialog(QDialog):
         
         # Departamento
         self.departamento_combo = QComboBox()
-        self.departamento_combo.addItems(["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logística"])
         self.departamento_combo.setEditable(True)
+        self.carregar_departamentos_combo()
         form_layout.addRow("Departamento:", self.departamento_combo)
         
         # Empresa
@@ -237,6 +247,21 @@ class ColaboradorDialog(QDialog):
         btn_layout.addWidget(cancelar_btn)
         
         layout.addLayout(btn_layout)
+
+    def carregar_departamentos_combo(self):
+        """Carrega os departamentos do backend para o combobox"""
+        try:
+            departamentos = api_client.get_departamentos_lista()
+            self.departamento_combo.clear()
+            for dept in departamentos:
+                if dept and dept.strip():
+                    self.departamento_combo.addItem(dept)
+        except Exception as e:
+            print(f'❌ Erro ao carregar departamentos: {e}')
+            # Fallback em caso de erro
+            default_depts = ["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logística"]
+            for dept in default_depts:
+                self.departamento_combo.addItem(dept)
     
     def carregar_dados_edicao(self):
         """Carrega os dados do colaborador para edição"""

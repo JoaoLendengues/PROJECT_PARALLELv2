@@ -965,6 +965,81 @@ class APIClient:
         except Exception as e:
             print(f'❌ Erro ao obter status da internet: {e}')
             return {'status': 'offline', 'qualidade': 'erro', 'latencia_ms': None}
+        
+    # =====================================================
+    # Departamentos (CRUD)
+    # =====================================================
+
+    def get_departamentos_lista(self):
+        """Retorna lista de nomes de departamentos para combobox"""
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/departamentos/lista",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            if response.status_code == 200:
+                return response.json()
+            return []
+        except Exception as e:
+            print(f"❌ Erro ao carregar departamentos: {e}")
+            return []
+
+    def get_departamentos_completo(self):
+        """Retorna lista completa de departamentos (com IDs)"""
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/departamentos",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            if response.status_code == 200:
+                return response.json()
+            return []
+        except Exception as e:
+            print(f"❌ Erro ao carregar departamentos: {e}")
+            return []
+
+    def criar_departamento(self, nome, descricao=None):
+        """Cria um novo departamento"""
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/departamentos",
+                json={"nome": nome, "descricao": descricao},
+                headers=self.get_headers(),
+                timeout=30
+            )
+            return response.status_code == 201
+        except Exception as e:
+            print(f"❌ Erro ao criar departamento: {e}")
+            return False
+
+    def atualizar_departamento(self, departamento_id, nome, descricao=None, ativo=True):
+        """Atualiza um departamento"""
+        try:
+            response = requests.put(
+                f"{self.base_url}/api/departamentos/{departamento_id}",
+                json={"nome": nome, "descricao": descricao, "ativo": ativo},
+                headers=self.get_headers(),
+                timeout=30
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"❌ Erro ao atualizar departamento: {e}")
+            return False
+
+    def deletar_departamento(self, departamento_id):
+        """Deleta um departamento"""
+        try:
+            response = requests.delete(
+                f"{self.base_url}/api/departamentos/{departamento_id}",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"❌ Erro ao deletar departamento: {e}")
+            return False
 
 
 # Instância global do cliente
