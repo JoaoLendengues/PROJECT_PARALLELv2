@@ -1,19 +1,21 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
                                QTableWidgetItem, QPushButton, QLabel, QLineEdit,
                                QComboBox, QDialog, QFormLayout, QSpinBox,
-                               QTextEdit, QMessageBox, QHeaderView)
+                               QTextEdit, QMessageBox, QHeaderView, QApplication)
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont, QColor
+from PySide6.QtGui import QFont, QColor, QCursor
 from api_client import api_client
-
+from widgets.toast_notification import notification_manager
 
 class MateriaisWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.materiais = []
         self.categorias = []
+        self.empresas = []
         self.init_ui()
         self.carregar_categorias()
+        self.carregar_empresas()
         self.carregar_materiais()
     
     def init_ui(self):
@@ -42,123 +44,47 @@ class MateriaisWidget(QWidget):
         
         layout.addLayout(header)
         
-        # Barra de pesquisa e filtros
-        filtros = QHBoxLayout()
-        
+        # Barra de pesquisa
         self.pesquisa_edit = QLineEdit()
         self.pesquisa_edit.setPlaceholderText("🔍 Pesquisar por nome, descrição...")
+        self.pesquisa_edit.setMaximumWidth(350)
         self.pesquisa_edit.textChanged.connect(self.filtrar_materiais)
-        filtros.addWidget(self.pesquisa_edit)
+        layout.addWidget(self.pesquisa_edit)
+        
+        # Filtros (todos na mesma linha)
+        filtros_layout = QHBoxLayout()
+        filtros_layout.setSpacing(15)
+        
+        # Filtro Empresa
+        filtros_layout.addWidget(QLabel("Empresa:"))
+        self.empresa_filter = QComboBox()
+        self.empresa_filter.setMinimumWidth(150)
+        self.empresa_filter.setMaximumWidth(200)
+        self.empresa_filter.addItem("Todas as empresas")
+        self.empresa_filter.currentTextChanged.connect(self.filtrar_materiais)
+        filtros_layout.addWidget(self.empresa_filter)
         
         # Filtro Categoria
+        filtros_layout.addWidget(QLabel("Categoria:"))
         self.categoria_filter = QComboBox()
-        self.categoria_filter.setStyleSheet("""
-            QComboBox {
-                background-color: #ffffff;
-                border: 1px solid #cbd5e1;
-                border-radius: 6px;
-                padding: 6px 12px;
-                color: #1e293b;
-                font-size: 13px;
-                min-width: 130px;
-                min-height: 34px;
-                outline: none;
-            }
-            QComboBox:focus {
-                outline: none;
-                border: 1px solid #cbd5e1;
-            }
-            QComboBox::drop-down {
-                border: none;
-                width: 25px;
-                background: transparent;
-            }
-            QComboBox::down-arrow {
-                image: none;
-                border: none;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #ffffff;
-                border: 1px solid #cbd5e1;
-                border-radius: 6px;
-                padding: 4px;
-                outline: none;
-            }
-            QComboBox QAbstractItemView::item {
-                padding: 8px 12px;
-                border: none;
-                color: #1e293b;
-                outline: none;
-            }
-            QComboBox QAbstractItemView::item:selected {
-                background-color: #e6f0ff;
-                color: #1e293b;
-                border: none;
-            }
-            QComboBox QAbstractItemView::item:hover {
-                background-color: #f1f5f9;
-                border: none;
-            }
-        """)
+        self.categoria_filter.setMinimumWidth(150)
+        self.categoria_filter.setMaximumWidth(200)
         self.categoria_filter.addItem("Todas as categorias")
         self.categoria_filter.currentTextChanged.connect(self.filtrar_materiais)
-        filtros.addWidget(self.categoria_filter)
+        filtros_layout.addWidget(self.categoria_filter)
         
         # Filtro Status
+        filtros_layout.addWidget(QLabel("Status:"))
         self.status_filter = QComboBox()
-        self.status_filter.setStyleSheet("""
-            QComboBox {
-                background-color: #ffffff;
-                border: 1px solid #cbd5e1;
-                border-radius: 6px;
-                padding: 6px 12px;
-                color: #1e293b;
-                font-size: 13px;
-                min-width: 130px;
-                min-height: 34px;
-                outline: none;
-            }
-            QComboBox:focus {
-                outline: none;
-                border: 1px solid #cbd5e1;
-            }
-            QComboBox::drop-down {
-                border: none;
-                width: 25px;
-                background: transparent;
-            }
-            QComboBox::down-arrow {
-                image: none;
-                border: none;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #ffffff;
-                border: 1px solid #cbd5e1;
-                border-radius: 6px;
-                padding: 4px;
-                outline: none;
-            }
-            QComboBox QAbstractItemView::item {
-                padding: 8px 12px;
-                border: none;
-                color: #1e293b;
-                outline: none;
-            }
-            QComboBox QAbstractItemView::item:selected {
-                background-color: #e6f0ff;
-                color: #1e293b;
-                border: none;
-            }
-            QComboBox QAbstractItemView::item:hover {
-                background-color: #f1f5f9;
-                border: none;
-            }
-        """)
+        self.status_filter.setMinimumWidth(120)
+        self.status_filter.setMaximumWidth(150)
         self.status_filter.addItems(["Todos", "Ativo", "Inativo", "Descontinuado"])
         self.status_filter.currentTextChanged.connect(self.filtrar_materiais)
-        filtros.addWidget(self.status_filter)
+        filtros_layout.addWidget(self.status_filter)
         
-        layout.addLayout(filtros)
+        filtros_layout.addStretch()
+        
+        layout.addLayout(filtros_layout)
         
         # Tabela de materiais
         self.tabela = QTableWidget()
@@ -166,6 +92,7 @@ class MateriaisWidget(QWidget):
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabela.setEditTriggers(QTableWidget.NoEditTriggers)
         self.tabela.verticalHeader().setVisible(False)
+        self.tabela.setSortingEnabled(True)
         
         # Estilo da tabela
         self.tabela.setStyleSheet("""
@@ -209,10 +136,23 @@ class MateriaisWidget(QWidget):
                 self.categoria_filter.addItem(cat)
         except Exception as e:
             print(f"Erro ao carregar categorias: {e}")
+
+    def carregar_empresas(self):
+        """Carrega a lista de empresas do backend"""
+        try:
+            self.empresas = api_client.get_empresas()
+            self.empresa_filter.clear()
+            self.empresa_filter.addItem('Todas as empresas')
+            for emp in self.empresas:
+                self.empresa_filter.addItem(emp)
+        except Exception as e:
+            print(f'Erro ao carregar empresas: {e}')
     
     def carregar_materiais(self):
+        """Carrega a lista de materiais do backend"""
         try:
             self.materiais = api_client.listar_materiais()
+            self.dados_cache = self.materiais.copy() # Cache para filtros
             self.atualizar_tabela(self.materiais)
             print(f"✅ Materiais carregados: {len(self.materiais)}")
         except Exception as e:
@@ -221,15 +161,25 @@ class MateriaisWidget(QWidget):
     
     def filtrar_materiais(self):
         search_text = self.pesquisa_edit.text().lower()
+        empresa = self.empresa_filter.currentText()
         categoria = self.categoria_filter.currentText()
         status = self.status_filter.currentText().lower()
         
         filtered = []
-        for material in self.materiais:
+        for material in self.dados_cache:
+            # Filtro por status
             if status != "todos" and material.get("status", "").lower() != status:
                 continue
+
+            # Filtro por empresa
+            if empresa != 'Todas as empresas' and material.get('empresa') != empresa:
+                continue
+
+            # Filtro por categoria
             if categoria != "Todas as categorias" and material.get("categoria") != categoria:
                 continue
+
+            # Filtro de pesquisa
             if search_text:
                 if (search_text in material["nome"].lower() or
                     search_text in material.get("descricao", "").lower()):
@@ -240,6 +190,7 @@ class MateriaisWidget(QWidget):
         self.atualizar_tabela(filtered)
     
     def atualizar_tabela(self, materiais):
+        """Atualiza a tabela com a lista de materiais"""
         self.tabela.setRowCount(len(materiais))
         
         status_colors = {
@@ -266,6 +217,7 @@ class MateriaisWidget(QWidget):
         if dialog.exec():
             self.carregar_materiais()
             self.carregar_categorias()
+            self.carregar_empresas()
     
     def editar_material(self):
         current_row = self.tabela.currentRow()
@@ -281,6 +233,7 @@ class MateriaisWidget(QWidget):
             if dialog.exec():
                 self.carregar_materiais()
                 self.carregar_categorias()
+                self.carregar_empresas()
     
     def deletar_material(self):
         current_row = self.tabela.currentRow()
@@ -300,14 +253,21 @@ class MateriaisWidget(QWidget):
         
         if confirm == QMessageBox.Yes:
             try:
-                if api_client.deletar_material(material_id):
-                    QMessageBox.information(self, "Sucesso", "Material deletado com sucesso!")
+                QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+                success = api_client.deletar_material(material_id)
+                QApplication.restoreOverrideCursor()
+
+                if success:
+                    notification_manager.success('Material deletado com sucesso!', self.window(), 3000)
+
                     self.carregar_materiais()
                     self.carregar_categorias()
+                    self.carregar_empresas()
                 else:
-                    QMessageBox.warning(self, "Erro", "Erro ao deletar material")
+                    notification_manager.error('Erro ao deletar material', self.window(), 3000)
             except Exception as e:
-                QMessageBox.critical(self, "Erro", f"Erro ao deletar: {e}")
+                QApplication.restoreOverrideCursor()
+                QMessageBox.critical(self, 'Erro', f'Erro ao deletar: {e}')
 
 
 # CLASSE DO DIALOG
@@ -429,8 +389,8 @@ class MaterialDialog(QDialog):
                 border: none;
             }
         """)
-        self.empresa_combo.addItems(["Matriz", "Filial 1", "Filial 2", "Filial 3"])
         self.empresa_combo.setEditable(True)
+        self.carregar_empresas()
         form_layout.addRow("Empresa:", self.empresa_combo)
         
         self.status_combo = QComboBox()
@@ -496,6 +456,15 @@ class MaterialDialog(QDialog):
                 self.categoria_combo.addItem(cat)
         except Exception as e:
             print(f"Erro ao carregar categorias: {e}")
+
+    def carregar_empresas(self):
+        try:
+            empresas = api_client.get_empresas()
+            self.empresa_combo.clear()
+            for emp in empresas:
+                self.empresa_combo.addItem(emp)
+        except Exception as e:
+            print(f'Erro ao carregar empresas: {e}')
     
     def carregar_dados_edicao(self):
         if self.dados_item is None:
@@ -539,20 +508,25 @@ class MaterialDialog(QDialog):
             return
     
         try:
+            QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+
             if self.dados_item:
-                response = api_client.atualizar_material(self.dados_item["id"], dados)
-                if response and response.get("id"):
-                    QMessageBox.information(self, "Sucesso", "Material atualizado com sucesso!")
+                response = api_client.atualizar_material(self.dados_item['id'], dados)
+                if response:
+                    QMessageBox.information(self, 'Sucesso', 'Material atualizado com sucesso')
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Erro ao atualizar material")
+                    QMessageBox.warning(self, 'Erro', 'Erro ao atualizar material')
             else:
                 response = api_client.criar_material(dados)
                 if response:
-                    QMessageBox.information(self, "Sucesso", "Material criado com sucesso!")
+                    QMessageBox.information(self, 'Sucesso', 'Material criado com sucesso')
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Erro ao criar material")
+                    QMessageBox.warning(self, 'Erro', 'Erro ao criar material')
+                
+            QApplication.restoreOverrideCursor()
+
         except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Erro ao salvar: {e}")
-            
+            QApplication.restoreOverrideCursor()
+            QMessageBox.critical(self, 'Erro', 'Erro ao salvar: {e}')

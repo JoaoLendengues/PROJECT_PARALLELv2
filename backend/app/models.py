@@ -40,6 +40,7 @@ class Maquina(Base):
     departamento = Column(String(100))
     status = Column(String(20), default="ativo")
     observacoes = Column(Text)
+    mac_address = Column(String(17), nullable=True) # Formato: XX:XX:XX:XX:XX:XX
     criado_em = Column(DateTime, server_default=func.now())
     atualizado_em = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

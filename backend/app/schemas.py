@@ -40,6 +40,8 @@ class MaquinaBase(BaseModel):
     departamento: Optional[str] = None
     status: str = 'ativo'
     observacoes: Optional[str] = None
+    mac_address: Optional[str] = None
+    ip_address: Optional[str] = None
 
 class MaquinaCreate(MaquinaBase):
     pass
@@ -51,6 +53,8 @@ class MaquinaUpdate(BaseModel):
     departamento: Optional[str] = None
     status: Optional[str] = None
     observacoes: Optional[str] = None
+    mac_address: Optional[str] = None
+    ip_address: Optional[str] = None
 
 class MaquinaResponse(MaquinaBase):
     id: int
