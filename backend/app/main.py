@@ -5,12 +5,15 @@ from sqlalchemy.orm import Session
 from app.database import engine, Base, get_db, test_connection, get_pool_status
 from app.routers import (materiais, maquinas, manutencoes, movimentacoes, pedidos,
                          auth, usuarios_sistema, colaboradores, dashboard, demandas, 
-                         configuracoes, departamentos, cargos)
+                         configuracoes, departamentos, cargos, backup)
 from sqlalchemy import text
 from datetime import datetime
 from fastapi.responses import HTMLResponse, JSONResponse
 import psutil
 import os
+
+# Importar o configurar_scheduler do módulo backup
+from app.backup import configurar_scheduler
 
 # Criar as tabelas no banco (se não existirem)
 print("📦 Criando/verificando tabelas no banco de dados...")
@@ -50,6 +53,34 @@ app.include_router(demandas.router)
 app.include_router(configuracoes.router)
 app.include_router(departamentos.router)
 app.include_router(cargos.router)
+app.include_router(backup.router)
+
+
+# Evento de startup - inicializa o scheduler de backup quando a API inicia
+@app.on_event("startup")
+def startup_event():
+    """Inicializa o scheduler de backup quando a API inicia"""
+    print("🚀 Iniciando API...")
+    try:
+        configurar_scheduler()
+        print("✅ Scheduler de backup configurado com sucesso!")
+    except Exception as e:
+        print(f"⚠️ Erro ao configurar scheduler de backup: {e}")
+
+
+# Evento de shutdown - finaliza o scheduler quando a API para
+@app.on_event("shutdown")
+def shutdown_event():
+    """Finaliza o scheduler de backup quando a API para"""
+    print("🛑 Desligando API...")
+    try:
+        from app.backup import scheduler
+        if scheduler.running:
+            scheduler.shutdown()
+            print("✅ Scheduler de backup finalizado!")
+    except Exception as e:
+        print(f"⚠️ Erro ao finalizar scheduler: {e}")
+
 
 @app.get("/")
 def read_root():

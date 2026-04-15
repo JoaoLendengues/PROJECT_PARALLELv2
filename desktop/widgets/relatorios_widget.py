@@ -124,6 +124,7 @@ class RelatoriosWidget(QWidget):
         self.mov_tabela.setAlternatingRowColors(True)
         self.mov_tabela.setSelectionBehavior(QTableWidget.SelectRows)
         self.mov_tabela.verticalHeader().setVisible(False)
+        self.mov_tabela.setSortingEnabled(True)
         
         # Estilo da tabela
         self.mov_tabela.setStyleSheet("""
@@ -212,6 +213,7 @@ class RelatoriosWidget(QWidget):
         self.est_tabela = QTableWidget()
         self.est_tabela.setAlternatingRowColors(True)
         self.est_tabela.verticalHeader().setVisible(False)
+        self.est_tabela.setSortingEnabled(True)
         
         # Estilo da tabela
         self.est_tabela.setStyleSheet("""
@@ -306,6 +308,7 @@ class RelatoriosWidget(QWidget):
         self.ped_tabela = QTableWidget()
         self.ped_tabela.setAlternatingRowColors(True)
         self.ped_tabela.verticalHeader().setVisible(False)
+        self.ped_tabela.setSortingEnabled(True)
         
         # Estilo da tabela
         self.ped_tabela.setStyleSheet("""
@@ -397,6 +400,7 @@ class RelatoriosWidget(QWidget):
         self.dem_tabela = QTableWidget()
         self.dem_tabela.setAlternatingRowColors(True)
         self.dem_tabela.verticalHeader().setVisible(False)
+        self.dem_tabela.setSortingEnabled(True)
         
         # Estilo da tabela
         self.dem_tabela.setStyleSheet("""
@@ -432,6 +436,10 @@ class RelatoriosWidget(QWidget):
         """Carrega movimentações para o relatório"""
         try:
             movimentacoes = api_client.listar_movimentacoes()
+            
+            # Ordenar por data/hora (mais recente primeiro)
+            movimentacoes.sort(key=lambda x: x.get("data_hora", ""), reverse=True)
+            
             self.mov_tabela.setRowCount(len(movimentacoes))
             
             for row, mov in enumerate(movimentacoes):
@@ -478,6 +486,10 @@ class RelatoriosWidget(QWidget):
                 status = None
             
             materiais = api_client.listar_materiais(categoria=categoria, empresa=empresa, status=status)
+            
+            # Ordenar por nome
+            materiais.sort(key=lambda x: x.get("nome", "").lower())
+            
             self.est_tabela.setRowCount(len(materiais))
             
             for row, mat in enumerate(materiais):
@@ -512,6 +524,10 @@ class RelatoriosWidget(QWidget):
                 empresa = None
             
             pedidos = api_client.listar_pedidos(status=status, empresa=empresa)
+            
+            # Ordenar por data de solicitação (mais recente primeiro)
+            pedidos.sort(key=lambda x: x.get("data_solicitacao", ""), reverse=True)
+            
             self.ped_tabela.setRowCount(len(pedidos))
             
             status_cores = {
@@ -551,6 +567,10 @@ class RelatoriosWidget(QWidget):
                 prioridade = None
             
             demandas = api_client.listar_demandas(status=status, prioridade=prioridade)
+            
+            # Ordenar por data de abertura (mais recente primeiro)
+            demandas.sort(key=lambda x: x.get("data_abertura", ""), reverse=True)
+            
             self.dem_tabela.setRowCount(len(demandas))
             
             prioridade_cores = {
@@ -735,4 +755,3 @@ class RelatoriosWidget(QWidget):
             
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao exportar PDF: {e}")
-            

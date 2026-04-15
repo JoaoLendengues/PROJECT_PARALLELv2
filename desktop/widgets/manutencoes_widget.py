@@ -11,9 +11,12 @@ class ManutencoesWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.manutencoes = []
+        self.manutencoes_cache = []
         self.maquinas = []
+        self.empresas = []
         self.init_ui()
         self.carregar_maquinas()
+        self.carregar_empresas()
         self.carregar_manutencoes()
     
     def init_ui(self):
@@ -45,17 +48,32 @@ class ManutencoesWidget(QWidget):
         # Barra de pesquisa e filtros
         filtros = QHBoxLayout()
         
+        # Filtro Status
+        filtros.addWidget(QLabel("Status:"))
         self.status_filter = QComboBox()
         self.status_filter.addItems(["Todos", "Pendente", "Em Andamento", "Concluída", "Cancelada"])
         self.status_filter.currentTextChanged.connect(self.filtrar_manutencoes)
-        filtros.addWidget(QLabel("Status:"))
         filtros.addWidget(self.status_filter)
-        
+
+        filtros.addSpacing(20)
+
+        # Filtro Empresa
+        filtros.addWidget(QLabel('Empresa:'))
+        self.empresa_filter = QComboBox()
+        self.empresa_filter.setMinimumWidth(150)
+        self.empresa_filter.addItem('Todas as empresas')
+        self.empresa_filter.currentTextChanged.connect(self.filtrar_manutencoes)
+        filtros.addWidget(self.empresa_filter)
+
+        filtros.addSpacing(20)
+
+        # Filtro Máquina
+        filtros.addWidget(QLabel("Máquina:"))        
         self.maquina_filter = QComboBox()
         self.maquina_filter.addItem("Todas as máquinas")
         self.maquina_filter.currentTextChanged.connect(self.filtrar_manutencoes)
-        filtros.addWidget(QLabel("Máquina:"))
         filtros.addWidget(self.maquina_filter)
+        
         
         filtros.addStretch()
         
@@ -112,13 +130,28 @@ class ManutencoesWidget(QWidget):
             self.maquina_filter.addItem("Todas as máquinas")
             for maq in self.maquinas:
                 self.maquina_filter.addItem(f"{maq.get('nome', '')} - {maq.get('empresa', '')}")
+            print(f'✅ Máquinas carregadas: {len(self.maquinas)}')
         except Exception as e:
             print(f"Erro ao carregar máquinas: {e}")
+
+    def carregar_empresas(self):
+        """Carrega a lista de empresas do backend para o filtro"""
+        try:
+            empresas = api_client.get_empresas()
+            self.empresa_filter.clear()
+            self.empresa_filter.addItem('Todas as empresas')
+            for emp in empresas:
+                if emp and emp.strip():
+                    self.empresa_filter.addItem(emp)
+            print(f'✅ Empresas carregadas para filtro: {len(empresas)}')
+        except Exception as e:
+            print(f'❌ Erro ao carregar empresas: {e}')
     
     def carregar_manutencoes(self):
         """Carrega a lista de manutenções do backend"""
         try:
             self.manutencoes = api_client.listar_manutencoes()
+            self.manutencoes_cache = self.manutencoes.copy()
             self.atualizar_tabela(self.manutencoes)
             print(f"✅ Manutenções carregadas: {len(self.manutencoes)}")
         except Exception as e:
@@ -128,6 +161,7 @@ class ManutencoesWidget(QWidget):
     def filtrar_manutencoes(self):
         """Filtra as manutenções com base nos filtros"""
         status = self.status_filter.currentText().lower()
+        empresa = self.empresa_filter.currentText()
         maquina_texto = self.maquina_filter.currentText()
         
         filtered = []
@@ -135,6 +169,19 @@ class ManutencoesWidget(QWidget):
             # Filtro por status
             if status != "todos" and manut.get("status", "").lower() != status:
                 continue
+
+            # Filtro por empresa
+            if empresa != 'Todas as empresas':
+                # Buscar a empresa da máquina
+                maquina_id = manut.get('maquina_id')
+                if maquina_id:
+                    maquina = next((m for m in self.maquinas if m.get('id') == maquina_id), None)
+                    if maquina and maquina.get('empresa') != empresa:
+                        continue
+                else:
+                    # Se não encontrar a máquina, pular
+                    continue
+
             
             # Filtro por máquina
             if maquina_texto != "Todas as máquinas":

@@ -12,9 +12,13 @@ class PedidosWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.pedidos = []
+        self.pedidos_cache = []
         self.materiais = []
+        self.departamentos = []
         self.init_ui()
         self.carregar_materiais()
+        self.carregar_departamentos()
+        self.carregar_empresas()
         self.carregar_pedidos()
     
     def init_ui(self):
@@ -46,18 +50,32 @@ class PedidosWidget(QWidget):
         # Barra de pesquisa e filtros
         filtros = QHBoxLayout()
         
+        # Filtro Status
+        filtros.addWidget(QLabel("Status:"))
         self.status_filter = QComboBox()
         self.status_filter.addItems(["Todos", "Pendente", "Aprovado", "Concluído", "Cancelado"])
         self.status_filter.currentTextChanged.connect(self.filtrar_pedidos)
-        filtros.addWidget(QLabel("Status:"))
         filtros.addWidget(self.status_filter)
         
-        self.empresa_filter = QComboBox()
-        self.empresa_filter.addItem("Todas as empresas")
-        self.empresa_filter.addItems(["Matriz", "Filial 1", "Filial 2", "Filial 3"])
-        self.empresa_filter.currentTextChanged.connect(self.filtrar_pedidos)
+        filtros.setSpacing(20)
+        
+        # Filtro empresa
         filtros.addWidget(QLabel("Empresa:"))
+        self.empresa_filter = QComboBox()
+        self.empresa_filter.setMinimumWidth(150)
+        self.empresa_filter.addItem("Todas as empresas")
+        self.empresa_filter.currentTextChanged.connect(self.filtrar_pedidos)
         filtros.addWidget(self.empresa_filter)
+        
+        filtros.addSpacing(20)
+
+        # Filtro Departamento
+        filtros.addWidget(QLabel('Departamento:'))
+        self.departamento_filter = QComboBox()
+        self.departamento_filter.setMinimumWidth(150)
+        self.departamento_filter.addItem('Todos os departamentos')
+        self.departamento_filter.currentTextChanged.connect(self.filtrar_pedidos)
+        filtros.addWidget(self.departamento_filter)
         
         filtros.addStretch()
         
@@ -69,6 +87,7 @@ class PedidosWidget(QWidget):
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabela.setEditTriggers(QTableWidget.NoEditTriggers)
         self.tabela.verticalHeader().setVisible(False)
+        self.tabela.setSortingEnabled(True)
         
         # Estilo da tabela
         self.tabela.setStyleSheet("""
@@ -121,11 +140,38 @@ class PedidosWidget(QWidget):
             self.materiais = api_client.listar_materiais_para_pedido()
         except Exception as e:
             print(f"Erro ao carregar materiais: {e}")
-    
+
+    def carregar_departamentos(self):
+        """Carrega a lista de departamentos do backend para filtro"""
+        try:
+            self.departamentos = api_client.get_departamentos_lista()
+            self.departamento_filter.clear()
+            self.departamento_filter.addItem('Todos os departamentos')
+            for dept in self.departamentos:
+                if dept and dept.strip():
+                    self.departamento_filter.addItem(dept)
+            print(f'✅ Departamentos carregados para filtro: {len(self.departamentos)}')
+        except Exception as e:
+            print(f'❌ Erro ao carregar empresas: {e}')
+
+    def carregar_empresas(self):
+        """Carrega a lista de empresas do backend para filtro"""
+        try:
+            self.empresas = api_client.get_empresas()
+            self.empresa_filter.clear()
+            self.empresa_filter.addItem('Todas as empresas')
+            for emp in self.empresas:
+                if emp and emp.strip():
+                    self.empresa_filter.addItem(emp)
+            print(f'✅ Empresas carregadas para filtro: {len(self.empresas)}')
+        except Exception as e:
+            print(f'❌ Erro ao carregar empresas> {e}')          
+
     def carregar_pedidos(self):
         """Carrega a lista de pedidos do backend"""
         try:
             self.pedidos = api_client.listar_pedidos()
+            self.pedidos_cache = self.pedidos.copy()
             self.atualizar_tabela(self.pedidos)
             print(f"✅ Pedidos carregados: {len(self.pedidos)}")
         except Exception as e:
@@ -136,6 +182,7 @@ class PedidosWidget(QWidget):
         """Filtra os pedidos com base nos filtros"""
         status = self.status_filter.currentText().lower()
         empresa = self.empresa_filter.currentText()
+        departamento = self.departamento_filter.currentText()
         
         filtered = []
         for pedido in self.pedidos:
@@ -145,6 +192,10 @@ class PedidosWidget(QWidget):
             
             # Filtro por empresa
             if empresa != "Todas as empresas" and pedido.get("empresa") != empresa:
+                continue
+
+            # Filtro por departamento
+            if departamento != 'Todos os departamentos' and pedido.get('departamento') != departamento:
                 continue
             
             filtered.append(pedido)
@@ -280,7 +331,6 @@ class PedidosWidget(QWidget):
             except Exception as e:
                 QApplication.restoreOverrideCursor()
                 QMessageBox.critical(self, "Erro", f"Erro ao concluir pedido: {e}")
-
 
     def cancelar_pedido(self):
         current_row = self.tabela.currentRow()
@@ -453,6 +503,17 @@ class PedidoDialog(QDialog):
         btn_layout.addWidget(cancelar_btn)
         
         layout.addLayout(btn_layout)
+
+    def carregar_departamentos_combo(self):
+        """Carrega os departamentos do backend para o combobox"""
+        try:
+            departamentos = api_client.get_departamentos_lista()
+            self.departamento_combo.clear()
+            for dept in departamentos:
+                if dept and dept.strip():
+                    self.departamento_combo.addItem(dept)
+        except Exception as e:
+            print(f"❌ Erro ao carregar departamentos: {e}")
     
     def on_material_selecionado(self, index):
         """Quando um material existente é selecionado no combo"""

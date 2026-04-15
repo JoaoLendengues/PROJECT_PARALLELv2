@@ -97,7 +97,7 @@ class MovimentacoesWidget(QWidget):
             }
         """)
         
-        headers = ["ID", "Material", "Tipo", "Quantidade", "Empresa", "Destinatário", "Data/Hora", "Observação"]
+        headers = ["ID", "Material", "Tipo", "Quantidade", "Empresa", "Colaborador", "Data/Hora", "Observação"]
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
         
@@ -321,7 +321,7 @@ class MovimentacaoDialog(QDialog):
         form_layout.addRow("Empresa:", self.empresa_combo)
         
         # Destinatário (com colaboradores)
-        self.destinatario_label = QLabel("Destinatário:")
+        self.destinatario_label = QLabel("Colaborador:")
         self.destinatario_combo = QComboBox()
         self.destinatario_combo.setEditable(True)
         self.carregar_colaboradores_no_combo()
@@ -376,7 +376,7 @@ class MovimentacaoDialog(QDialog):
             self.destinatario_label.setText("Fornecedor/Origem:")
             self.destinatario_combo.setEditText("Fornecedor")
         else:
-            self.destinatario_label.setText("Destinatário:")
+            self.destinatario_label.setText("Colaborador:")
             self.destinatario_combo.setEditText("")
     
     def atualizar_info_estoque(self):
