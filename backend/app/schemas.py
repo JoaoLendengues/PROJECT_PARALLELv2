@@ -364,7 +364,7 @@ class NotificacaoBase(BaseModel):
     dados_extra: Optional[Dict[str, Any]] = None
 
 class NotificacaoCreate(NotificacaoBase):
-    usuario_id: int
+    pass
 
 class NotificacaoUpdate(BaseModel):
     status: Optional[str] = None

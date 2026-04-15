@@ -59,7 +59,9 @@ def criar_notificacao(
 ):
     """Cria uma nova notificação (para uso interno do sistema)"""
     
-    nova_notificacao = models.Notificacao(**notificacao.model_dump())
+    nova_notificacao = models.Notificacao(
+        **notificacao.model_dump(),
+        usuario_id=current_user.id)
     db.add(nova_notificacao)
     db.commit()
     db.refresh(nova_notificacao)
