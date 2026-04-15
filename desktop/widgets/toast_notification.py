@@ -16,6 +16,9 @@ class ToastNotification(QFrame):
         self.notificacao_id = notificacao_id
         self.parent_window = parent
         
+        print(f"🔍 DEBUG ToastNotification: acao recebida = {acao}")
+        print(f"🔍 DEBUG ToastNotification: parent_window = {parent}")
+        
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_DeleteOnClose)
         
@@ -47,12 +50,12 @@ class ToastNotification(QFrame):
             }
         }
         
-        # Se tipo for passado (para compatibilidade), mapear para prioridade
+        # Mapear tipo para prioridade
         if tipo == "error":
             prioridade = "alta"
         elif tipo == "warning":
             prioridade = "media"
-        elif tipo == "success" or tipo == "info":
+        else:
             prioridade = "baixa"
         
         cor = cores.get(prioridade, cores["baixa"])
@@ -108,7 +111,6 @@ class ToastNotification(QFrame):
         
         header_layout.addStretch()
         
-        # Botão fechar
         close_btn = QPushButton("✕")
         close_btn.setFixedSize(24, 24)
         close_btn.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
@@ -131,8 +133,10 @@ class ToastNotification(QFrame):
         self.message_label.setMaximumWidth(380)
         content_layout.addWidget(self.message_label)
         
-        # Botões de ação (se houver)
+        # Botões de ação
+        print(f"🔍 DEBUG: Verificando acao = {acao}")
         if acao:
+            print(f"🔍 DEBUG: Criando botões para ação: {acao}")
             btn_layout = QHBoxLayout()
             btn_layout.addStretch()
             
@@ -145,16 +149,13 @@ class ToastNotification(QFrame):
             btn_layout.addWidget(ignore_btn)
             
             content_layout.addLayout(btn_layout)
+        else:
+            print(f"🔍 DEBUG: acao é None ou vazio, botões não serão criados")
         
         main_layout.addWidget(content_frame)
         
-        # Ajustar tamanho
         self.adjustSize()
-        
-        # Posicionar
         self.posicionar()
-        
-        # Mostrar com animação
         self.show()
         
         # Animação de entrada
@@ -166,7 +167,6 @@ class ToastNotification(QFrame):
         self.anim_entrada.setEasingCurve(QEasingCurve.Type.OutCubic)
         self.anim_entrada.start()
         
-        # Auto-fechar
         if duration > 0:
             self.timer_fechar = QTimer()
             self.timer_fechar.setSingleShot(True)
@@ -179,7 +179,6 @@ class ToastNotification(QFrame):
             parent_rect = self.parent().rect()
             x = parent_rect.width() - self.width() - 20
             
-            # Calcular posição Y baseado no tamanho da janela
             if parent_rect.height() < 600:
                 y = parent_rect.height() - self.height() - 60
             elif parent_rect.height() < 800:
@@ -195,33 +194,23 @@ class ToastNotification(QFrame):
             self.move(x, y)
     
     def executar_acao(self):
-        """Executa a ação da notificação (ex: abrir tela do material)"""
+        """Executa a ação da notificação"""
+        print(f"🔍 executar_acao chamado! acao={self.acao}")
+        self.fechar_animado()
+        
         if self.parent_window and self.acao:
-            # Fechar notificação
-            self.fechar_animado()
-            
-            # Executar ação (navegar para a tela correspondente)
             if hasattr(self.parent_window, self.acao):
+                print(f"✅ Chamando método: {self.acao}")
                 getattr(self.parent_window, self.acao)()
-                
-                # Se tiver ID, pode passar como argumento
-                if self.acao_id and hasattr(self.parent_window, f"{self.acao}_com_id"):
-                    getattr(self.parent_window, f"{self.acao}_com_id")(self.acao_id)
+            else:
+                print(f"⚠️ Método {self.acao} não encontrado")
     
     def ignorar(self):
-        """Ignora a notificação (apenas fecha)"""
-        # Se tiver ID de notificação, marcar como ignorada no backend
-        if self.notificacao_id:
-            try:
-                from api_client import api_client
-                api_client.marcar_notificacao_lida(self.notificacao_id)
-            except:
-                pass
-        
+        """Ignora a notificação"""
+        print(f"🔍 Notificação ignorada")
         self.fechar_animado()
     
     def fechar_animado(self):
-        """Fecha com animação de fade out"""
         if hasattr(self, 'timer_fechar'):
             self.timer_fechar.stop()
         
@@ -244,6 +233,7 @@ class NotificationManager:
     """Gerenciador de notificações do sistema"""
     
     _instance = None
+    _initialized = False
     
     def __new__(cls):
         if cls._instance is None:
@@ -254,46 +244,70 @@ class NotificationManager:
             cls._instance._sons_habilitados = True
         return cls._instance
     
+    def __init__(self):
+        if self._initialized:
+            return
+        self._initialized = True
+        if not hasattr(self, '_fila'):
+            self._fila = []
+        if not hasattr(self, '_notificacao_atual'):
+            self._notificacao_atual = None
+        if not hasattr(self, '_parent'):
+            self._parent = None
+        if not hasattr(self, '_sons_habilitados'):
+            self._sons_habilitados = True
+    
     def set_parent(self, parent):
-        """Define o parent para as notificações"""
         self._parent = parent
     
     def set_sons_habilitados(self, habilitado):
-        """Habilita ou desabilita os sons"""
         self._sons_habilitados = habilitado
-        from core.sound_manager import sound_manager
-        sound_manager.set_habilitado(habilitado)
+        try:
+            from core.sound_manager import sound_manager
+            sound_manager.set_habilitado(habilitado)
+        except:
+            pass
     
     def show(self, message, tipo="info", duration=5000, parent=None, 
              prioridade="baixa", acao=None, acao_id=None, notificacao_id=None):
-        """Adiciona notificação à fila"""
         
-        # Tocar som (se habilitado)
+        print(f"🔍 DEBUG show: acao recebido = {acao}")
+        print(f"🔍 DEBUG show: parent = {parent}")
+        
         if self._sons_habilitados:
-            from core.sound_manager import sound_manager
-            sound_manager.tocar(prioridade)
+            try:
+                from core.sound_manager import sound_manager
+                sound_manager.tocar(prioridade)
+            except:
+                pass
+        
+        if parent is None:
+            parent = self._parent
         
         self._fila.append({
             "message": message,
             "tipo": tipo,
             "duration": duration,
-            "parent": parent or self._parent,
+            "parent": parent,
             "prioridade": prioridade,
             "acao": acao,
             "acao_id": acao_id,
             "notificacao_id": notificacao_id
         })
         
+        print(f"🔍 DEBUG show: item adicionado à fila com acao={acao}")
+        
         if self._notificacao_atual is None:
             self._exibir_proxima()
     
     def _exibir_proxima(self):
-        """Exibe a próxima notificação da fila"""
         if not self._fila:
             self._notificacao_atual = None
             return
         
         item = self._fila.pop(0)
+        
+        print(f"🔍 DEBUG _exibir_proxima: item acao = {item.get('acao')}")
         
         parent = item["parent"]
         if parent and hasattr(parent, 'window'):

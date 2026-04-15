@@ -36,14 +36,27 @@ def on_login_success(usuario):
     _current_window = MainWindow(usuario)
     _current_window.show()
     
+    # TESTE DE NOTIFICAÇÃO (remover depois)
+    from widgets.toast_notification import notification_manager
+    from PySide6.QtCore import QTimer
+    
+    def testar_notificacao():
+        notification_manager.warning(
+            "📦 Estoque baixo!\n\nMouse Logitech - Apenas 2 unidades restantes.\nClique em 'Ver' para ir para Materiais.",
+            _current_window,
+            8000,
+            acao="show_materiais"
+        )
+    
+    QTimer.singleShot(2000, testar_notificacao)
+    
     # Verificar atualizações em segundo plano após o login
     verificar_atualizacoes()
 
 
 def verificar_atualizacoes():
     """Verifica atualizações em segundo plano e exibe notificação"""
-    # CORREÇÃO: Não passar argumento - o UpdateChecker já lê a versão do version.json
-    checker = UpdateChecker()  # <--- REMOVIDO o argumento current_version
+    checker = UpdateChecker()
     
     def on_update_available(update_info):
         notification_manager.info(
@@ -63,7 +76,6 @@ def verificar_atualizacoes():
     checker.no_update.connect(on_no_update)
     checker.error.connect(on_error)
     
-    # Aguardar 5 segundos após login para verificar
     QTimer.singleShot(5000, checker.start)
 
 
@@ -73,7 +85,6 @@ def main():
     _app = QApplication(sys.argv)
     _app.setStyle('Windows')
     
-    # Estilo global forte para todos os combobox
     global_style = """
         /* Força estilo para TODOS os combobox */
         QComboBox {
@@ -136,7 +147,6 @@ def main():
         }
     """
     
-    # Carregar estilo do arquivo
     style_path = os.path.join(os.path.dirname(__file__), 'styles', 'style.qss')
     if os.path.exists(style_path):
         with open(style_path, 'r', encoding='utf-8') as f:
@@ -145,7 +155,6 @@ def main():
     else:
         _app.setStyleSheet(global_style)
     
-    # Mostrar tela de login
     show_login()
     
     sys.exit(_app.exec())
