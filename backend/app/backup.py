@@ -62,7 +62,7 @@ def realizar_backup():
         
         # Comando pg_dump
         # IMPORTANTE: Ajuste o caminho do pg_dump conforme sua instalação
-        pg_dump_path = "pg_dump"  # ou "C:\\Program Files\\PostgreSQL\\16\\bin\\pg_dump.exe"
+        pg_dump_path = "C:\\Program Files\\PostgreSQL\\15\\bin\\pg_dump.exe"  # ou "C:\\Program Files\\PostgreSQL\\16\\bin\\pg_dump.exe"
         
         # Definir variável de ambiente para senha
         env = os.environ.copy()
