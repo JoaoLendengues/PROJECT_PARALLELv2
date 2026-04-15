@@ -1177,5 +1177,101 @@ class APIClient:
             return False
 
 
+    # =====================================================
+    # Notificações
+    # =====================================================
+
+    def listar_notificacoes(self, status=None, prioridade=None, limit=50, offset=0):
+        """Lista notificações do usuário"""
+        try:
+            params = {"limit": limit, "offset": offset}
+            if status:
+                params["status"] = status
+            if prioridade:
+                params["prioridade"] = prioridade
+            
+            response = requests.get(
+                f"{self.base_url}/api/notificacoes",
+                headers=self.get_headers(),
+                params=params,
+                timeout=30
+            )
+            if response.status_code == 200:
+                return response.json()
+            return []
+        except Exception as e:
+            print(f"❌ Erro ao listar notificações: {e}")
+            return []
+        
+    def contar_notificacoes_nao_lidas(self):
+        """Retorna a quantidade de notificações não lidas"""
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/notificacoes/nao-lidas/count",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            if response.status_code == 200:
+                return response.json().get("count", 0)
+            return 0
+        except Exception as e:
+            print(f"❌ Erro ao contar notificações: {e}")
+            return 0
+        
+    def marcar_notificacao_lida(self, notificacao_id):
+        """Marca uma notificação como lida"""
+        try:
+            response = requests.put(
+                f"{self.base_url}/api/notificacoes/{notificacao_id}/marcar-lida",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"❌ Erro ao marcar notificação: {e}")
+            return False
+        
+    def marcar_todas_notificacoes_lidas(self):
+        """Marca todas as notificações como lidas"""
+        try:
+            response = requests.put(
+                f"{self.base_url}/api/notificacoes/marcar-todas-lidas",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"❌ Erro ao marcar todas notificações: {e}")
+            return False
+    
+    def deletar_notificacao(self, notificacao_id):
+        """Deleta uma notificação"""
+        try:
+            response = requests.delete(
+                f"{self.base_url}/api/notificacoes/{notificacao_id}",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"❌ Erro ao deletar notificação: {e}")
+            return False
+
+    def criar_notificacao_backend(self, notificacao):
+        """Cria uma nova notificação no backend"""
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/notificacoes",
+                json=notificacao,
+                headers=self.get_headers(),
+                timeout=30
+            )
+            if response.status_code == 200:
+                return response.json()
+            return None
+        except Exception as e:
+            print(f"❌ Erro ao criar notificação: {e}")
+            return None
+
 # Instância global do cliente
 api_client = APIClient()
