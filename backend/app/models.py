@@ -191,4 +191,23 @@ class Cargo(Base):
     ativo = Column(Boolean, default=True)
     criado_em = Column(DateTime, server_default=func.now())
     atualizado_em = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class Notificacao(Base):
+    __tablename__ = 'notificacoes'
+
+    id = Column(Integer, primary_key=True, index=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios_sistema.id"), nullable=False)
+    tipo = Column(String(50), nullable=False)  # 'estoque_critico', 'manutencao', 'pedido', 'demanda', 'backup', 'conexao', 'atualizacao'
+    titulo = Column(String(200), nullable=False)
+    mensagem = Column(Text, nullable=False)
+    prioridade = Column(String(20), nullable=False)  # 'alta', 'media', 'baixa'
+    status = Column(String(20), default="nao_lida")  # 'nao_lida', 'lida', 'ignorada'
+    acao = Column(String(100), nullable=True)  # 'show_materiais', 'show_maquinas', etc.
+    acao_id = Column(Integer, nullable=True)  # ID do material/máquina/etc.
+    dados_extra = Column(JSON, nullable=True)  # Dados adicionais em JSON
+    criado_em = Column(DateTime, server_default=func.now())
+    lida_em = Column(DateTime, nullable=True)
     
+    # Relacionamento
+    usuario = relationship("UsuarioSistema", backref="notificacoes")    

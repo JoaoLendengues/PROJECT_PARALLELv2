@@ -11,3 +11,4 @@ from . import demandas
 from . import configuracoes
 from . import departamentos
 from . import cargos
+from . import notificacoes

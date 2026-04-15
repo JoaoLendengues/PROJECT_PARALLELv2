@@ -349,3 +349,33 @@ class CargoResponse(CargoBase):
 
     class Config:
         from_attributes = True
+
+# =====================================================
+# Schemas para Notificações
+# =====================================================
+
+class NotificacaoBase(BaseModel):
+    tipo: str
+    titulo: str
+    mensagem: str
+    prioridade: str  # 'alta', 'media', 'baixa'
+    acao: Optional[str] = None
+    acao_id: Optional[int] = None
+    dados_extra: Optional[Dict[str, Any]] = None
+
+class NotificacaoCreate(NotificacaoBase):
+    usuario_id: int
+
+class NotificacaoUpdate(BaseModel):
+    status: Optional[str] = None
+    lida_em: Optional[datetime] = None
+
+class NotificacaoResponse(NotificacaoBase):
+    id: int
+    usuario_id: int
+    status: str
+    criado_em: datetime
+    lida_em: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
