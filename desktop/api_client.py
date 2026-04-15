@@ -932,6 +932,66 @@ class APIClient:
         except Exception as e:
             print(f"❌ Erro ao salvar configurações: {e}")
             return False
+        
+    # =====================================================
+    # Backup
+    # =====================================================
+     
+    def executar_backup(self):
+        """Executa backup manual do banco de dados"""
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/backup/executar",
+                headers=self.get_headers(),
+                timeout=60
+            )
+            if response.status_code == 200:
+                return True, response.json()
+            return False, None
+        except Exception as e:
+            print(f"❌ Erro ao executar backup: {e}")
+            return False, None 
+        
+    def listar_backups(self):
+        """Lista todos os backups disponíveis"""
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/backup/listar",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            if response.status_code == 200:
+                return response.json().get("backups", [])
+            return []
+        except Exception as e:
+            print(f"❌ Erro ao listar backups: {e}")
+            return []
+        
+    def restaurar_backup(self, filename):
+        """Restaura um backup específico"""
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/backup/restaurar/{filename}",
+                headers=self.get_headers(),
+                timeout=120
+            )
+            return response.status_code == 200, response.json() if response.status_code == 200 else None
+        except Exception as e:
+            print(f"❌ Erro ao restaurar backup: {e}")
+            return False, None
+        
+    def reconfigurar_backup(self):
+        """Reconfigura o scheduler de backup"""
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/backup/configurar",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"❌ Erro ao reconfigurar backup: {e}")
+            return False
 
     # =====================================================
     # Dashboard

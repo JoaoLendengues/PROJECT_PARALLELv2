@@ -12,6 +12,9 @@ from widgets.toast_notification import notification_manager
 import socket
 import requests
 from datetime import datetime
+import os
+import sys
+import subprocess
 
 
 class ParametrosWidget(QWidget):
@@ -64,6 +67,9 @@ class ParametrosWidget(QWidget):
 
         tab_cargos = self.create_tab_cargos()
         tabs.addTab(tab_cargos, '📋 Cargos')
+        
+        tab_backup = self.create_tab_backup()
+        tabs.addTab(tab_backup, '💾 Backup')
         
         tab_servidor = self.create_tab_servidor()
         tabs.addTab(tab_servidor, "🖥️ Servidor")
@@ -166,6 +172,153 @@ class ParametrosWidget(QWidget):
         
         layout.addStretch()
         return widget
+    
+    def create_tab_backup(self):
+        """Aba de gerenciamento de backup"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setSpacing(15)
+        
+        # Seção: Backup Manual
+        grupo_manual = QGroupBox("Backup Manual")
+        grupo_manual.setObjectName("configGroup")
+        manual_layout = QVBoxLayout(grupo_manual)
+        manual_layout.setContentsMargins(20, 20, 20, 20)
+        
+        btn_executar_backup = QPushButton("🔄 Executar Backup Agora")
+        btn_executar_backup.setObjectName("btnPrimary")
+        btn_executar_backup.setMinimumHeight(40)
+        btn_executar_backup.clicked.connect(self.executar_backup_manual)
+        manual_layout.addWidget(btn_executar_backup)
+        
+        lbl_info = QLabel("⚠️ O backup será salvo na pasta 'backups' do servidor e compactado em formato .gz")
+        lbl_info.setStyleSheet("color: #64748b; font-size: 11px; margin-top: 10px;")
+        manual_layout.addWidget(lbl_info)
+        
+        layout.addWidget(grupo_manual)
+        
+        # Seção: Lista de Backups
+        grupo_lista = QGroupBox("Backups Disponíveis")
+        grupo_lista.setObjectName("configGroup")
+        lista_layout = QVBoxLayout(grupo_lista)
+        lista_layout.setContentsMargins(20, 20, 20, 20)
+        
+        # Tabela de backups
+        self.tabela_backups = QTableWidget()
+        self.tabela_backups.setColumnCount(3)
+        self.tabela_backups.setHorizontalHeaderLabels(["Nome do Arquivo", "Data", "Tamanho"])
+        self.tabela_backups.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.tabela_backups.verticalHeader().setVisible(False)
+        self.tabela_backups.setAlternatingRowColors(True)
+        self.tabela_backups.setSortingEnabled(True)
+        
+        self.tabela_backups.setStyleSheet("""
+            QTableWidget::item {
+                padding: 10px 8px;
+            }
+            QHeaderView::section {
+                padding: 10px 12px;
+            }
+        """)
+        
+        lista_layout.addWidget(self.tabela_backups)
+        
+        # Botões de ação
+        btn_layout = QHBoxLayout()
+        
+        btn_atualizar_lista = QPushButton("🔄 Atualizar Lista")
+        btn_atualizar_lista.clicked.connect(self.carregar_lista_backups)
+        btn_layout.addWidget(btn_atualizar_lista)
+        
+        btn_restaurar = QPushButton("📥 Restaurar Backup")
+        btn_restaurar.setObjectName("btnWarning")
+        btn_restaurar.clicked.connect(self.restaurar_backup_selecionado)
+        btn_layout.addWidget(btn_restaurar)
+        
+        btn_layout.addStretch()
+        lista_layout.addLayout(btn_layout)
+        
+        layout.addWidget(grupo_lista)
+        
+        # Carregar lista de backups
+        self.carregar_lista_backups()
+        
+        return widget
+    
+    def executar_backup_manual(self):
+        """Executa backup manual"""
+        try:
+            QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+            success, result = api_client.executar_backup()
+            QApplication.restoreOverrideCursor()
+            
+            if success:
+                notification_manager.success(f"✅ Backup realizado com sucesso!\nArquivo: {result.get('arquivo', 'desconhecido')}", self.window(), 5000)
+                self.carregar_lista_backups()
+            else:
+                notification_manager.error("❌ Erro ao realizar backup", self.window(), 4000)
+        except Exception as e:
+            QApplication.restoreOverrideCursor()
+            notification_manager.error(f"Erro: {e}", self.window(), 4000)
+    
+    def carregar_lista_backups(self):
+        """Carrega a lista de backups disponíveis"""
+        try:
+            backups = api_client.listar_backups()
+            self.tabela_backups.setRowCount(len(backups))
+            
+            for row, backup in enumerate(backups):
+                self.tabela_backups.setItem(row, 0, QTableWidgetItem(backup.get("nome", "-")))
+                self.tabela_backups.setItem(row, 1, QTableWidgetItem(backup.get("data", "-")))
+                self.tabela_backups.setItem(row, 2, QTableWidgetItem(f"{backup.get('tamanho_mb', 0)} MB"))
+            
+            self.tabela_backups.resizeColumnsToContents()
+            
+        except Exception as e:
+            print(f"❌ Erro ao carregar lista de backups: {e}")
+    
+    def restaurar_backup_selecionado(self):
+        """Restaura o backup selecionado"""
+        current_row = self.tabela_backups.currentRow()
+        if current_row < 0:
+            QMessageBox.warning(self, "Atenção", "Selecione um backup para restaurar")
+            return
+        
+        backup_nome = self.tabela_backups.item(current_row, 0).text()
+        backup_data = self.tabela_backups.item(current_row, 1).text()
+        
+        confirm = QMessageBox.question(
+            self,
+            "Confirmar restauração",
+            f"Tem certeza que deseja restaurar o backup '{backup_nome}'?\n\n"
+            f"📅 Data: {backup_data}\n\n"
+            f"⚠️ ATENÇÃO: Esta ação irá SUBSTITUIR todos os dados atuais pelos dados do backup.\n"
+            f"⚠️ Esta ação não pode ser desfeita!",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if confirm == QMessageBox.Yes:
+            try:
+                QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+                success, result = api_client.restaurar_backup(backup_nome)
+                QApplication.restoreOverrideCursor()
+                
+                if success:
+                    notification_manager.success("✅ Backup restaurado com sucesso! O sistema será reiniciado.", self.window(), 5000)
+                    QTimer.singleShot(2000, self.reiniciar_aplicacao)
+                else:
+                    notification_manager.error(f"❌ Erro ao restaurar backup: {result.get('detail', 'Erro desconhecido') if result else 'Erro'}", self.window(), 5000)
+            except Exception as e:
+                QApplication.restoreOverrideCursor()
+                notification_manager.error(f"Erro: {e}", self.window(), 4000)
+    
+    def reiniciar_aplicacao(self):
+        """Reinicia a aplicação após restauração"""
+        QMessageBox.information(self, "Reiniciando", "O sistema será reiniciado para aplicar as alterações.")
+        python = sys.executable
+        script = os.path.abspath(sys.argv[0])
+        subprocess.Popen([python, script])
+        sys.exit(0)
     
     def create_tab_notificacoes(self):
         """Aba de configurações de notificações"""
@@ -1219,6 +1372,8 @@ class ParametrosWidget(QWidget):
             if success:
                 notification_manager.success("Configurações salvas com sucesso!", self.window(), 3000)
                 self.configurar_timer_alertas()
+                # Reconfigurar scheduler de backup após salvar
+                api_client.reconfigurar_backup()
             else:
                 notification_manager.error("Erro ao salvar configurações", self.window(), 3000)
         except Exception as e:
