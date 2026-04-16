@@ -19,7 +19,7 @@ pip install pyinstaller openpyxl reportlab requests python-dotenv psutil PySide6
 
 echo.
 echo 🔧 Criando executavel...
-pyinstaller ProjectParallel.spec --clean --noconfirm
+pip install pyinstaller ProjectParallel.spec --clean --noconfirm
 
 echo.
 echo ========================================
