@@ -17,35 +17,34 @@ class ToastNotification(QFrame):
         self.parent_window = parent
         
         # Configurar como janela flutuante sem decoração
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Tool | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_DeleteOnClose)
         
         # Cores baseadas na prioridade
         cores = {
             "alta": {
-                "bg": "#FEF2F2",
-                "bg_hover": "#FEE2E2",
-                "border": "#EF4444",
+                "bg": "#FEE2E2",        # Mais escuro que antes
+                "bg_hover": "#FECACA",
+                "border": "#DC2626",
                 "icon": "🔴",
                 "titulo": "ALERTA",
                 "texto": "#991B1B"
             },
             "media": {
-                "bg": "#FFFBEB",
-                "bg_hover": "#FEF3C7",
-                "border": "#F59E0B",
+                "bg": "#FEF3C7",        # Mais escuro que antes
+                "bg_hover": "#FDE68A",
+                "border": "#D97706",
                 "icon": "⚠️",
                 "titulo": "ATENÇÃO",
                 "texto": "#92400E"
             },
             "baixa": {
-                "bg": "#EFF6FF",
-                "bg_hover": "#DBEAFE",
-                "border": "#3B82F6",
+                "bg": "#DBEAFE",        # Mais escuro que antes
+                "bg_hover": "#BFDBFE",
+                "border": "#2563EB",
                 "icon": "ℹ️",
                 "titulo": "INFORMAÇÃO",
-                "texto": "#1E40AF"
+                "texto": "#1E3A8A"
             }
         }
         
@@ -62,7 +61,7 @@ class ToastNotification(QFrame):
         self.setStyleSheet(f"""
             QFrame {{
                 background-color: {cor['bg']};
-                border-radius: 12px;
+                border-radius: 8px;  /* Reduzido de 12px para 8px (mais retangular) */
                 border: 2px solid {cor['border']};
             }}
             QFrame:hover {{
@@ -74,16 +73,16 @@ class ToastNotification(QFrame):
                 border: none;
             }}
             QPushButton {{
-                background-color: transparent;
+                background-color: rgba(0, 0, 0, 0.08);
                 color: {cor['texto']};
                 border: none;
-                font-size: 12px;
-                font-weight: bold;
-                padding: 4px 8px;
-                border-radius: 6px;
+                font-size: 11px;
+                font-weight: 500;
+                padding: 4px 10px;
+                border-radius: 4px;
             }}
             QPushButton:hover {{
-                background-color: rgba(0, 0, 0, 0.08);
+                background-color: rgba(0, 0, 0, 0.15);
             }}
         """)
         
@@ -94,7 +93,7 @@ class ToastNotification(QFrame):
         content_frame = QFrame()
         content_frame.setStyleSheet("background-color: transparent;")
         content_layout = QVBoxLayout(content_frame)
-        content_layout.setContentsMargins(15, 12, 15, 12)
+        content_layout.setContentsMargins(12, 10, 12, 10)
         content_layout.setSpacing(8)
         
         # Cabeçalho
@@ -128,8 +127,8 @@ class ToastNotification(QFrame):
         self.message_label = QLabel(message)
         self.message_label.setFont(QFont("Segoe UI", 10))
         self.message_label.setWordWrap(True)
-        self.message_label.setMinimumWidth(280)
-        self.message_label.setMaximumWidth(380)
+        self.message_label.setMinimumWidth(250)
+        self.message_label.setMaximumWidth(320)
         content_layout.addWidget(self.message_label)
         
         # Botões de ação

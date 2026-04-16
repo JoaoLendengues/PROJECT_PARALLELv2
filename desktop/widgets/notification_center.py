@@ -22,10 +22,10 @@ class NotificationCenter(QDialog):
                 background-color: #f8fafc;
             }
             QTableWidget::item {
-                padding: 10px 8px;
+                padding: 8px 6px;
             }
             QHeaderView::section {
-                padding: 10px 12px;
+                padding: 8px 10px;
                 background-color: #f1f5f9;
                 font-weight: bold;
             }
@@ -64,15 +64,15 @@ class NotificationCenter(QDialog):
         
         filtros_layout.addStretch()
         
-        # Botão marcar todas como lidas
-        self.btn_marcar_todas = QPushButton("✓ Marcar todas como lidas")
-        self.btn_marcar_todas.setFixedHeight(35)
+        # Botão marcar todas como lidas (REDUZIDO)
+        self.btn_marcar_todas = QPushButton("✓ Marcar todas")
+        self.btn_marcar_todas.setFixedHeight(30)
         self.btn_marcar_todas.clicked.connect(self.marcar_todas_lidas)
         filtros_layout.addWidget(self.btn_marcar_todas)
         
-        # Botão atualizar
+        # Botão atualizar (REDUZIDO)
         self.btn_atualizar = QPushButton("🔄 Atualizar")
-        self.btn_atualizar.setFixedHeight(35)
+        self.btn_atualizar.setFixedHeight(30)
         self.btn_atualizar.clicked.connect(self.carregar_notificacoes)
         filtros_layout.addWidget(self.btn_atualizar)
         
@@ -89,9 +89,9 @@ class NotificationCenter(QDialog):
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
         
         # Configurar largura das colunas
-        self.tabela.setColumnWidth(0, 90)    # Prioridade
-        self.tabela.setColumnWidth(3, 150)   # Data
-        self.tabela.setColumnWidth(4, 300)   # Ações
+        self.tabela.setColumnWidth(0, 80)     # Prioridade (reduzido)
+        self.tabela.setColumnWidth(3, 140)    # Data (reduzido)
+        self.tabela.setColumnWidth(4, 260)    # Ações (reduzido)
         
         layout.addWidget(self.tabela)
         
@@ -104,8 +104,9 @@ class NotificationCenter(QDialog):
         
         footer_layout.addStretch()
         
+        # Botão fechar (REDUZIDO)
         self.btn_fechar = QPushButton("Fechar")
-        self.btn_fechar.setFixedSize(100, 35)
+        self.btn_fechar.setFixedSize(80, 30)
         self.btn_fechar.clicked.connect(self.close)
         footer_layout.addWidget(self.btn_fechar)
         
@@ -199,22 +200,23 @@ class NotificationCenter(QDialog):
                 data = data[:16].replace("T", " ")
             self.tabela.setItem(row, 3, QTableWidgetItem(data))
             
-            # Botões de ação
+            # Botões de ação (REDUZIDOS)
             btn_widget = QWidget()
             btn_layout = QHBoxLayout(btn_widget)
             btn_layout.setContentsMargins(2, 2, 2, 2)
-            btn_layout.setSpacing(6)
+            btn_layout.setSpacing(4)
             
             if status == "nao_lida":
-                btn_marcar = QPushButton("✓ Marcar")
-                btn_marcar.setFixedSize(75, 30)
+                btn_marcar = QPushButton("✓")
+                btn_marcar.setFixedSize(28, 24)
+                btn_marcar.setToolTip("Marcar como lida")
                 btn_marcar.setStyleSheet("""
                     QPushButton {
                         background-color: #10b981;
                         color: white;
-                        border-radius: 5px;
-                        font-size: 11px;
-                        font-weight: 500;
+                        border-radius: 4px;
+                        font-size: 12px;
+                        font-weight: bold;
                     }
                     QPushButton:hover {
                         background-color: #059669;
@@ -223,15 +225,16 @@ class NotificationCenter(QDialog):
                 btn_marcar.clicked.connect(lambda checked, n=notif: self.marcar_como_lida(n))
                 btn_layout.addWidget(btn_marcar)
             
-            btn_ver = QPushButton("🔍 Ver")
-            btn_ver.setFixedSize(60, 30)
+            btn_ver = QPushButton("👁️")
+            btn_ver.setFixedSize(28, 24)
+            btn_ver.setToolTip("Ver")
             btn_ver.setStyleSheet("""
                 QPushButton {
                     background-color: #3b82f6;
                     color: white;
-                    border-radius: 5px;
-                    font-size: 11px;
-                    font-weight: 500;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    font-weight: bold;
                 }
                 QPushButton:hover {
                     background-color: #2563eb;
@@ -241,12 +244,13 @@ class NotificationCenter(QDialog):
             btn_layout.addWidget(btn_ver)
             
             btn_excluir = QPushButton("🗑️")
-            btn_excluir.setFixedSize(40, 30)
+            btn_excluir.setFixedSize(28, 24)
+            btn_excluir.setToolTip("Excluir")
             btn_excluir.setStyleSheet("""
                 QPushButton {
                     background-color: #ef4444;
                     color: white;
-                    border-radius: 5px;
+                    border-radius: 4px;
                     font-size: 12px;
                     font-weight: bold;
                 }
@@ -260,9 +264,9 @@ class NotificationCenter(QDialog):
             btn_layout.addStretch()
             self.tabela.setCellWidget(row, 4, btn_widget)
         
-        # Ajustar altura das linhas
+        # Ajustar altura das linhas (REDUZIDA)
         self.tabela.resizeRowsToContents()
-        self.tabela.verticalHeader().setDefaultSectionSize(45)
+        self.tabela.verticalHeader().setDefaultSectionSize(38)
         
         # Atualizar informações
         total = len(notificacoes)

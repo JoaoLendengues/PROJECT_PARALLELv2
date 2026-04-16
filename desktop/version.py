@@ -2,6 +2,8 @@
 import json
 import os
 
+VERSION = "1.1.0"
+
 def get_version():
     """Retorna a versão atual do sistema"""
     try:
@@ -9,10 +11,10 @@ def get_version():
         if os.path.exists(version_file):
             with open(version_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                return data.get('version', '1.0.0')
+                return data.get('version', VERSION)
     except Exception as e:
         print(f"Erro ao ler versão: {e}")
-    return '1.0.0'
+    return VERSION
 
 def get_release_date():
     """Retorna a data da versão atual"""
