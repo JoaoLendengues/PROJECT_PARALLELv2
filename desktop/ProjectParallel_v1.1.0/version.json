@@ -1,0 +1,5 @@
+{
+    "version": "1.1.0",
+    "release_date": "2026-04-16",
+    "changelog": "Versão 1.1.0\n\nNOVAS FUNCIONALIDADES:\n- Sistema completo de notificações\n- Central de Notificações com histórico\n- Alertas automáticos (estoque, manutenções, pedidos, demandas)\n- Backup automático e manual\n- CRUD de Cargos e Departamentos\n- Filtros de empresa em todas as telas\n- Campo MAC Address em máquinas\n- Toast notifications com prioridades\n\nCORREÇÕES:\n- Removida aba redundante de Alertas\n- Melhorias de performance em filtros\n- Correção de bugs em conclusão de pedidos\n- Correção de exclusão de movimentações"
+}
