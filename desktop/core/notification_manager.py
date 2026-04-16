@@ -30,12 +30,17 @@ class NotificationManager(QObject):
         self._timer_verificacao = None
         self._modo_nao_perturbe = False
         self._horario_nao_perturbe = {"ativo": False, "inicio": "22:00", "fim": "06:00"}
+        self._parent = None  # Referência para a janela principal
         
         # Carregar configurações
         self.carregar_configuracoes()
         
         # Iniciar timer de verificação (a cada 30 segundos)
         self.iniciar_verificacao_periodica()
+    
+    def set_parent(self, parent):
+        """Define a janela principal para exibir toasts"""
+        self._parent = parent
     
     def carregar_configuracoes(self):
         """Carrega as configurações de notificação do backend"""
@@ -148,15 +153,67 @@ class NotificationManager(QObject):
         
         return None
     
+    def criar_notificacao_sistema(self, tipo, titulo, mensagem, prioridade, acao=None, acao_id=None, dados_extra=None):
+        """Cria uma notificação no sistema (backend + toast)"""
+        
+        # Verificar cooldown
+        if self._verificar_cooldown(tipo):
+            return None
+        
+        # Criar payload para o backend
+        payload = {
+            "tipo": tipo,
+            "titulo": titulo,
+            "mensagem": mensagem,
+            "prioridade": prioridade,
+            "acao": acao,
+            "acao_id": acao_id,
+            "dados_extra": dados_extra
+        }
+        
+        try:
+            # Enviar para o backend
+            result = api_client.criar_notificacao_backend(payload)
+            
+            if result:
+                # Registrar timestamp do envio
+                self._registrar_envio(tipo)
+                
+                # Verificar se deve mostrar toast (respeitando modo não perturbe)
+                if self.deve_mostrar_notificacao(prioridade):
+                    # Exibir toast
+                    from widgets.toast_notification import notification_manager as toast_manager
+                    
+                    # Determinar duração baseada na prioridade
+                    duracao = {"alta": 10000, "media": 7000, "baixa": 5000}.get(prioridade, 5000)
+                    
+                    toast_manager.show(
+                        message=mensagem,
+                        tipo="warning" if prioridade in ["alta", "media"] else "info",
+                        duration=duracao,
+                        parent=self._parent,
+                        prioridade=prioridade,
+                        acao=acao,
+                        acao_id=acao_id,
+                        notificacao_id=result.get("id") if result else None
+                    )
+                
+                return result
+        except Exception as e:
+            print(f"Erro ao criar notificação do sistema: {e}")
+        
+        return None
+    
     def _verificar_cooldown(self, tipo):
         """Verifica se a notificação está em período de cooldown"""
         cooldowns = {
             "estoque_critico": 1800,   # 30 minutos
-            "estoque_baixo": 3600,      # 1 hora
-            "manutencao": 3600,         # 1 hora
-            "pedido": 7200,             # 2 horas
-            "demanda": 3600,            # 1 hora
-            "backup": 86400,            # 1 dia
+            "estoque_baixo": 3600,     # 1 hora
+            "estoque_baixo": 3600,     # 1 hora
+            "manutencao": 3600,        # 1 hora
+            "pedido": 7200,            # 2 horas
+            "demanda": 3600,           # 1 hora
+            "backup": 86400,           # 1 dia
         }
         
         cooldown = cooldowns.get(tipo, 300)  # 5 minutos padrão

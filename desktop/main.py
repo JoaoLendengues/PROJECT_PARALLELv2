@@ -36,19 +36,13 @@ def on_login_success(usuario):
     _current_window = MainWindow(usuario)
     _current_window.show()
     
-    # TESTE DE NOTIFICAÇÃO (remover depois)
-    from widgets.toast_notification import notification_manager
-    from PySide6.QtCore import QTimer
-    
-    def testar_notificacao():
-        notification_manager.warning(
-            "📦 Estoque baixo!\n\nMouse Logitech - Apenas 2 unidades restantes.\nClique em 'Ver' para ir para Materiais.",
-            _current_window,
-            8000,
-            acao="show_materiais"
-        )
-    
-    QTimer.singleShot(2000, testar_notificacao)
+    # Iniciar serviço de alertas
+    try:
+        from core.alert_service import alert_service
+        alert_service.iniciar()
+        print("✅ Serviço de alertas iniciado")
+    except Exception as e:
+        print(f"⚠️ Erro ao iniciar serviço de alertas: {e}")
     
     # Verificar atualizações em segundo plano após o login
     verificar_atualizacoes()
@@ -84,6 +78,10 @@ def main():
     
     _app = QApplication(sys.argv)
     _app.setStyle('Windows')
+    
+    # Configurar o notification_manager com a janela principal (será atualizado depois)
+    from core.notification_manager import notification_manager as core_nm
+    # O parent será definido quando a MainWindow for criada
     
     global_style = """
         /* Força estilo para TODOS os combobox */

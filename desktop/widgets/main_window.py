@@ -16,6 +16,7 @@ from widgets.parametros_widget import ParametrosWidget
 from widgets.colaboradores_widget import ColaboradoresWidget
 from widgets.demandas_widget import DemandasWidget
 from widgets.relatorios_widget import RelatoriosWidget
+from widgets.notification_badge import NotificationBadge
 from api_client import api_client
 from version import get_version
 
@@ -104,6 +105,15 @@ class MainWindow(QMainWindow):
             self.menu_buttons.append(btn)
         
         layout.addStretch()
+
+        # botão de Notificações
+        self.notification_btn = NotificationBadge()
+        self.notification_btn.clicked.connect(self.show_notification_center)
+        layout.addWidget(self.notification_btn)
+
+        # Atualizar contador inicial
+        self.notification_btn.atualizar_contador()
+        
         
         # Botão Trocar Usuário
         btn_trocar_usuario = QPushButton("🔄 Trocar Usuário")
@@ -158,6 +168,12 @@ class MainWindow(QMainWindow):
     def show_home(self):
         self.content_stack.setCurrentWidget(self.home_widget)
         self.home_widget.carregar_dados()
+
+    def show_notification_center(self):
+        """Abre a Central de Notificações"""
+        from widgets.notification_center import NotificationCenter
+        self.notification_center = NotificationCenter(self)
+        self.notification_center.show()
 
     def show_materiais(self):
         self.content_stack.setCurrentWidget(self.materiais_widget)

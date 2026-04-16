@@ -16,9 +16,8 @@ class ToastNotification(QFrame):
         self.notificacao_id = notificacao_id
         self.parent_window = parent
         
-        print(f"🔍 DEBUG ToastNotification: acao recebida = {acao}")
-        print(f"🔍 DEBUG ToastNotification: parent_window = {parent}")
-        
+        # Configurar como janela flutuante sem decoração
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Tool | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_DeleteOnClose)
         
@@ -174,23 +173,16 @@ class ToastNotification(QFrame):
             self.timer_fechar.start(duration)
     
     def posicionar(self):
-        """Posiciona a notificação no canto inferior direito da janela pai"""
+        """Posiciona a notificação no topo central da janela pai"""
         if self.parent():
             parent_rect = self.parent().rect()
-            x = parent_rect.width() - self.width() - 20
-            
-            if parent_rect.height() < 600:
-                y = parent_rect.height() - self.height() - 60
-            elif parent_rect.height() < 800:
-                y = parent_rect.height() - self.height() - 80
-            else:
-                y = parent_rect.height() - self.height() - 100
-            
+            x = (parent_rect.width() - self.width()) // 2  # Centralizado horizontalmente
+            y = 10  # Margem superior de 10 pixels
             self.move(x, y)
         else:
             screen = self.screen().availableGeometry()
-            x = screen.width() - self.width() - 15
-            y = screen.height() - self.height() - 80
+            x = (screen.width() - self.width()) // 2
+            y = 10
             self.move(x, y)
     
     def executar_acao(self):

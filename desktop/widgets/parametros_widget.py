@@ -24,13 +24,10 @@ class ParametrosWidget(QWidget):
         self.empresas = []
         self.departamentos = []
         self.categorias = []
-        self.timer_alertas = None
         self.init_ui()
         self.carregar_listas()
         self.carregar_configuracoes()
         self.carregar_info_servidor()
-        self.carregar_alertas()
-        self.configurar_timer_alertas()
     
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -52,9 +49,6 @@ class ParametrosWidget(QWidget):
         
         tab_notificacoes = self.create_tab_notificacoes()
         tabs.addTab(tab_notificacoes, "🔔 Notificações")
-        
-        tab_alertas = self.create_tab_alertas()
-        tabs.addTab(tab_alertas, "⚠️ Alertas")
         
         tab_empresas = self.create_tab_empresas()
         tabs.addTab(tab_empresas, "🏢 Empresas")
@@ -399,68 +393,6 @@ class ParametrosWidget(QWidget):
         layout.addStretch()
         return widget
     
-    def create_tab_alertas(self):
-        """Aba de configuração de alertas"""
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-        layout.setSpacing(20)
-        
-        # Grupo: Alertas Ativos
-        grupo_alertas = QGroupBox("Alertas do Sistema")
-        grupo_alertas.setObjectName("configGroup")
-        
-        alertas_layout = QVBoxLayout(grupo_alertas)
-        alertas_layout.setContentsMargins(20, 20, 20, 20)
-        
-        self.lista_alertas = QTableWidget()
-        self.lista_alertas.setColumnCount(5)
-        self.lista_alertas.setHorizontalHeaderLabels(["Tipo", "Mensagem", "Status", "Data", "Ações"])
-        self.lista_alertas.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.lista_alertas.setAlternatingRowColors(True)
-        
-        self.lista_alertas.setStyleSheet("""
-            QTableWidget::item {
-                padding: 10px 8px;
-            }
-            QHeaderView::section {
-                padding: 10px 12px;
-            }
-        """)
-        alertas_layout.addWidget(self.lista_alertas)
-        
-        btn_verificar = QPushButton("🔍 Verificar Alertas Agora")
-        btn_verificar.clicked.connect(self.verificar_alertas)
-        alertas_layout.addWidget(btn_verificar)
-        
-        layout.addWidget(grupo_alertas)
-        
-        # Grupo: Histórico de Alertas
-        grupo_historico = QGroupBox("Histórico de Alertas")
-        grupo_historico.setObjectName("configGroup")
-        
-        historico_layout = QVBoxLayout(grupo_historico)
-        historico_layout.setContentsMargins(20, 20, 20, 20)
-        
-        self.historico_alertas = QTableWidget()
-        self.historico_alertas.setColumnCount(4)
-        self.historico_alertas.setHorizontalHeaderLabels(["Data/Hora", "Tipo", "Mensagem", "Status"])
-        self.historico_alertas.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
-        self.historico_alertas.setAlternatingRowColors(True)
-        
-        self.historico_alertas.setStyleSheet("""
-            QTableWidget::item {
-                padding: 10px 8px;
-            }
-            QHeaderView::section {
-                padding: 10px 12px;
-            }
-        """)
-        historico_layout.addWidget(self.historico_alertas)
-        
-        layout.addWidget(grupo_historico)
-        
-        layout.addStretch()
-        return widget
     
     def create_tab_empresas(self):
         """Aba de gerenciamento de empresas"""
@@ -1012,6 +944,7 @@ class ParametrosWidget(QWidget):
     # CRUD CARGOS
     # =====================================================
     
+    
     def adicionar_cargo(self):
         """Adiciona um novo cargo via backend"""
         dialog = QDialog(self)
@@ -1138,133 +1071,13 @@ class ParametrosWidget(QWidget):
             self.status_banco.setText("❌ Banco de Dados: Desconectado")
             self.status_banco.setStyleSheet("color: #e76f51;")
     
-    def configurar_timer_alertas(self):
-        if self.timer_alertas:
-            self.timer_alertas.stop()
-        
-        self.timer_alertas = QTimer()
-        self.timer_alertas.timeout.connect(self.verificar_alertas_periodico)
-        
-        intervalo_texto = self.intervalo_verificacao.currentText()
-        if "1 minuto" in intervalo_texto:
-            self.timer_alertas.start(60000)
-        elif "5 minutos" in intervalo_texto:
-            self.timer_alertas.start(300000)
-        elif "15 minutos" in intervalo_texto:
-            self.timer_alertas.start(900000)
-        elif "30 minutos" in intervalo_texto:
-            self.timer_alertas.start(1800000)
-        else:
-            self.timer_alertas.start(3600000)
-    
-    def verificar_alertas_periodico(self):
-        if self.verificar_alertas_auto.isChecked():
-            self.verificar_alertas()
-    
     def testar_notificacao(self):
+        """Testa a notificação"""
         notification_manager.info(
             "Esta é uma notificação de teste!\n\nSe você está vendo isso, as notificações estão funcionando.",
             self.window(),
             5000
         )
-    
-    def carregar_alertas(self):
-        self.verificar_alertas()
-    
-    def verificar_alertas(self):
-        try:
-            parent = self.window()
-            
-            duracao_texto = self.tempo_notificacao.currentText()
-            if "3 segundos" in duracao_texto:
-                duracao = 4000
-            elif "5 segundos" in duracao_texto:
-                duracao = 6000
-            elif "10 segundos" in duracao_texto:
-                duracao = 10000
-            else:
-                duracao = 8000
-            
-            materiais = api_client.listar_materiais()
-            
-            if self.notif_estoque_baixo.isChecked():
-                limite_baixo = self.alerta_estoque.value()
-                for mat in materiais:
-                    qtd = mat.get("quantidade", 0)
-                    nome = mat.get("nome", "")
-                    if qtd <= limite_baixo and qtd > 0:
-                        msg = f"📦 ESTOQUE BAIXO!\n\nMaterial: {nome}\nQuantidade disponível: {qtd} unidades"
-                        notification_manager.show(msg, "warning", duracao, parent)
-                        return
-            
-            if self.notif_estoque_critico.isChecked():
-                limite_critico = self.alerta_estoque_critico.value()
-                for mat in materiais:
-                    qtd = mat.get("quantidade", 0)
-                    nome = mat.get("nome", "")
-                    if qtd <= limite_critico and qtd > 0:
-                        msg = f"🔴 ESTOQUE CRÍTICO!\n\nMaterial: {nome}\nQuantidade disponível: {qtd} unidades"
-                        notification_manager.show(msg, "error", duracao, parent)
-                        return
-            
-            if self.notif_manutencao.isChecked():
-                manutencoes = api_client.listar_manutencoes(status="pendente")
-                for man in manutencoes:
-                    maquina = man.get('maquina_nome', 'Máquina')
-                    msg = f"🔧 MANUTENÇÃO PENDENTE!\n\nMáquina: {maquina}\nDescrição: {man.get('descricao', '')[:50]}"
-                    notification_manager.show(msg, "warning", duracao, parent)
-                    return
-            
-            if self.notif_pedidos.isChecked():
-                pedidos = api_client.listar_pedidos(status="pendente")
-                for ped in pedidos:
-                    msg = f"📋 PEDIDO PENDENTE!\n\nMaterial: {ped.get('material_nome', '')}\nQuantidade: {ped.get('quantidade')}\nSolicitante: {ped.get('solicitante')}"
-                    notification_manager.show(msg, "info", duracao, parent)
-                    return
-            
-            if self.notif_demandas.isChecked():
-                demandas = api_client.listar_demandas(status="aberto")
-                for dem in demandas:
-                    prioridade = dem.get("prioridade", "media")
-                    prioridade_texto = "ALTA" if prioridade == "alta" else "MÉDIA" if prioridade == "media" else "BAIXA"
-                    msg = f"🎫 DEMANDA {prioridade_texto}!\n\nTítulo: {dem.get('titulo', '')[:50]}\nSolicitante: {dem.get('solicitante')}"
-                    notification_manager.show(msg, "error" if prioridade == "alta" else "warning", duracao, parent)
-                    return
-            
-            print("✅ Nenhum alerta encontrado")
-        
-        except Exception as e:
-            print(f"❌ Erro ao verificar alertas: {e}")
-    
-    def resolver_alerta(self, row):
-        tipo = self.lista_alertas.item(row, 0).text()
-        mensagem = self.lista_alertas.item(row, 1).text()
-        
-        confirm = QMessageBox.question(
-            self,
-            "Resolver Alerta",
-            f"Deseja marcar este alerta como resolvido?\n\n{tipo}: {mensagem}",
-            QMessageBox.Yes | QMessageBox.No
-        )
-        
-        if confirm == QMessageBox.Yes:
-            self.adicionar_historico(tipo, mensagem, "Resolvido")
-            self.lista_alertas.removeRow(row)
-            notification_manager.success("Alerta resolvido com sucesso!", self.window(), 3000)
-    
-    def adicionar_historico(self, tipo, mensagem, status):
-        row = self.historico_alertas.rowCount()
-        self.historico_alertas.insertRow(row)
-        self.historico_alertas.setItem(row, 0, QTableWidgetItem(datetime.now().strftime("%d/%m/%Y %H:%M")))
-        self.historico_alertas.setItem(row, 1, QTableWidgetItem(tipo))
-        self.historico_alertas.setItem(row, 2, QTableWidgetItem(mensagem))
-        
-        status_item = QTableWidgetItem(status)
-        if status == "Resolvido":
-            status_item.setForeground(QColor(42, 157, 143))
-        else:
-            status_item.setForeground(QColor(231, 111, 81))
-        self.historico_alertas.setItem(row, 3, status_item)
     
     def carregar_configuracoes(self):
         """Carrega as configurações salvas do backend"""
@@ -1336,8 +1149,6 @@ class ParametrosWidget(QWidget):
             
         except Exception as e:
             print(f"❌ Erro ao carregar configurações: {e}")
-        
-        self.configurar_timer_alertas()
     
     def salvar_configuracoes(self):
         """Salva as configurações no backend"""
@@ -1371,7 +1182,6 @@ class ParametrosWidget(QWidget):
             
             if success:
                 notification_manager.success("Configurações salvas com sucesso!", self.window(), 3000)
-                self.configurar_timer_alertas()
                 # Reconfigurar scheduler de backup após salvar
                 api_client.reconfigurar_backup()
             else:
@@ -1386,4 +1196,3 @@ class ParametrosWidget(QWidget):
     def carregar_dados(self):
         self.carregar_configuracoes()
         self.carregar_info_servidor()
-        
