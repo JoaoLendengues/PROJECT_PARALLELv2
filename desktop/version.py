@@ -2,7 +2,7 @@
 import json
 import os
 
-VERSION = "1.1.1"
+VERSION = "1.1.2"
 
 def get_version():
     """Retorna a versão atual do sistema"""

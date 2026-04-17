@@ -1,5 +1,5 @@
 {
-    "version": "1.1.1",
+    "version": "1.1.2",
     "release_date": "2026-04-16",
-    "changelog": "Versão 1.1.1 - Correção de bugs\n\nCORREÇÕES:\n- Corrigido erro 'NoneType' ao carregar movimentações com observação vazia\n- Corrigido toast notification para aparecer dentro da janela do sistema\n- Removida barra de título e botões de janela das notificações\n- Ajustado layout das notificações (fundo sólido, tamanho otimizado)"
+    "changelog": "Versão 1.1.2 - Correção do executável\n\nCORREÇÕES:\n- Corrigido erro de importação do PIL/_imaging\n- Adicionadas dependências do Pillow no executável\n- Melhorias na estabilidade do executável"
 }
