@@ -57,6 +57,8 @@ a = Analysis(
     optimize=0,
 )
 
+a.binaries = [b for b in a.binaries if b is not None]
+
 pyz = PYZ(a.pure)
 
 exe = EXE(
@@ -72,7 +74,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
