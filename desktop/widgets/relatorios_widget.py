@@ -463,7 +463,14 @@ class RelatoriosWidget(QWidget):
                     data = data[:16].replace("T", " ")
                 self.mov_tabela.setItem(row, 6, QTableWidgetItem(data))
                 self.mov_tabela.setItem(row, 7, QTableWidgetItem(mov.get("usuario_nome", "-")))
-                self.mov_tabela.setItem(row, 8, QTableWidgetItem(mov.get("observacao", "-")[:50]))
+                
+                # Tratar observação None
+                obs = mov.get('observacao')
+                if obs is None:
+                    obs = '-'
+                else:
+                    obs = str(obs)[:50]
+                self.mov_tabela.setItem(row, 8, QTableWidgetItem(obs))
             
             print(f"✅ {len(movimentacoes)} movimentações carregadas")
         except Exception as e:

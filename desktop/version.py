@@ -2,7 +2,7 @@
 import json
 import os
 
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 
 def get_version():
     """Retorna a versão atual do sistema"""
@@ -36,5 +36,4 @@ def get_changelog():
     except:
         return ''
 
-# Versão atual (será lida do arquivo)
 CURRENT_VERSION = get_version()

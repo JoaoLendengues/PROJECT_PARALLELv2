@@ -208,8 +208,15 @@ class MovimentacoesWidget(QWidget):
                 data_hora = data_hora[:16].replace("T", " ")
             self.tabela.setItem(row, 6, QTableWidgetItem(data_hora))
             
-            self.tabela.setItem(row, 7, QTableWidgetItem(mov.get("observacao", "-")[:50]))
-    
+            # Tratar observação None
+            obs = mov.get('observacao')
+            if obs is None:
+                obs = '-'
+            else:
+                obs = str(obs)[:50]
+            self.tabela.setItem(row, 7, QTableWidgetItem(obs))
+
+
     def nova_movimentacao(self):
         dialog = MovimentacaoDialog(materiais=self.materiais, colaboradores=self.colaboradores, parent=self)
         if dialog.exec():

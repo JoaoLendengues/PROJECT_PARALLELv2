@@ -4,7 +4,7 @@ from PySide6.QtGui import QFont
 
 
 class ToastNotification(QFrame):
-    """Notificação estilo Toast - Restrita à janela do sistema"""
+    """Notificação estilo Toast - Widget interno (não janela separada)"""
     
     def __init__(self, message, tipo="info", parent=None, duration=5000, 
                  prioridade="baixa", acao=None, acao_id=None, notificacao_id=None):
@@ -16,14 +16,13 @@ class ToastNotification(QFrame):
         self.notificacao_id = notificacao_id
         self.parent_window = parent
         
-        # Configurar como janela flutuante sem decoração
-        self.setAttribute(Qt.WA_TranslucentBackground)
+        # Configurar como widget normal (não janela separada)
         self.setAttribute(Qt.WA_DeleteOnClose)
         
-        # Cores baseadas na prioridade
+        # Cores por prioridade (fundos sólidos)
         cores = {
             "alta": {
-                "bg": "#FEE2E2",        # Mais escuro que antes
+                "bg": "#FEE2E2",
                 "bg_hover": "#FECACA",
                 "border": "#DC2626",
                 "icon": "🔴",
@@ -31,7 +30,7 @@ class ToastNotification(QFrame):
                 "texto": "#991B1B"
             },
             "media": {
-                "bg": "#FEF3C7",        # Mais escuro que antes
+                "bg": "#FEF3C7",
                 "bg_hover": "#FDE68A",
                 "border": "#D97706",
                 "icon": "⚠️",
@@ -39,7 +38,7 @@ class ToastNotification(QFrame):
                 "texto": "#92400E"
             },
             "baixa": {
-                "bg": "#DBEAFE",        # Mais escuro que antes
+                "bg": "#DBEAFE",
                 "bg_hover": "#BFDBFE",
                 "border": "#2563EB",
                 "icon": "ℹ️",
@@ -48,21 +47,13 @@ class ToastNotification(QFrame):
             }
         }
         
-        # Mapear tipo para prioridade
-        if tipo == "error":
-            prioridade = "alta"
-        elif tipo == "warning":
-            prioridade = "media"
-        else:
-            prioridade = "baixa"
-        
         cor = cores.get(prioridade, cores["baixa"])
         
         self.setStyleSheet(f"""
             QFrame {{
                 background-color: {cor['bg']};
-                border-radius: 8px;  /* Reduzido de 12px para 8px (mais retangular) */
-                border: 2px solid {cor['border']};
+                border-radius: 8px;
+                border: 1px solid {cor['border']};
             }}
             QFrame:hover {{
                 background-color: {cor['bg_hover']};
@@ -94,24 +85,24 @@ class ToastNotification(QFrame):
         content_frame.setStyleSheet("background-color: transparent;")
         content_layout = QVBoxLayout(content_frame)
         content_layout.setContentsMargins(12, 10, 12, 10)
-        content_layout.setSpacing(8)
+        content_layout.setSpacing(6)
         
         # Cabeçalho
         header_layout = QHBoxLayout()
         
         icon_label = QLabel(cor["icon"])
-        icon_label.setFont(QFont("Segoe UI", 18))
+        icon_label.setFont(QFont("Segoe UI", 16))
         header_layout.addWidget(icon_label)
         
         title_label = QLabel(cor["titulo"])
-        title_label.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        title_label.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
         header_layout.addWidget(title_label)
         
         header_layout.addStretch()
         
         close_btn = QPushButton("✕")
-        close_btn.setFixedSize(24, 24)
-        close_btn.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        close_btn.setFixedSize(22, 22)
+        close_btn.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
         close_btn.clicked.connect(self.fechar_animado)
         header_layout.addWidget(close_btn)
         
@@ -125,16 +116,14 @@ class ToastNotification(QFrame):
         
         # Mensagem
         self.message_label = QLabel(message)
-        self.message_label.setFont(QFont("Segoe UI", 10))
+        self.message_label.setFont(QFont("Segoe UI", 9))
         self.message_label.setWordWrap(True)
         self.message_label.setMinimumWidth(250)
         self.message_label.setMaximumWidth(320)
         content_layout.addWidget(self.message_label)
         
         # Botões de ação
-        print(f"🔍 DEBUG: Verificando acao = {acao}")
         if acao:
-            print(f"🔍 DEBUG: Criando botões para ação: {acao}")
             btn_layout = QHBoxLayout()
             btn_layout.addStretch()
             
@@ -147,8 +136,6 @@ class ToastNotification(QFrame):
             btn_layout.addWidget(ignore_btn)
             
             content_layout.addLayout(btn_layout)
-        else:
-            print(f"🔍 DEBUG: acao é None ou vazio, botões não serão criados")
         
         main_layout.addWidget(content_frame)
         
@@ -156,13 +143,12 @@ class ToastNotification(QFrame):
         self.posicionar()
         self.show()
         
-        # Animação de entrada
-        self.setWindowOpacity(0)
+        # Animação de entrada (fade in)
+        self.setGraphicsEffect(None)
         self.anim_entrada = QPropertyAnimation(self, b"windowOpacity")
-        self.anim_entrada.setDuration(250)
+        self.anim_entrada.setDuration(200)
         self.anim_entrada.setStartValue(0)
         self.anim_entrada.setEndValue(1)
-        self.anim_entrada.setEasingCurve(QEasingCurve.Type.OutCubic)
         self.anim_entrada.start()
         
         if duration > 0:
@@ -175,43 +161,29 @@ class ToastNotification(QFrame):
         """Posiciona a notificação no topo central da janela pai"""
         if self.parent():
             parent_rect = self.parent().rect()
-            x = (parent_rect.width() - self.width()) // 2  # Centralizado horizontalmente
-            y = 10  # Margem superior de 10 pixels
-            self.move(x, y)
-        else:
-            screen = self.screen().availableGeometry()
-            x = (screen.width() - self.width()) // 2
+            x = (parent_rect.width() - self.width()) // 2
             y = 10
             self.move(x, y)
     
     def executar_acao(self):
         """Executa a ação da notificação"""
-        print(f"🔍 executar_acao chamado! acao={self.acao}")
         self.fechar_animado()
-        
         if self.parent_window and self.acao:
             if hasattr(self.parent_window, self.acao):
-                print(f"✅ Chamando método: {self.acao}")
                 getattr(self.parent_window, self.acao)()
-            else:
-                print(f"⚠️ Método {self.acao} não encontrado")
     
     def ignorar(self):
         """Ignora a notificação"""
-        print(f"🔍 Notificação ignorada")
         self.fechar_animado()
     
     def fechar_animado(self):
         if hasattr(self, 'timer_fechar'):
             self.timer_fechar.stop()
         
-        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
-        
         self.anim_saida = QPropertyAnimation(self, b"windowOpacity")
         self.anim_saida.setDuration(200)
         self.anim_saida.setStartValue(1)
         self.anim_saida.setEndValue(0)
-        self.anim_saida.setEasingCurve(QEasingCurve.Type.OutCubic)
         self.anim_saida.finished.connect(self.fechar)
         self.anim_saida.start()
     

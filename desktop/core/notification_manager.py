@@ -183,6 +183,13 @@ class NotificationManager(QObject):
                 if self.deve_mostrar_notificacao(prioridade):
                     # Exibir toast
                     from widgets.toast_notification import notification_manager as toast_manager
+
+                    parent_window = self._parent
+                    if parent_window is None:
+                        # Tentar obter a janela principal da aplicação
+                        from PySide6.QtWidgets import QApplication
+                        parent_window = QApplication.activeWindow() 
+
                     
                     # Determinar duração baseada na prioridade
                     duracao = {"alta": 10000, "media": 7000, "baixa": 5000}.get(prioridade, 5000)

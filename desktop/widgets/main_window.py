@@ -18,6 +18,7 @@ from widgets.demandas_widget import DemandasWidget
 from widgets.relatorios_widget import RelatoriosWidget
 from widgets.notification_badge import NotificationBadge
 from api_client import api_client
+from core.notification_manager import notification_manager as core_mn
 from version import get_version
 
 class MainWindow(QMainWindow):
@@ -26,6 +27,8 @@ class MainWindow(QMainWindow):
         self.usuario = usuario
         self.setWindowTitle(f"Project Parallel - Sistema de Controle de Estoque - {usuario['nome']}")
         self.setGeometry(100, 100, 1400, 800)
+
+        core_mn.set_parent(self)
 
         # Widget central
         central_widget = QWidget()
