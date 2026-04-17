@@ -13,7 +13,7 @@ def create_update_package():
     print()
     
     # Versão
-    version = "1.1.1"
+    version = "1.1.2"
     
     # Arquivos e pastas a incluir na atualização
     files_to_include = [
@@ -226,4 +226,3 @@ Data: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}
 
 if __name__ == '__main__':
     create_update_package()
-    
