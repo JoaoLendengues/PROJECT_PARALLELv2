@@ -1,5 +1,5 @@
 {
     "version": "1.1.2",
-    "release_date": "2026-04-16",
-    "changelog": "Versão 1.1.2 - Correção do executável\n\nCORREÇÕES:\n- Corrigido erro de importação do PIL/_imaging\n- Adicionadas dependências do Pillow no executável\n- Melhorias na estabilidade do executável"
+    "release_date": "2026-04-17",
+    "changelog": "Versão 1.1.2 - Correção do executável\n\nCORREÇÕES:\n- Corrigido erro de importação do pyexpat no executável\n- Adicionadas todas as dependências necessárias\n- Executável estável e funcionando"
 }
