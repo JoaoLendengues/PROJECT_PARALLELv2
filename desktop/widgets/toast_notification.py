@@ -269,6 +269,30 @@ class NotificationManager:
             return
         
         item = self._fila.pop(0)
+
+        parent = item['parent']
+        if parent and hasattr(parent, 'window'):
+            try:
+                # Verificar se o parent ainda existe
+                if parent and not getattr(parent, 'deleted', False):
+                    parent = parent.window()
+                else:
+                    parent = None
+            except:
+                parent = None
+
+        self._notificacao_atual = ToastNotification(
+            item['message'],
+            item['tipo'],
+            parent,
+            item['duration'],
+            item['prioridade'],
+            item['acao'],
+            item['acao_id'],
+            item['notificacao']          
+        )
+
+        self._notificacao_atual.destroyed.connect(self._proxima)
         
         print(f"🔍 DEBUG _exibir_proxima: item acao = {item.get('acao')}")
         

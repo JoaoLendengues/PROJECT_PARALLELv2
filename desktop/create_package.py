@@ -41,6 +41,7 @@ def create_update_package():
         (os.path.join(desktop_dir, 'core', 'alert_service.py'), 'desktop/core/alert_service.py'),
         
         # Desktop - Widgets
+        (os.path.join(desktop_dir, 'widgets', 'home_widget.py'), 'desktop/widgets/home_widget.py'),
         (os.path.join(desktop_dir, 'widgets', 'toast_notification.py'), 'desktop/widgets/toast_notification.py'),
         (os.path.join(desktop_dir, 'widgets', 'notification_center.py'), 'desktop/widgets/notification_center.py'),
         (os.path.join(desktop_dir, 'widgets', 'notification_badge.py'), 'desktop/widgets/notification_badge.py'),
