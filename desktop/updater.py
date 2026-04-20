@@ -116,7 +116,7 @@ class UpdateInstaller:
     @staticmethod
     def install_update(update_file):
         try:
-            # Pasta atual do programa (onde está o executável)
+            # Onde o programa está rodando
             if getattr(sys, 'frozen', False):
                 current_dir = os.path.dirname(sys.executable)
             else:
@@ -124,35 +124,46 @@ class UpdateInstaller:
             
             print(f"📁 Instalando em: {current_dir}")
             
-            # Criar pasta temporária para extrair
-            temp_dir = os.path.join(os.environ.get('TEMP', '/tmp'), 'project_parallel_update_extract')
+            # Criar pasta temporária
+            temp_dir = os.path.join(current_dir, 'temp_update')
             if os.path.exists(temp_dir):
                 shutil.rmtree(temp_dir)
             os.makedirs(temp_dir)
             
-            # Extrair para pasta temporária
+            # Extrair o ZIP
             with zipfile.ZipFile(update_file, 'r') as zip_ref:
                 zip_ref.extractall(temp_dir)
             
-            print(f"📦 Arquivos extraídos para: {temp_dir}")
+            print("📦 ZIP extraído com sucesso")
             
-            # Verificar se existe a pasta 'desktop' dentro do ZIP
-            desktop_extract = os.path.join(temp_dir, 'desktop')
-            if os.path.exists(desktop_extract) and os.path.isdir(desktop_extract):
-                # Copiar arquivos da pasta 'desktop' para o diretório atual
-                for item in os.listdir(desktop_extract):
-                    src_path = os.path.join(desktop_extract, item)
+            # Procurar a pasta 'desktop' dentro do extraído
+            desktop_dir = None
+            for root, dirs, files in os.walk(temp_dir):
+                if 'desktop' in dirs:
+                    desktop_dir = os.path.join(root, 'desktop')
+                    break
+            
+            if desktop_dir and os.path.exists(desktop_dir):
+                print(f"📁 Pasta desktop encontrada: {desktop_dir}")
+                
+                # Copiar cada arquivo/pasta da pasta desktop
+                for item in os.listdir(desktop_dir):
+                    src_path = os.path.join(desktop_dir, item)
                     dst_path = os.path.join(current_dir, item)
                     
-                    if os.path.isdir(src_path):
-                        if os.path.exists(dst_path):
-                            shutil.rmtree(dst_path)
-                        shutil.copytree(src_path, dst_path)
-                    else:
-                        shutil.copy2(src_path, dst_path)
-                    print(f"   📄 {item}")
+                    try:
+                        if os.path.isdir(src_path):
+                            if os.path.exists(dst_path):
+                                shutil.rmtree(dst_path)
+                            shutil.copytree(src_path, dst_path)
+                        else:
+                            shutil.copy2(src_path, dst_path)
+                        print(f"   ✅ {item}")
+                    except Exception as e:
+                        print(f"   ⚠️ Erro ao copiar {item}: {e}")
             else:
-                # Fallback: copiar tudo (estrutura antiga)
+                print("⚠️ Pasta 'desktop' não encontrada no ZIP")
+                # Fallback: copiar tudo
                 for item in os.listdir(temp_dir):
                     src_path = os.path.join(temp_dir, item)
                     dst_path = os.path.join(current_dir, item)
@@ -163,12 +174,10 @@ class UpdateInstaller:
                         shutil.copytree(src_path, dst_path)
                     else:
                         shutil.copy2(src_path, dst_path)
-                    print(f"   📄 {item}")
+                    print(f"   ✅ {item}")
             
-            # Limpar pasta temporária
+            # Limpar
             shutil.rmtree(temp_dir)
-            
-            # Remover arquivo temporário da atualização
             if os.path.exists(update_file):
                 os.remove(update_file)
             
@@ -180,5 +189,4 @@ class UpdateInstaller:
             import traceback
             traceback.print_exc()
             return False, str(e)
-        
         
