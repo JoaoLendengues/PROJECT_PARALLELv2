@@ -2,22 +2,20 @@
 import json
 import os
 
-VERSION = "1.1.5"
-
 def get_version():
-    """Retorna a versão atual do sistema"""
+    """Retorna apenas o número da versão"""
     try:
         version_file = os.path.join(os.path.dirname(__file__), 'version.json')
         if os.path.exists(version_file):
             with open(version_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                return data.get('version', VERSION)
+                return data.get('version', '1.0.0')
     except Exception as e:
         print(f"Erro ao ler versão: {e}")
-    return VERSION
+    return '1.0.0'
 
 def get_release_date():
-    """Retorna a data da versão atual"""
+    """Retorna a data da versão"""
     try:
         version_file = os.path.join(os.path.dirname(__file__), 'version.json')
         with open(version_file, 'r', encoding='utf-8') as f:
@@ -27,7 +25,7 @@ def get_release_date():
         return ''
 
 def get_changelog():
-    """Retorna o changelog da versão atual"""
+    """Retorna o changelog"""
     try:
         version_file = os.path.join(os.path.dirname(__file__), 'version.json')
         with open(version_file, 'r', encoding='utf-8') as f:
@@ -36,4 +34,5 @@ def get_changelog():
     except:
         return ''
 
+# Versão atual
 CURRENT_VERSION = get_version()
