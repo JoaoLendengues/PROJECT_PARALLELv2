@@ -1,0 +1,19 @@
+
+=== PROJECT PARALLEL - ATUALIZAÇÃO v1.1.6 ===
+Data: 20/04/2026 16:04:27
+
+🔧 CORREÇÕES NESTA VERSÃO:
+
+1. 🐛 Corrigido erro 'NoneType' ao carregar movimentações com observação vazia
+2. 🪟 Corrigido toast notification para aparecer dentro da janela do sistema
+3. ❌ Removida barra de título e botões de janela das notificações
+4. 🎨 Ajustado layout das notificações
+
+📋 INSTRUÇÕES DE ATUALIZAÇÃO:
+
+1. Faça backup do banco de dados (recomendado)
+2. Substitua os arquivos do backend pelos da pasta 'backend/'
+3. Substitua os arquivos do desktop pelos da pasta 'desktop/'
+4. Reinicie o backend e o frontend
+
+✅ TESTADO E APROVADO!

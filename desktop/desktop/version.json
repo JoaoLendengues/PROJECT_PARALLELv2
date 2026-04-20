@@ -1,0 +1,5 @@
+{
+    "version": "1.1.6",
+    "release_date": "2026-04-20",
+    "changelog": "Versao 1.1.6 - Correcao da exibicao da versao\n\nCORRECOES:\n- Corrigido bug que exibia o JSON inteiro no rodape\n- Agora exibe apenas o numero da versao\n- Melhorias no sistema de atualizacoes"
+}
