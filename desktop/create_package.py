@@ -12,51 +12,56 @@ def create_update_package():
     print("=" * 50)
     print()
     
+    # Obtém o diretório onde o script está rodando
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    desktop_dir = base_dir  # Já que você roda de dentro do desktop
+    backend_dir = os.path.join(base_dir, '..', 'backend')
+    
     # Versão
-    version = "1.1.2"
+    version = "1.1.5"
     
     # Arquivos e pastas a incluir na atualização
     files_to_include = [
         # Backend
-        ('../backend/app/models.py', 'backend/app/models.py'),
-        ('../backend/app/schemas.py', 'backend/app/schemas.py'),
-        ('../backend/app/main.py', 'backend/app/main.py'),
-        ('../backend/app/auth.py', 'backend/app/auth.py'),
-        ('../backend/app/routers/__init__.py', 'backend/app/routers/__init__.py'),
-        ('../backend/app/routers/notificacoes.py', 'backend/app/routers/notificacoes.py'),
-        ('../backend/app/routers/backup.py', 'backend/app/routers/backup.py'),
-        ('../backend/app/routers/cargos.py', 'backend/app/routers/cargos.py'),
-        ('../backend/app/routers/departamentos.py', 'backend/app/routers/departamentos.py'),
-        ('../backend/app/routers/configuracoes.py', 'backend/app/routers/configuracoes.py'),
-        ('../backend/requirements.txt', 'backend/requirements.txt'),
+        (os.path.join(backend_dir, 'app', 'models.py'), 'backend/app/models.py'),
+        (os.path.join(backend_dir, 'app', 'schemas.py'), 'backend/app/schemas.py'),
+        (os.path.join(backend_dir, 'app', 'main.py'), 'backend/app/main.py'),
+        (os.path.join(backend_dir, 'app', 'auth.py'), 'backend/app/auth.py'),
+        (os.path.join(backend_dir, 'app', 'routers', '__init__.py'), 'backend/app/routers/__init__.py'),
+        (os.path.join(backend_dir, 'app', 'routers', 'notificacoes.py'), 'backend/app/routers/notificacoes.py'),
+        (os.path.join(backend_dir, 'app', 'routers', 'backup.py'), 'backend/app/routers/backup.py'),
+        (os.path.join(backend_dir, 'app', 'routers', 'cargos.py'), 'backend/app/routers/cargos.py'),
+        (os.path.join(backend_dir, 'app', 'routers', 'departamentos.py'), 'backend/app/routers/departamentos.py'),
+        (os.path.join(backend_dir, 'app', 'routers', 'configuracoes.py'), 'backend/app/routers/configuracoes.py'),
+        (os.path.join(backend_dir, 'requirements.txt'), 'backend/requirements.txt'),
         
         # Desktop - Core
-        ('core/notification_manager.py', 'desktop/core/notification_manager.py'),
-        ('core/sound_manager.py', 'desktop/core/sound_manager.py'),
-        ('core/alert_service.py', 'desktop/core/alert_service.py'),
+        (os.path.join(desktop_dir, 'core', 'notification_manager.py'), 'desktop/core/notification_manager.py'),
+        (os.path.join(desktop_dir, 'core', 'sound_manager.py'), 'desktop/core/sound_manager.py'),
+        (os.path.join(desktop_dir, 'core', 'alert_service.py'), 'desktop/core/alert_service.py'),
         
-        # Desktop - Widgets (CORRIGIDOS)
-        ('widgets/toast_notification.py', 'desktop/widgets/toast_notification.py'),
-        ('widgets/notification_center.py', 'desktop/widgets/notification_center.py'),
-        ('widgets/notification_badge.py', 'desktop/widgets/notification_badge.py'),
-        ('widgets/main_window.py', 'desktop/widgets/main_window.py'),
-        ('widgets/parametros_widget.py', 'desktop/widgets/parametros_widget.py'),
-        ('widgets/materiais_widget.py', 'desktop/widgets/materiais_widget.py'),
-        ('widgets/maquinas_widget.py', 'desktop/widgets/maquinas_widget.py'),
-        ('widgets/movimentacoes_widget.py', 'desktop/widgets/movimentacoes_widget.py'),  # CORRIGIDO
-        ('widgets/manutencoes_widget.py', 'desktop/widgets/manutencoes_widget.py'),
-        ('widgets/pedidos_widget.py', 'desktop/widgets/pedidos_widget.py'),
-        ('widgets/colaboradores_widget.py', 'desktop/widgets/colaboradores_widget.py'),
-        ('widgets/demandas_widget.py', 'desktop/widgets/demandas_widget.py'),
-        ('widgets/relatorios_widget.py', 'desktop/widgets/relatorios_widget.py'),      # CORRIGIDO
-        ('widgets/usuarios_widget.py', 'desktop/widgets/usuarios_widget.py'),
+        # Desktop - Widgets
+        (os.path.join(desktop_dir, 'widgets', 'toast_notification.py'), 'desktop/widgets/toast_notification.py'),
+        (os.path.join(desktop_dir, 'widgets', 'notification_center.py'), 'desktop/widgets/notification_center.py'),
+        (os.path.join(desktop_dir, 'widgets', 'notification_badge.py'), 'desktop/widgets/notification_badge.py'),
+        (os.path.join(desktop_dir, 'widgets', 'main_window.py'), 'desktop/widgets/main_window.py'),
+        (os.path.join(desktop_dir, 'widgets', 'parametros_widget.py'), 'desktop/widgets/parametros_widget.py'),
+        (os.path.join(desktop_dir, 'widgets', 'materiais_widget.py'), 'desktop/widgets/materiais_widget.py'),
+        (os.path.join(desktop_dir, 'widgets', 'maquinas_widget.py'), 'desktop/widgets/maquinas_widget.py'),
+        (os.path.join(desktop_dir, 'widgets', 'movimentacoes_widget.py'), 'desktop/widgets/movimentacoes_widget.py'),
+        (os.path.join(desktop_dir, 'widgets', 'manutencoes_widget.py'), 'desktop/widgets/manutencoes_widget.py'),
+        (os.path.join(desktop_dir, 'widgets', 'pedidos_widget.py'), 'desktop/widgets/pedidos_widget.py'),
+        (os.path.join(desktop_dir, 'widgets', 'colaboradores_widget.py'), 'desktop/widgets/colaboradores_widget.py'),
+        (os.path.join(desktop_dir, 'widgets', 'demandas_widget.py'), 'desktop/widgets/demandas_widget.py'),
+        (os.path.join(desktop_dir, 'widgets', 'relatorios_widget.py'), 'desktop/widgets/relatorios_widget.py'),
+        (os.path.join(desktop_dir, 'widgets', 'usuarios_widget.py'), 'desktop/widgets/usuarios_widget.py'),
         
         # Desktop - Main
-        ('api_client.py', 'desktop/api_client.py'),
-        ('main.py', 'desktop/main.py'),
-        ('updater.py', 'desktop/updater.py'),
-        ('version.py', 'desktop/version.py'),
-        ('version.json', 'desktop/version.json'),
+        (os.path.join(desktop_dir, 'api_client.py'), 'desktop/api_client.py'),
+        (os.path.join(desktop_dir, 'main.py'), 'desktop/main.py'),
+        (os.path.join(desktop_dir, 'updater.py'), 'desktop/updater.py'),
+        (os.path.join(desktop_dir, 'version.py'), 'desktop/version.py'),
+        (os.path.join(desktop_dir, 'version.json'), 'desktop/version.json'),
     ]
     
     # Criar pasta temp
@@ -69,16 +74,22 @@ def create_update_package():
     print("-" * 40)
     
     # Copiar arquivos
+    arquivos_copiados = 0
+    arquivos_nao_encontrados = 0
+    
     for src, dst in files_to_include:
         if os.path.exists(src):
             dst_path = os.path.join(temp_dir, dst)
             os.makedirs(os.path.dirname(dst_path), exist_ok=True)
             shutil.copy2(src, dst_path)
-            print(f"✅ {src}")
+            print(f"✅ {os.path.basename(src)}")
+            arquivos_copiados += 1
         else:
             print(f"⚠️ Arquivo não encontrado: {src}")
+            arquivos_nao_encontrados += 1
     
     print("-" * 40)
+    print(f"📊 Resumo: {arquivos_copiados} arquivos copiados, {arquivos_nao_encontrados} não encontrados")
     
     # Criar arquivo de changelog
     changelog = f"""
@@ -88,32 +99,16 @@ Data: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}
 🔧 CORREÇÕES NESTA VERSÃO:
 
 1. 🐛 Corrigido erro 'NoneType' ao carregar movimentações com observação vazia
-   - Arquivo: movimentacoes_widget.py
-   - Arquivo: relatorios_widget.py
-
 2. 🪟 Corrigido toast notification para aparecer dentro da janela do sistema
-   - Removidas flags de janela independente
-   - Notificações agora são widgets internos
-
 3. ❌ Removida barra de título e botões de janela das notificações
-   - Toast notification sem botões minimizar/maximizar/fechar
-
 4. 🎨 Ajustado layout das notificações
-   - Fundo sólido colorido (não mais transparente)
-   - Tamanho otimizado e mais retangular
 
 📋 INSTRUÇÕES DE ATUALIZAÇÃO:
 
 1. Faça backup do banco de dados (recomendado)
-2. Execute o script SQL no PostgreSQL (update_database.sql)
-3. Substitua os arquivos do backend pelos da pasta 'backend/'
-4. Substitua os arquivos do desktop pelos da pasta 'desktop/'
-5. Reinicie o backend e o frontend
-
-⚠️ ATENÇÃO:
-- Esta é uma atualização de correção (bug fix)
-- Versão anterior: 1.1.0
-- Nova versão: {version}
+2. Substitua os arquivos do backend pelos da pasta 'backend/'
+3. Substitua os arquivos do desktop pelos da pasta 'desktop/'
+4. Reinicie o backend e o frontend
 
 ✅ TESTADO E APROVADO!
 """
@@ -123,20 +118,17 @@ Data: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}
         f.write(changelog)
     print(f"✅ Criado: CHANGELOG.txt")
     
-    # Criar script SQL para atualização do banco (se necessário)
+    # Criar script SQL para atualização do banco
     sql_script = """
 -- PROJECT PARALLEL - ATUALIZAÇÃO DO BANCO DE DADOS
--- Versão: 1.1.1 (nenhuma alteração no banco, apenas correções de código)
+-- Versão: 1.1.5
 
 -- Verificar versão atual
 SELECT valor as versao_atual FROM configuracoes WHERE chave = 'versao_sistema';
 
--- Atualizar versão (opcional)
-INSERT INTO configuracoes (chave, valor) VALUES ('versao_sistema', '1.1.1')
-ON CONFLICT (chave) DO UPDATE SET valor = '1.1.1';
-
--- Nota: Esta versão não contém alterações na estrutura do banco,
--- apenas correções no código do frontend.
+-- Atualizar versão
+INSERT INTO configuracoes (chave, valor) VALUES ('versao_sistema', '1.1.5')
+ON CONFLICT (chave) DO UPDATE SET valor = '1.1.5';
 """
     
     sql_path = os.path.join(temp_dir, 'update_database.sql')
@@ -152,28 +144,18 @@ ON CONFLICT (chave) DO UPDATE SET valor = '1.1.1';
 - backend/     → Arquivos do servidor (FastAPI)
 - desktop/     → Arquivos do cliente (PySide6)
 - CHANGELOG.txt → Lista de mudanças
-- update_database.sql → Scripts SQL (se necessário)
+- update_database.sql → Scripts SQL
 
 🚀 COMO ATUALIZAR:
 
 1. BACKEND (servidor):
    - Parar o serviço do backend
    - Substituir os arquivos da pasta 'backend/'
-   - Executar o script SQL no PostgreSQL (se houver alterações)
+   - Executar o script SQL no PostgreSQL
    - Reiniciar o backend
 
 2. DESKTOP (clientes):
    - Substituir os arquivos da pasta 'desktop/'
-   - Ou substituir apenas os arquivos modificados:
-     * widgets/movimentacoes_widget.py
-     * widgets/relatorios_widget.py
-     * widgets/toast_notification.py
-     * core/notification_manager.py
-     * version.json
-     * version.py
-
-📞 SUPORTE:
-Em caso de dúvidas, contate o suporte de TI.
 
 Versão: {version}
 Data: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}
@@ -215,7 +197,7 @@ Data: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}
     print("=" * 50)
     print()
     print("📋 INSTRUÇÕES:")
-    print("1. Execute o script SQL no banco de dados PostgreSQL (se necessário)")
+    print("1. Execute o script SQL no banco de dados PostgreSQL")
     print("2. Substitua os arquivos do backend pelos da pasta 'backend/'")
     print("3. Substitua os arquivos do desktop pelos da pasta 'desktop/'")
     print("4. Reinicie o backend e o frontend")
@@ -226,3 +208,4 @@ Data: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}
 
 if __name__ == '__main__':
     create_update_package()
+    

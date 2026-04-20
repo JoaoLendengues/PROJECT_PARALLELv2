@@ -1,5 +1,5 @@
 {
-    "version": "1.1.3",
-    "release_date": "2026-04-17",
-    "changelog": "Versão 1.1.3 - Teste de atualização\n\nTESTE:\n- Testando o sistema de atualizações automáticas\n- Verificando se o download e instalação funcionam corretamente\n- Apenas um teste - nenhuma funcionalidade nova"
+    "version": "1.1.5",
+    "release_date": "2026-04-20",
+    "changelog": "Versão 1.1.5 - Teste de atualização\n\nTESTE:\n- Testando o sistema de atualizações automáticas\n- Verificando se o erro do pyexpat foi resolvido\n- Apenas um teste - nenhuma funcionalidade nova"
 }
