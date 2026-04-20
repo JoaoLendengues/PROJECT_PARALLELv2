@@ -117,16 +117,61 @@ class UpdateInstaller:
     def install_update(update_file):
         try:
             # Pasta atual do programa
-            current_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+            if getattr(sys, 'frozen', False):
+                current_dir = os.path.dirname(sys.executable)
+            else:
+                current_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
             
             print(f"📁 Instalando em: {current_dir}")
+
+            # Criar pasta temporária para extrair
+            temp_dir = os.path.join(os.environ.get('TEMP', '/tmp'), 'project_parallel_update_extract')
+
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+            os.makedirs(temp_dir)
             
             # Extrair arquivos
             with zipfile.ZipFile(update_file, 'r') as zip_ref:
                 zip_ref.extractall(current_dir)
+
+            print(f'📦 Arquivos extraídos para: {temp_dir}')
+
+            # Verificar se existe a pasta 'desktop' dentro do ZIP
+            desktop_extract = os.path.join(temp_dir, 'desktop')
+            if os.path.exists(desktop_extract) and os.path.isdir(desktop_extract):
+                # Copiar arquivos da pasta 'desktop' para o diretório atual
+                for item in os.listdir(desktop_extract):
+                    src = os.path.join(desktop_extract, item)
+                    dst = os.path.join(current_dir, item)
+
+                    if os.path.isdir(src):
+                        if os.path.exists(dst):
+                            shutil.rmtree(dst)
+                            shutil.copytree(src, dst)
+                    else:
+                        shutil.copy2(src, dst)
+                    print(f' 📄{item}')
+            else:
+                # Fallback: copiar tudo (estrutura antiga)
+                for item in os.listdir(temp_dir):
+                    src = os.path.join(temp_dir, item)
+                    dst = os.path.join(current_dir, item)
+
+                    if os.path.isdir(src):
+                        if os.path.exists(dst):
+                            shutil.rmtree(dst)
+                    shutil.copytree(src, dst)
+                else:
+                    shutil.copy2(src, dst)
+                print(f' 📄{item}')
             
-            # Remover arquivo temporário
-            os.remove(update_file)
+            # Limpar pasta temporária
+            shutil.rmtree(temp_dir)
+            
+            # Remover arquivo temporário da atualização
+            if os.path.exists(update_file):
+                os.remove(update_file)
             
             print("✅ Instalação concluída")
             return True, "Atualização instalada com sucesso!"
