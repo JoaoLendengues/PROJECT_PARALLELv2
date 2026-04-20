@@ -42,6 +42,7 @@ __pycache__/
 *.sql
 *.sqlite
 *.db
+*.zip
 
 # Arquivos de ambiente e configurações
 *.pem
