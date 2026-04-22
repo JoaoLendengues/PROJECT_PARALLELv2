@@ -7,7 +7,7 @@ import zipfile
 from datetime import datetime
 from PySide6.QtCore import QThread, Signal
 from version import CURRENT_VERSION
-
+from backup
 
 class UpdateChecker(QThread):
     """Verifica se há atualizações disponíveis no GitHub"""
@@ -111,7 +111,7 @@ class UpdateDownloader(QThread):
 
 
 class UpdateInstaller:
-    """Instala a atualização"""
+    """Instala a atualização - Versão SEGURA"""
     
     @staticmethod
     def install_update(update_file):
@@ -123,53 +123,49 @@ class UpdateInstaller:
                 current_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
             
             print(f"📁 Instalando em: {current_dir}")
-
-            # Criar pasta temporária para extrair
-            temp_dir = os.path.join(os.environ.get('TEMP', '/tmp'), 'project_parallel_update_extract')
-
+            
+            # Criar pasta temporária
+            temp_dir = os.path.join(current_dir, 'temp_update')
             if os.path.exists(temp_dir):
                 shutil.rmtree(temp_dir)
             os.makedirs(temp_dir)
             
-            # Extrair arquivos
+            # Extrair o ZIP
             with zipfile.ZipFile(update_file, 'r') as zip_ref:
-                zip_ref.extractall(current_dir)
-
-            print(f'📦 Arquivos extraídos para: {temp_dir}')
-
-            # Verificar se existe a pasta 'desktop' dentro do ZIP
-            desktop_extract = os.path.join(temp_dir, 'desktop')
-            if os.path.exists(desktop_extract) and os.path.isdir(desktop_extract):
-                # Copiar arquivos da pasta 'desktop' para o diretório atual
-                for item in os.listdir(desktop_extract):
-                    src = os.path.join(desktop_extract, item)
-                    dst = os.path.join(current_dir, item)
-
-                    if os.path.isdir(src):
-                        if os.path.exists(dst):
-                            shutil.rmtree(dst)
-                            shutil.copytree(src, dst)
-                    else:
-                        shutil.copy2(src, dst)
-                    print(f' 📄{item}')
+                zip_ref.extractall(temp_dir)
+            
+            # Procurar a pasta 'desktop'
+            desktop_dir = None
+            for root, dirs, files in os.walk(temp_dir):
+                if 'desktop' in dirs:
+                    desktop_dir = os.path.join(root, 'desktop')
+                    break
+            
+            if desktop_dir and os.path.exists(desktop_dir):
+                print(f"📁 Atualizando arquivos de: {desktop_dir}")
+                
+                # IMPORTANTE: NÃO deletar pastas inteiras!
+                # Copiar arquivo por arquivo, preservando o que não está no ZIP
+                for root, dirs, files in os.walk(desktop_dir):
+                    for file in files:
+                        src_file = os.path.join(root, file)
+                        # Calcular caminho relativo
+                        rel_path = os.path.relpath(src_file, desktop_dir)
+                        dst_file = os.path.join(current_dir, rel_path)
+                        
+                        # Criar diretório se não existir
+                        os.makedirs(os.path.dirname(dst_file), exist_ok=True)
+                        
+                        # Copiar arquivo (substituir se existir)
+                        shutil.copy2(src_file, dst_file)
+                        print(f"   ✅ {rel_path}")
             else:
-                # Fallback: copiar tudo (estrutura antiga)
-                for item in os.listdir(temp_dir):
-                    src = os.path.join(temp_dir, item)
-                    dst = os.path.join(current_dir, item)
-
-                    if os.path.isdir(src):
-                        if os.path.exists(dst):
-                            shutil.rmtree(dst)
-                    shutil.copytree(src, dst)
-                else:
-                    shutil.copy2(src, dst)
-                print(f' 📄{item}')
+                print("⚠️ Pasta 'desktop' não encontrada no ZIP")
             
             # Limpar pasta temporária
             shutil.rmtree(temp_dir)
             
-            # Remover arquivo temporário da atualização
+            # Remover arquivo ZIP da atualização
             if os.path.exists(update_file):
                 os.remove(update_file)
             
@@ -178,5 +174,7 @@ class UpdateInstaller:
             
         except Exception as e:
             print(f"❌ Erro na instalação: {e}")
+            import traceback
+            traceback.print_exc()
             return False, str(e)
         
