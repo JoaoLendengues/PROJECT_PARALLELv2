@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTableWidget,
                                QTableWidgetItem, QPushButton, QLabel, QComboBox,
-                               QHeaderView, QMessageBox, QWidget, QFrame)
+                               QHeaderView, QMessageBox, QWidget, QFrame, QApplication)
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont, QColor
 from api_client import api_client
@@ -64,13 +64,13 @@ class NotificationCenter(QDialog):
         
         filtros_layout.addStretch()
         
-        # Botão marcar todas como lidas (REDUZIDO)
+        # Botão marcar todas como lidas
         self.btn_marcar_todas = QPushButton("✓ Marcar todas")
         self.btn_marcar_todas.setFixedHeight(30)
         self.btn_marcar_todas.clicked.connect(self.marcar_todas_lidas)
         filtros_layout.addWidget(self.btn_marcar_todas)
         
-        # Botão atualizar (REDUZIDO)
+        # Botão atualizar
         self.btn_atualizar = QPushButton("🔄 Atualizar")
         self.btn_atualizar.setFixedHeight(30)
         self.btn_atualizar.clicked.connect(self.carregar_notificacoes)
@@ -89,9 +89,9 @@ class NotificationCenter(QDialog):
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
         
         # Configurar largura das colunas
-        self.tabela.setColumnWidth(0, 80)     # Prioridade (reduzido)
-        self.tabela.setColumnWidth(3, 140)    # Data (reduzido)
-        self.tabela.setColumnWidth(4, 260)    # Ações (reduzido)
+        self.tabela.setColumnWidth(0, 80)
+        self.tabela.setColumnWidth(3, 140)
+        self.tabela.setColumnWidth(4, 260)
         
         layout.addWidget(self.tabela)
         
@@ -104,7 +104,7 @@ class NotificationCenter(QDialog):
         
         footer_layout.addStretch()
         
-        # Botão fechar (REDUZIDO)
+        # Botão fechar
         self.btn_fechar = QPushButton("Fechar")
         self.btn_fechar.setFixedSize(80, 30)
         self.btn_fechar.clicked.connect(self.close)
@@ -115,12 +115,23 @@ class NotificationCenter(QDialog):
     def carregar_notificacoes(self):
         """Carrega as notificações do backend"""
         try:
+            # ✅ Carregar todas as notificações (lidas e não lidas)
             notificacoes = api_client.listar_notificacoes(limit=100)
-            self.notificacoes_originais = notificacoes
-            self.atualizar_tabela(notificacoes)
             
-            # Atualizar contador na badge
+            # Ordenar por data (mais recentes primeiro)
+            notificacoes.sort(key=lambda x: x.get("criado_em", ""), reverse=True)
+            
+            self.notificacoes_originais = notificacoes
+            
+            # Aplicar filtro atual
+            self.filtrar_notificacoes()
+            
+            # Atualizar badge
             self.atualizar_badge()
+            
+            # Debug
+            nao_lidas = len([n for n in notificacoes if n.get("status") == "nao_lida"])
+            print(f"📊 Total: {len(notificacoes)} | Não lidas: {nao_lidas}")
             
         except Exception as e:
             print(f"❌ Erro ao carregar notificações: {e}")
@@ -130,10 +141,24 @@ class NotificationCenter(QDialog):
         """Atualiza o badge de notificações na janela principal"""
         try:
             parent = self.parent()
-            if parent and hasattr(parent, 'notification_btn'):
-                parent.notification_btn.atualizar_contador()
-        except:
-            pass
+            if parent:
+                # Verificar se o parent tem o método que queremos chamar
+                if hasattr(parent, 'notification_btn'):
+                    btn = getattr(parent, 'notification_btn')
+                    if hasattr(btn, 'atualizar_contador'):
+                        btn.atualizar_contador()
+                        return
+        
+            # Se não encontrou, tentar pela aplicação inteira
+            for widget in QApplication.topLevelWidgets():
+                if hasattr(widget, 'notification_btn'):
+                    btn = getattr(widget, 'notification_btn')
+                    if hasattr(btn, 'atualizar_contador'):
+                        btn.atualizar_contador()
+                        break
+
+        except Exception as e:
+            print(f'⚠️ Erro ao atualizar badge: {e}')
     
     def filtrar_notificacoes(self):
         """Filtra as notificações com base nos filtros selecionados"""
@@ -166,11 +191,10 @@ class NotificationCenter(QDialog):
         """Atualiza a tabela com a lista de notificações"""
         self.tabela.setRowCount(len(notificacoes))
         
-        # Cores por prioridade
         prioridade_cores = {
-            "alta": QColor(239, 68, 68),    # vermelho
-            "media": QColor(245, 158, 11),  # laranja
-            "baixa": QColor(59, 130, 246)   # azul
+            "alta": QColor(239, 68, 68),
+            "media": QColor(245, 158, 11),
+            "baixa": QColor(59, 130, 246)
         }
         
         for row, notif in enumerate(notificacoes):
@@ -185,7 +209,7 @@ class NotificationCenter(QDialog):
             titulo = notif.get("titulo", "")
             status = notif.get("status", "nao_lida")
             if status == "nao_lida":
-                titulo = f"● {titulo}"  # Indicador de não lida
+                titulo = f"● {titulo}"
             self.tabela.setItem(row, 1, QTableWidgetItem(titulo))
             
             # Mensagem
@@ -200,98 +224,105 @@ class NotificationCenter(QDialog):
                 data = data[:16].replace("T", " ")
             self.tabela.setItem(row, 3, QTableWidgetItem(data))
             
-            # Botões de ação (REDUZIDOS)
+            # Botões de ação
             btn_widget = QWidget()
             btn_layout = QHBoxLayout(btn_widget)
-            btn_layout.setContentsMargins(2, 2, 2, 2)
-            btn_layout.setSpacing(4)
+            btn_layout.setContentsMargins(4, 2, 4, 2)
+            btn_layout.setSpacing(6)
             
             if status == "nao_lida":
                 btn_marcar = QPushButton("✓")
-                btn_marcar.setFixedSize(28, 24)
+                btn_marcar.setFixedSize(30, 28)
                 btn_marcar.setToolTip("Marcar como lida")
                 btn_marcar.setStyleSheet("""
                     QPushButton {
                         background-color: #10b981;
                         color: white;
-                        border-radius: 4px;
-                        font-size: 12px;
+                        border-radius: 6px;
+                        font-size: 13px;
                         font-weight: bold;
+                        border: none;
                     }
-                    QPushButton:hover {
-                        background-color: #059669;
-                    }
+                    QPushButton:hover { background-color: #059669; }
+                    QPushButton:pressed { background-color: #047857; }
                 """)
-                btn_marcar.clicked.connect(lambda checked, n=notif: self.marcar_como_lida(n))
+                btn_marcar.clicked.connect(lambda checked=False, n=notif: self.marcar_como_lida(n))
                 btn_layout.addWidget(btn_marcar)
             
             btn_ver = QPushButton("👁️")
-            btn_ver.setFixedSize(28, 24)
-            btn_ver.setToolTip("Ver")
+            btn_ver.setFixedSize(30, 28)
+            btn_ver.setToolTip("Ver detalhes")
             btn_ver.setStyleSheet("""
                 QPushButton {
                     background-color: #3b82f6;
                     color: white;
-                    border-radius: 4px;
-                    font-size: 12px;
+                    border-radius: 6px;
+                    font-size: 13px;
                     font-weight: bold;
+                    border: none;
                 }
-                QPushButton:hover {
-                    background-color: #2563eb;
-                }
+                QPushButton:hover { background-color: #2563eb; }
+                QPushButton:pressed { background-color: #1d4ed8; }
             """)
-            btn_ver.clicked.connect(lambda checked, n=notif: self.executar_acao(n))
+            btn_ver.clicked.connect(lambda checked=False, n=notif: self.executar_acao(n))
             btn_layout.addWidget(btn_ver)
             
             btn_excluir = QPushButton("🗑️")
-            btn_excluir.setFixedSize(28, 24)
+            btn_excluir.setFixedSize(30, 28)
             btn_excluir.setToolTip("Excluir")
             btn_excluir.setStyleSheet("""
                 QPushButton {
                     background-color: #ef4444;
                     color: white;
-                    border-radius: 4px;
-                    font-size: 12px;
+                    border-radius: 6px;
+                    font-size: 13px;
                     font-weight: bold;
+                    border: none;
                 }
-                QPushButton:hover {
-                    background-color: #dc2626;
-                }
+                QPushButton:hover { background-color: #dc2626; }
+                QPushButton:pressed { background-color: #b91c1c; }
             """)
-            btn_excluir.clicked.connect(lambda checked, n=notif: self.deletar_notificacao(n))
+            btn_excluir.clicked.connect(lambda checked=False, n=notif: self.deletar_notificacao(n))
             btn_layout.addWidget(btn_excluir)
             
             btn_layout.addStretch()
             self.tabela.setCellWidget(row, 4, btn_widget)
         
-        # Ajustar altura das linhas (REDUZIDA)
         self.tabela.resizeRowsToContents()
-        self.tabela.verticalHeader().setDefaultSectionSize(38)
+        self.tabela.verticalHeader().setDefaultSectionSize(42)
         
-        # Atualizar informações
         total = len(notificacoes)
         nao_lidas = len([n for n in notificacoes if n.get("status") == "nao_lida"])
         self.lbl_info.setText(f"📊 Total: {total} | Não lidas: {nao_lidas}")
     
     def marcar_como_lida(self, notificacao):
         """Marca uma notificação como lida"""
+        print(f"🔍 Marcando notificação {notificacao.get('id')} como lida")
         try:
             success = api_client.marcar_notificacao_lida(notificacao.get("id"))
             if success:
                 notification_manager.success("Notificação marcada como lida!", self, 2000)
                 self.carregar_notificacoes()
-                self.atualizar_badge()
             else:
                 notification_manager.error("Erro ao marcar notificação", self, 3000)
         except Exception as e:
-            print(f"Erro ao marcar notificação: {e}")
+            print(f"❌ Erro: {e}")
     
     def marcar_todas_lidas(self):
         """Marca todas as notificações como lidas"""
+        print("🔍 Botão 'Marcar todas' clicado!")
+        
+        if not hasattr(self, 'notificacoes_originais'):
+            return
+        
+        nao_lidas = [n for n in self.notificacoes_originais if n.get("status") == "nao_lida"]
+        if not nao_lidas:
+            notification_manager.info("Não há notificações não lidas!", self, 2000)
+            return
+        
         confirm = QMessageBox.question(
-            self,
-            "Confirmar",
-            "Deseja marcar todas as notificações como lidas?",
+            self, "Confirmar",
+            f"Deseja marcar {len(nao_lidas)} notificação(ões) como lida(s)?",
             QMessageBox.Yes | QMessageBox.No
         )
         
@@ -301,17 +332,15 @@ class NotificationCenter(QDialog):
                 if success:
                     notification_manager.success("Todas as notificações foram marcadas como lidas!", self, 3000)
                     self.carregar_notificacoes()
-                    self.atualizar_badge()
                 else:
                     notification_manager.error("Erro ao marcar notificações", self, 3000)
             except Exception as e:
-                print(f"Erro ao marcar todas: {e}")
+                print(f"❌ Erro: {e}")
     
     def deletar_notificacao(self, notificacao):
         """Deleta uma notificação"""
         confirm = QMessageBox.question(
-            self,
-            "Confirmar exclusão",
+            self, "Confirmar exclusão",
             f"Deseja excluir a notificação '{notificacao.get('titulo')}'?",
             QMessageBox.Yes | QMessageBox.No
         )
@@ -322,32 +351,25 @@ class NotificationCenter(QDialog):
                 if success:
                     notification_manager.success("Notificação excluída!", self, 2000)
                     self.carregar_notificacoes()
-                    self.atualizar_badge()
                 else:
                     notification_manager.error("Erro ao excluir notificação", self, 3000)
             except Exception as e:
-                print(f"Erro ao deletar: {e}")
+                print(f"❌ Erro: {e}")
     
     def executar_acao(self, notificacao):
-        """Executa a ação da notificação (navegar para a tela)"""
+        """Executa a ação da notificação"""
         acao = notificacao.get("acao")
         acao_id = notificacao.get("acao_id")
         
-        # Fechar a central
         self.close()
         
-        # Executar ação na janela principal
         parent = self.parent()
         if parent and acao:
             if hasattr(parent, acao):
                 getattr(parent, acao)()
-                
-                # Se tiver ID, pode navegar diretamente para o item
                 if acao_id and hasattr(parent, f"{acao}_com_id"):
                     getattr(parent, f"{acao}_com_id")(acao_id)
             
-            # Marcar como lida
             if notificacao.get("status") == "nao_lida":
                 api_client.marcar_notificacao_lida(notificacao.get("id"))
                 self.atualizar_badge()
-                

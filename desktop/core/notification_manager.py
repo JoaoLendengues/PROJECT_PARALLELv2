@@ -140,7 +140,6 @@ class NotificationManager(QObject):
             }
             
             # Chamar API para criar notificação
-            # Nota: O backend vai pegar o usuario_id do token
             response = api_client.criar_notificacao_backend(payload)
             
             if response:
@@ -158,6 +157,7 @@ class NotificationManager(QObject):
         
         # Verificar cooldown
         if self._verificar_cooldown(tipo):
+            print(f"⏸️ Notificação {tipo} em cooldown, ignorando...")
             return None
         
         # Criar payload para o backend
@@ -188,17 +188,17 @@ class NotificationManager(QObject):
                     if parent_window is None:
                         # Tentar obter a janela principal da aplicação
                         from PySide6.QtWidgets import QApplication
-                        parent_window = QApplication.activeWindow() 
-
+                        parent_window = QApplication.activeWindow()
                     
                     # Determinar duração baseada na prioridade
                     duracao = {"alta": 10000, "media": 7000, "baixa": 5000}.get(prioridade, 5000)
                     
+                    # ✅ CORREÇÃO: Usar parent_window (não self._parent)
                     toast_manager.show(
                         message=mensagem,
                         tipo="warning" if prioridade in ["alta", "media"] else "info",
                         duration=duracao,
-                        parent=self._parent,
+                        parent=parent_window,  # ✅ CORRIGIDO
                         prioridade=prioridade,
                         acao=acao,
                         acao_id=acao_id,
@@ -213,9 +213,9 @@ class NotificationManager(QObject):
     
     def _verificar_cooldown(self, tipo):
         """Verifica se a notificação está em período de cooldown"""
+        # ✅ CORREÇÃO: Removida chave duplicada "estoque_baixo"
         cooldowns = {
             "estoque_critico": 1800,   # 30 minutos
-            "estoque_baixo": 3600,     # 1 hora
             "estoque_baixo": 3600,     # 1 hora
             "manutencao": 3600,        # 1 hora
             "pedido": 7200,            # 2 horas
@@ -231,6 +231,7 @@ class NotificationManager(QObject):
             from datetime import datetime
             segundos_passados = (datetime.now() - ultimo_envio).total_seconds()
             if segundos_passados < cooldown:
+                print(f"⏸️ Cooldown ativo para {tipo}: {segundos_passados:.0f}s restantes de {cooldown}s")
                 return True
         
         return False
@@ -239,21 +240,30 @@ class NotificationManager(QObject):
         """Registra o timestamp do último envio"""
         from datetime import datetime
         setattr(self, f"_ultimo_envio_{tipo}", datetime.now())
+        print(f"📝 Registrado envio para {tipo} em {datetime.now()}")
     
     def marcar_como_lida(self, notificacao_id):
         """Marca uma notificação como lida"""
+        print(f"🔍 NotificationManager: Marcando notificação {notificacao_id} como lida")
         success = api_client.marcar_notificacao_lida(notificacao_id)
         if success:
             self.verificar_novas_notificacoes()
+            print(f"✅ NotificationManager: Notificação {notificacao_id} marcada como lida")
+        else:
+            print(f"❌ NotificationManager: Erro ao marcar notificação {notificacao_id}")
         return success
     
     def marcar_todas_como_lidas(self):
         """Marca todas as notificações como lidas"""
+        print(f"🔍 NotificationManager: Marcando todas notificações como lidas")
         success = api_client.marcar_todas_notificacoes_lidas()
         if success:
             self._ultimo_contador = 0
             self.contador_atualizado.emit(0)
             self.verificar_novas_notificacoes()
+            print(f"✅ NotificationManager: Todas notificações marcadas como lidas")
+        else:
+            print(f"❌ NotificationManager: Erro ao marcar todas notificações")
         return success
     
     def get_notificacoes(self, status=None, prioridade=None, limit=50):
@@ -268,6 +278,7 @@ class NotificationManager(QObject):
         """Força a atualização do contador"""
         self._ultimo_contador = api_client.contar_notificacoes_nao_lidas()
         self.contador_atualizado.emit(self._ultimo_contador)
+        print(f"📊 Contador atualizado: {self._ultimo_contador} notificações não lidas")
         return self._ultimo_contador
 
 

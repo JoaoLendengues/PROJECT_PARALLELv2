@@ -289,7 +289,7 @@ class NotificationManager:
             item['prioridade'],
             item['acao'],
             item['acao_id'],
-            item['notificacao']          
+            item['notificacao_id']          
         )
 
         self._notificacao_atual.destroyed.connect(self._proxima)
