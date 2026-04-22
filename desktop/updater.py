@@ -111,60 +111,71 @@ class UpdateDownloader(QThread):
 
 
 class UpdateInstaller:
-    """Instala a atualização - Versão SEGURA"""
+    """Instala a atualização - Versão SEGURA com Backup Completo"""
     
-    # Arquivos e pastas que NUNCA devem ser deletados ou substituídos
     PROTECTED_ITEMS = [
-        'backup',           # Pasta de backups
-        'logs',             # Pasta de logs
-        'config.ini',       # Configurações do usuário
-        '.env',             # Configurações de ambiente
-        'database.db',      # Banco de dados (se for SQLite)
-        'temp_update',      # Pasta temporária de atualização
-        '__pycache__',      # Cache do Python
+        'backup', 'logs', 'config.ini', '.env', 'database.db', 
+        'temp_update', '__pycache__'
     ]
     
     @staticmethod
     def criar_backup_automatico():
-        """Cria um backup automático antes da atualização"""
+        """Cria um backup completo da pasta de instalação"""
         try:
+            # Onde o programa está rodando
             if getattr(sys, 'frozen', False):
                 current_dir = os.path.dirname(sys.executable)
             else:
                 current_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
             
+            # Criar pasta de backup com timestamp
             backup_dir = os.path.join(current_dir, 'backup', datetime.now().strftime("%Y%m%d_%H%M%S"))
             os.makedirs(backup_dir, exist_ok=True)
             
-            # Pastas críticas para backup
-            pastas_criticas = ['widgets', 'core', 'styles']
+            print(f"📦 Criando backup completo em: {backup_dir}")
             
-            for pasta in pastas_criticas:
-                src = os.path.join(current_dir, pasta)
-                if os.path.exists(src):
-                    dst = os.path.join(backup_dir, pasta)
-                    shutil.copytree(src, dst)
-                    print(f"✅ Backup de {pasta} criado")
+            # Itens a serem excluídos do backup
+            itens_para_excluir = [
+                'backup', 'temp_update', '__pycache__', 'logs'
+            ]
             
-            # Arquivos críticos
-            arquivos_criticos = ['main.py', 'api_client.py', 'version.py', 'version.json', 'updater.py']
-            for arquivo in arquivos_criticos:
-                src = os.path.join(current_dir, arquivo)
-                if os.path.exists(src):
-                    dst = os.path.join(backup_dir, arquivo)
-                    shutil.copy2(src, dst)
-                    print(f"✅ Backup de {arquivo} criado")
+            # Copiar tudo do diretório atual para o backup
+            for item in os.listdir(current_dir):
+                src_path = os.path.join(current_dir, item)
+                
+                if item in itens_para_excluir:
+                    print(f"   ⏭️ Pulando: {item}")
+                    continue
+                
+                if item.endswith('.pyc') or item.endswith('.log'):
+                    print(f"   ⏭️ Pulando: {item}")
+                    continue
+                
+                dst_path = os.path.join(backup_dir, item)
+                
+                try:
+                    if os.path.isdir(src_path):
+                        shutil.copytree(src_path, dst_path)
+                        print(f"   ✅ Pasta: {item}")
+                    else:
+                        shutil.copy2(src_path, dst_path)
+                        print(f"   ✅ Arquivo: {item}")
+                except Exception as e:
+                    print(f"   ⚠️ Erro ao copiar {item}: {e}")
             
+            print(f"✅ Backup completo concluído em: {backup_dir}")
             return backup_dir
+            
         except Exception as e:
-            print(f"⚠️ Erro ao criar backup: {e}")
+            print(f"❌ Erro ao criar backup: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     @staticmethod
     def install_update(update_file):
         try:
-            # Criar backup antes de atualizar
-            print("📦 Criando backup de segurança...")
+            print("📦 Criando backup de segurança completo...")
             backup_dir = UpdateInstaller.criar_backup_automatico()
             if backup_dir:
                 print(f"📦 Backup criado em: {backup_dir}")
@@ -197,21 +208,17 @@ class UpdateInstaller:
             if desktop_dir and os.path.exists(desktop_dir):
                 print(f"📁 Atualizando arquivos de: {desktop_dir}")
                 
-                # Copiar arquivo por arquivo, preservando o que não está no ZIP
                 arquivos_atualizados = 0
                 for root, dirs, files in os.walk(desktop_dir):
                     for file in files:
-                        # Verificar se é um arquivo protegido
                         if file in UpdateInstaller.PROTECTED_ITEMS:
                             print(f"   ⚠️ Pulando arquivo protegido: {file}")
                             continue
                         
                         src_file = os.path.join(root, file)
-                        # Calcular caminho relativo
                         rel_path = os.path.relpath(src_file, desktop_dir)
                         dst_file = os.path.join(current_dir, rel_path)
                         
-                        # Verificar se o diretório de destino é protegido
                         dst_dir_protegido = False
                         for protected in UpdateInstaller.PROTECTED_ITEMS:
                             if protected in dst_file:
@@ -222,10 +229,7 @@ class UpdateInstaller:
                             print(f"   ⚠️ Pulando arquivo em pasta protegida: {rel_path}")
                             continue
                         
-                        # Criar diretório se não existir
                         os.makedirs(os.path.dirname(dst_file), exist_ok=True)
-                        
-                        # Copiar arquivo (substituir se existir)
                         shutil.copy2(src_file, dst_file)
                         print(f"   ✅ {rel_path}")
                         arquivos_atualizados += 1
@@ -249,3 +253,4 @@ class UpdateInstaller:
             import traceback
             traceback.print_exc()
             return False, str(e)
+        
