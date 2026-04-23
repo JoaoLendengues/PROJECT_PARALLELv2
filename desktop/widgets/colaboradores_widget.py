@@ -289,19 +289,23 @@ class ColaboradorDialog(QDialog):
         form_layout.addRow("Nome:", self.nome_edit)
         
         # Cargo
-        self.cargo_edit = QLineEdit()
-        self.cargo_edit.setPlaceholderText("Cargo do colaborador")
-        form_layout.addRow("Cargo:", self.cargo_edit)
+        self.cargo_combo = QComboBox()
+        self.cargo_combo.setEditable(False)
+        self.cargo_combo.setInsertPolicy(QComboBox.NoInsert)
+        self.carregar_cargos_combo()
+        form_layout.addRow('Cargo:', self.cargo_combo)
         
         # Departamento
         self.departamento_combo = QComboBox()
         self.departamento_combo.setEditable(False)
+        self.departamento_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_departamentos_combo()
         form_layout.addRow("Departamento:", self.departamento_combo)
         
         # Empresa
         self.empresa_combo = QComboBox()
         self.empresa_combo.setEditable(False)
+        self.empresa_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_empresas_combo()
         form_layout.addRow("Empresa:", self.empresa_combo)
         
@@ -326,6 +330,23 @@ class ColaboradorDialog(QDialog):
         
         layout.addLayout(btn_layout)
 
+    def carregar_cargos_combo(self):
+        """Carrega os cargos do backend para o combobox"""
+        try:
+            cargos = api_client.get_cargos_lista()
+            self.cargo_combo.clear()
+            self.cargo_combo.addItem('')
+            for cargo in cargos:
+                if cargo and cargo.strip():
+                    self.cargo_combo.addItem(cargo)
+            print(f'✅ Cargos carregados: {len(cargos)}')
+        except Exception as e:
+            print(f'❌ Erro ao carregar cargos: {e}')
+            # Fallback em caso de erro
+            default_cargos = ['', 'Analista', 'Coordenador', 'Gerente', 'Assistente', 'Técnico']
+            for cargo in default_cargos:
+                self.cargo_combo.addItem(cargo)
+    
     def carregar_departamentos_combo(self):
         """Carrega os departamentos do backend para o combobox"""
         try:
@@ -362,28 +383,28 @@ class ColaboradorDialog(QDialog):
             return
         
         self.nome_edit.setText(str(self.dados_item.get("nome", "")))
-        self.cargo_edit.setText(str(self.dados_item.get("cargo", "")))
+    
+        cargo = str(self.dados_item.get('cargo', ''))
+        idx = self.cargo_combo.findText(cargo)
+        if idx >= 0:
+            self.cargo_combo.setCurrentIndex(idx)
         
         dept = str(self.dados_item.get("departamento", ""))
         idx = self.departamento_combo.findText(dept)
         if idx >= 0:
             self.departamento_combo.setCurrentIndex(idx)
-        else:
-            self.departamento_combo.setEditText(dept)
         
         empresa = str(self.dados_item.get("empresa", ""))
         idx = self.empresa_combo.findText(empresa)
         if idx >= 0:
             self.empresa_combo.setCurrentIndex(idx)
-        else:
-            self.empresa_combo.setEditText(empresa)
         
         self.status_check.setChecked(self.dados_item.get("ativo", True))
     
     def salvar(self):
         dados = {
             "nome": self.nome_edit.text().strip(),
-            "cargo": self.cargo_edit.text().strip() or None,
+            "cargo": self.cargo_combo.currentText().strip() or None,
             "departamento": self.departamento_combo.currentText(),
             "empresa": self.empresa_combo.currentText(),
             "ativo": self.status_check.isChecked()
@@ -391,6 +412,10 @@ class ColaboradorDialog(QDialog):
         
         if not dados["nome"]:
             QMessageBox.warning(self, "Atenção", "O nome é obrigatório!")
+            return
+        
+        if not dados['empresa']:
+            QMessageBox.warning(self, 'Atenção', 'Selecione uma empresa!')
             return
         
         try:
