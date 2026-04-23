@@ -609,3 +609,148 @@ QDialog QComboBox QAbstractItemView {
     color: #1e293b;
     background-color: #ffffff;
 }
+
+/* =====================================================
+   CONFIGURAÇÕES DE FONTE GLOBAL (PADRÃO DO SISTEMA)
+   ===================================================== */
+
+/* Forçar fonte Segoe UI em toda a aplicação */
+QWidget {
+    font-family: 'Segoe UI', 'Inter', 'Arial', sans-serif;
+    font-size: 13px;
+}
+
+/* Tamanhos específicos para melhor legibilidade */
+QPushButton, QComboBox, QLineEdit, QDateEdit, QSpinBox {
+    font-size: 13px;
+}
+
+/* Labels de formulário */
+QFormLayout QLabel {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* Títulos de página (forçar tamanho) */
+QLabel[class="page-title"] {
+    font-size: 22px;
+    font-weight: bold;
+}
+
+/* Tabelas - garantir legibilidade */
+QTableWidget {
+    font-size: 13px;
+}
+
+QHeaderView::section {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* Menus */
+QMenu {
+    font-size: 13px;
+}
+
+/* Tooltips */
+QToolTip {
+    font-size: 12px;
+}
+
+/* Status Bar */
+QStatusBar {
+    font-size: 12px;
+}
+
+/* =====================================================
+   CALENDÁRIO (COMPLETO E LEGÍVEL)
+   ===================================================== */
+
+/* Corrige cores do calendário - TEXTO BRANCO no cabeçalho */
+QCalendarWidget QHeaderView::section {
+    background-color: #2c7da0;
+    color: #ffffff;
+    padding: 8px;
+    font-weight: bold;
+}
+
+/* Dias do mês atual */
+QCalendarWidget QAbstractItemView:enabled {
+    color: #1e293b;
+    background-color: #ffffff;
+}
+
+/* Dias de outros meses */
+QCalendarWidget QAbstractItemView:!enabled {
+    color: #cbd5e1;
+    background-color: #f8fafc;
+}
+
+/* Dia selecionado */
+QCalendarWidget QAbstractItemView:selected {
+    background-color: #2c7da0;
+    color: #ffffff;
+    border-radius: 4px;
+}
+
+/* Hover nos dias */
+QCalendarWidget QAbstractItemView:hover {
+    background-color: #e6f0ff;
+    border-radius: 4px;
+}
+
+/* Botões de navegação do calendário */
+QCalendarWidget QToolButton {
+    background-color: #2c7da0;
+    color: #ffffff;
+    border-radius: 4px;
+    border: none;
+    min-width: 30px;
+    min-height: 25px;
+}
+
+QCalendarWidget QToolButton:hover {
+    background-color: #1f5e7a;
+}
+
+/* Menu de meses/anos */
+QCalendarWidget QMenu::item {
+    padding: 8px 20px;
+    color: #1e293b;
+}
+
+QCalendarWidget QMenu::item:selected {
+    background-color: #e6f0ff;
+    color: #1e293b;
+}
+
+/* =====================================================
+   PERMISSÃO DE EDIÇÃO DOS CAMPOS (NÃO EDITÁVEIS)
+   ===================================================== */
+
+/* Combobox que devem ser apenas seleção (NÃO editáveis) */
+QComboBox[editable="false"] {
+    background-color: #f8fafc;
+}
+
+/* =====================================================
+   CORES DE PRIORIDADE NAS NOTIFICAÇÕES
+   ===================================================== */
+
+/* Prioridade Alta - vermelho */
+.notification-alta {
+    background-color: #DC2626;
+    border-left: 6px solid #991B1B;
+}
+
+/* Prioridade Média - laranja */
+.notification-media {
+    background-color: #D97706;
+    border-left: 6px solid #92400E;
+}
+
+/* Prioridade Baixa - azul */
+.notification-baixa {
+    background-color: #2563EB;
+    border-left: 6px solid #1E3A8A;
+}
