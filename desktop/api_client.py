@@ -679,8 +679,16 @@ class APIClient:
                 data = response.json()
                 if isinstance(data, list):
                     return data
-            return []
-        except:
+                elif isinstance(data, dict) and "items" in data:
+                    return data["items"]
+                else:
+                    print(f"⚠️ Formato inesperado: {type(data)}")
+                    return []
+            else:
+                print(f"❌ Erro {response.status_code}: {response.text[:100]}")
+                return []
+        except Exception as e:
+            print(f"❌ Erro ao listar usuários: {e}")
             return []
     
     def criar_usuario(self, usuario):

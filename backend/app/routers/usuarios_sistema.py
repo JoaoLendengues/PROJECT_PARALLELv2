@@ -10,7 +10,7 @@ router = APIRouter(prefix='/api/usuarios', tags=['Usuários do Sistema'])
 @router.get('/', response_model=List[schemas.UsuarioSistemaResponse])
 def listar_usuarios(
     db: Session = Depends(get_db),
-    admin: models.UsuarioSistema = Depends(auth.verificar_admin),
+    current_user: models.UsuarioSistema = Depends(auth.verificar_admin),
     ativo: Optional[bool] = Query(None, description="Filtrar por ativo"),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0)

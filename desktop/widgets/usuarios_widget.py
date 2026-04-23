@@ -443,13 +443,16 @@ class UsuarioDialog(QDialog):
         self.nome_edit.setPlaceholderText("Nome completo")
         form_layout.addRow("Nome:", self.nome_edit)
         
-        self.cargo_edit = QLineEdit()
-        self.cargo_edit.setPlaceholderText("Cargo do usuário")
-        form_layout.addRow("Cargo:", self.cargo_edit)
+        self.cargo_combo = QComboBox()
+        self.cargo_combo.setEditable(False)
+        self.cargo_combo.setInsertPolicy(QComboBox.NoInsert)
+        self.carregar_cargos_combo()
+        form_layout.addRow("Cargo:", self.cargo_combo)
         
         self.empresa_combo = QComboBox()
-        self.empresa_combo.addItems(["Matriz", "Filial 1", "Filial 2", "Filial 3"])
-        self.empresa_combo.setEditable(True)
+        self.empresa_combo.setEditable(False)
+        self.empresa_combo.setInsertPolicy(QComboBox.NoInsert)
+        self.carregar_empresas_combo()
         form_layout.addRow("Empresa:", self.empresa_combo)
         
         self.nivel_combo = QComboBox()
@@ -485,6 +488,38 @@ class UsuarioDialog(QDialog):
         btn_layout.addWidget(cancelar_btn)
         
         layout.addLayout(btn_layout)
+
+    def carregar_cargos_combo(self):
+        """Carrega os cargos do backend para o combobox"""
+        try:
+            cargos = api_client.get_cargos_lista()
+            self.cargo_combo.clear()
+            self.cargo_combo.addItem('') # Opção vazia (opcional)
+            for cargo in cargos:
+                if cargo and cargo.strip():
+                    self.cargo_combo.addItem(cargo)
+            print(f'✅ Cargos carregados: {len(cargos)}')
+        except Exception as e:
+            print(f'❌ Erro ao carregar cargos: {e}')
+            # Fallback em caso de erro
+            default_cargos = ['Analista', 'Coordenador', 'Gerente', 'Assistente', 'Técnico']
+            for cargo in default_cargos:
+                self.cargo_combo.addItem(cargo)
+
+    def carregar_empresas_combo(self):
+        """Carrega as empresas do backend para o combobox"""
+        try:
+            empresas = api_client.get_empresas()
+            self.empresa_combo.clear()
+            for emp in empresas:
+                if emp in emp.strip():
+                    self.empresa_combo.addItem(emp)
+        except Exception as e:
+            print(f'❌ Erro ao carregar empresas: {e}')
+            # Fallback em caso de erro
+            default_empresas = ['Matriz ', 'Filial 1', 'Filial 2', 'Filial 3']
+            for emp in default_empresas:
+                self.empresa_combo.addItem(emp)
     
     def carregar_dados_edicao(self):
         """Carrega os dados do usuário para edição"""
@@ -492,16 +527,18 @@ class UsuarioDialog(QDialog):
             return
         
         self.codigo_edit.setText(str(self.dados_item.get("codigo", "")))
-        self.codigo_edit.setReadOnly(False)
+        self.codigo_edit.setReadOnly(True)
         self.nome_edit.setText(str(self.dados_item.get("nome", "")))
-        self.cargo_edit.setText(str(self.dados_item.get("cargo", "")))
         
+        cargo = str(self.dados_item.get('cargo', ''))
+        idx = self.cargo_combo.findText(cargo)
+        if idx >= 0:
+            self.cargo_combo.setCurrentIndex(idx)
+
         empresa = str(self.dados_item.get("empresa", ""))
         idx = self.empresa_combo.findText(empresa)
         if idx >= 0:
             self.empresa_combo.setCurrentIndex(idx)
-        else:
-            self.empresa_combo.setEditText(empresa)
         
         nivel = str(self.dados_item.get("nivel_acesso", "usuario"))
         idx = self.nivel_combo.findText(nivel)
@@ -513,7 +550,7 @@ class UsuarioDialog(QDialog):
     def salvar(self):
         codigo = self.codigo_edit.text().strip()
         nome = self.nome_edit.text().strip()
-        cargo = self.cargo_edit.text().strip()
+        cargo = self.cargo_combo.currentText().strip() or None
         empresa = self.empresa_combo.currentText()
         nivel_acesso = self.nivel_combo.currentText()
         ativo = self.ativo_check.isChecked()
