@@ -24,10 +24,22 @@ class ParametrosWidget(QWidget):
         self.empresas = []
         self.departamentos = []
         self.categorias = []
+        self._loaded = False  # ✅ Flag para carregamento sob demanda
         self.init_ui()
-        self.carregar_listas()
-        self.carregar_configuracoes()
-        self.carregar_info_servidor()
+        # ⚠️ NÃO carregar dados aqui - será feito no on_show()
+
+    def on_show(self):
+        """✅ Chamado quando a aba é selecionada - carrega dados sob demanda"""
+        if not self._loaded:
+            # Carregar listas de empresas, departamentos, categorias
+            self.carregar_listas()
+            # Carregar configurações salvas
+            self.carregar_configuracoes()
+            # Carregar informações do servidor
+            self.carregar_info_servidor()
+            # Carregar lista de backups
+            self.carregar_lista_backups()
+            self._loaded = True
     
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -229,8 +241,7 @@ class ParametrosWidget(QWidget):
         
         layout.addWidget(grupo_lista)
         
-        # Carregar lista de backups
-        self.carregar_lista_backups()
+        # ⚠️ NÃO carregar lista de backups aqui - será feito no on_show()
         
         return widget
     
@@ -409,7 +420,7 @@ class ParametrosWidget(QWidget):
             }
         """)
         
-        self.carregar_tabela_empresas()
+        # ⚠️ NÃO carregar dados aqui - será feito no carregar_listas()
         
         layout.addWidget(self.tabela_empresas)
         
@@ -447,7 +458,7 @@ class ParametrosWidget(QWidget):
             }
         """)
         
-        self.carregar_tabela_departamentos()
+        # ⚠️ NÃO carregar dados aqui - será feito no carregar_listas()
         
         layout.addWidget(self.tabela_departamentos)
         
@@ -485,7 +496,7 @@ class ParametrosWidget(QWidget):
             }
         """)
         
-        self.carregar_tabela_categorias()
+        # ⚠️ NÃO carregar dados aqui - será feito no carregar_listas()
         
         layout.addWidget(self.tabela_categorias)
         
@@ -541,8 +552,7 @@ class ParametrosWidget(QWidget):
         btn_layout.addStretch()
         layout.addLayout(btn_layout)
 
-        # Carregar os dados da tabela
-        self.carregar_tabela_cargos()
+        # ⚠️ NÃO carregar dados aqui - será feito no carregar_listas()
 
         return widget
     
@@ -622,6 +632,7 @@ class ParametrosWidget(QWidget):
             self.carregar_tabela_empresas()
             self.carregar_tabela_departamentos()
             self.carregar_tabela_categorias()
+            self.carregar_tabela_cargos()
             self.atualizar_combos()
             
             QApplication.restoreOverrideCursor()
@@ -657,7 +668,7 @@ class ParametrosWidget(QWidget):
             self.tabela_departamentos.setRowCount(len(departamentos))
             for i, dept in enumerate(departamentos):
                 self.tabela_departamentos.setItem(i, 0, QTableWidgetItem(str(dept.get("id", ""))))
-                self.tabela_departamentos.setItem(i, 1, QTableWidgetItem(dept.get("nome", "")))
+                self.tabela_departamentos.setItem(i, 1, QTableWidgetItem(dept.get("nome", ""))))
                 self.tabela_departamentos.setItem(i, 2, QTableWidgetItem("Ativo" if dept.get("ativo", True) else "Inativo"))
         except Exception as e:
             print(f"❌ Erro ao carregar departamentos: {e}")
@@ -1191,3 +1202,4 @@ class ParametrosWidget(QWidget):
     def carregar_dados(self):
         self.carregar_configuracoes()
         self.carregar_info_servidor()
+        

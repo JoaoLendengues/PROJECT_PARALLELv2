@@ -15,11 +15,16 @@ class MaquinasWidget(QWidget):
         self.dados_cache = []
         self.departamentos = []
         self.empresas = []  # NOVO: lista de empresas
+        self._loaded = False
         self.init_ui()
-        self.carregar_departamentos()
-        self.carregar_empresas()  # NOVO
-        self.carregar_maquinas()
-    
+
+    def on_show(self):
+        if not self._loaded:
+            self.carregar_departamentos()
+            self.carregar_empresas()
+            self.carregar_maquinas()
+            self._loaded = True
+        
     def init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)

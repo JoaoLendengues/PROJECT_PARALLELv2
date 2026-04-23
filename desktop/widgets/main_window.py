@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                                 QPushButton, QLabel, QFrame, QStackedWidget, QMessageBox, QApplication)
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, QThread, Signal
 from PySide6.QtGui import QFont
 from datetime import datetime
 import os
@@ -21,19 +21,41 @@ from api_client import api_client
 from core.notification_manager import notification_manager as core_mn
 from version import get_version
 
+
+# =====================================================
+# THREAD PARA CARREGAMENTO EM BACKGROUND
+# =====================================================
+
+class DataLoaderThread(QThread):
+    """Thread para carregar dados em background"""
+    finished = Signal(object)
+    
+    def __init__(self, loader_func, *args, **kwargs):
+        super().__init__()
+        self.loader_func = loader_func
+        self.args = args
+        self.kwargs = kwargs
+    
+    def run(self):
+        try:
+            result = self.loader_func(*self.args, **self.kwargs)
+            self.finished.emit(result)
+        except Exception as e:
+            print(f"Erro no carregamento: {e}")
+            self.finished.emit(None)
+
+
 class MainWindow(QMainWindow):
     def __init__(self, usuario):
         super().__init__()
         self.usuario = usuario
         self.setWindowTitle(f"Project Parallel - Sistema de Controle de Estoque - {usuario['nome']}")
         
-
-        # ✅ Definir tamanho mínimo (opcional, mas recomendado)
+        # Definir tamanho mínimo
         self.setMinimumSize(1200, 700)
-
-        # ✅ Opcional: Definir geometria inicial (fallback se maximizado não funcionar)
+        
+        # Definir geometria inicial
         self.setGeometry(100, 100, 1400, 800)
-
 
         core_mn.set_parent(self)
 
@@ -55,11 +77,15 @@ class MainWindow(QMainWindow):
         self.content_stack = QStackedWidget()
         main_layout.addWidget(self.content_stack)
 
-        # Inicializar telas
-        self.init_screens()
+        # ✅ Inicializar telas (sem carregar dados pesados)
+        self.init_screens_light()
+        
+        # ✅ Carregar dados em background
+        self.load_background_data()
 
         # Selecionar home por padrão
         self.content_stack.setCurrentWidget(self.home_widget)
+        self.home_widget.on_show()  # Carregar dados da home
     
     def set_active_menu(self, button_index):
         """Marca o menu como ativo visualmente"""
@@ -101,7 +127,7 @@ class MainWindow(QMainWindow):
             ("📈 Relatórios", self.show_relatorios),
             ("👥 Usuários", self.show_usuarios),
             ("⚙️ Parâmetros", self.show_parametros),
-            ("🔄 Atualizações", self.show_updates)  # <-- NOVO BOTÃO ADICIONADO
+            ("🔄 Atualizações", self.show_updates)
         ]
 
         self.menu_buttons = []
@@ -123,7 +149,6 @@ class MainWindow(QMainWindow):
 
         # Atualizar contador inicial
         self.notification_btn.atualizar_contador()
-        
         
         # Botão Trocar Usuário
         btn_trocar_usuario = QPushButton("🔄 Trocar Usuário")
@@ -147,8 +172,8 @@ class MainWindow(QMainWindow):
 
         return sidebar
     
-    def init_screens(self):
-        """Inicializa todas as telas do sistema"""
+    def init_screens_light(self):
+        """✅ Inicializa os widgets (sem carregar dados pesados ainda)"""
         self.home_widget = HomeWidget()
         self.home_widget.set_usuario(self.usuario['nome'])
         self.home_widget.set_main_window(self)
@@ -174,10 +199,32 @@ class MainWindow(QMainWindow):
         self.content_stack.addWidget(self.relatorios_widget)
         self.content_stack.addWidget(self.usuarios_widget)
         self.content_stack.addWidget(self.parametros_widget)
+    
+    def load_background_data(self):
+        """✅ Carrega dados estáticos em segundo plano"""
+        def on_dados_carregados(result):
+            if result:
+                print(f"✅ Dados de fundo carregados: {len(result.get('empresas', []))} empresas")
+        
+        def load_all():
+            return {
+                'empresas': api_client.get_empresas(),
+                'departamentos': api_client.get_departamentos(),
+                'categorias': api_client.get_categorias(),
+                'cargos': api_client.get_cargos_lista(),
+            }
+        
+        self.loader_thread = DataLoaderThread(load_all)
+        self.loader_thread.finished.connect(on_dados_carregados)
+        self.loader_thread.start()
+
+    # =====================================================
+    # MÉTODOS DE NAVEGAÇÃO - COM CARREGAMENTO SOB DEMANDA
+    # =====================================================
 
     def show_home(self):
         self.content_stack.setCurrentWidget(self.home_widget)
-        self.home_widget.carregar_dados()
+        self.home_widget.on_show()
 
     def show_notification_center(self):
         """Abre a Central de Notificações"""
@@ -187,41 +234,43 @@ class MainWindow(QMainWindow):
 
     def show_materiais(self):
         self.content_stack.setCurrentWidget(self.materiais_widget)
-        self.materiais_widget.carregar_materiais()
+        self.materiais_widget.on_show()
 
     def show_maquinas(self):
         self.content_stack.setCurrentWidget(self.maquinas_widget)
-        self.maquinas_widget.carregar_maquinas()
+        self.maquinas_widget.on_show()
 
     def show_movimentacoes(self):
         self.content_stack.setCurrentWidget(self.movimentacoes_widget)
-        self.movimentacoes_widget.carregar_movimentacoes()
+        self.movimentacoes_widget.on_show()
 
     def show_manutencoes(self):
         self.content_stack.setCurrentWidget(self.manutencoes_widget)
-        self.manutencoes_widget.carregar_manutencoes()
+        self.manutencoes_widget.on_show()
 
     def show_pedidos(self):
         self.content_stack.setCurrentWidget(self.pedidos_widget)
-        self.pedidos_widget.carregar_pedidos()
+        self.pedidos_widget.on_show()
 
     def show_colaboradores(self):
         self.content_stack.setCurrentWidget(self.colaboradores_widget)
-        self.colaboradores_widget.carregar_colaboradores()
+        self.colaboradores_widget.on_show()
 
     def show_demandas(self):
         self.content_stack.setCurrentWidget(self.demandas_widget)
-        self.demandas_widget.carregar_demandas()
+        self.demandas_widget.on_show()
 
     def show_relatorios(self):
         self.content_stack.setCurrentWidget(self.relatorios_widget)
+        self.relatorios_widget.on_show()
 
     def show_usuarios(self):
         self.content_stack.setCurrentWidget(self.usuarios_widget)
-        self.usuarios_widget.carregar_usuarios()
+        self.usuarios_widget.on_show()
 
     def show_parametros(self):
         self.content_stack.setCurrentWidget(self.parametros_widget)
+        self.parametros_widget.on_show()
 
     def show_updates(self):
         """Exibe a tela de atualizações"""

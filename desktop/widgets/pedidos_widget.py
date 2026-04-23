@@ -15,11 +15,16 @@ class PedidosWidget(QWidget):
         self.pedidos_cache = []
         self.materiais = []
         self.departamentos = []
+        self._loaded = False
         self.init_ui()
-        self.carregar_materiais()
-        self.carregar_departamentos()
-        self.carregar_empresas()
-        self.carregar_pedidos()
+    
+    def on_show(self):
+        if not self._loaded:
+            self.carregar_materiais()
+            self.carregar_departamentos()
+            self.carregar_empresas()
+            self.carregar_pedidos()
+            self._loaded = True
     
     def init_ui(self):
         layout = QVBoxLayout(self)

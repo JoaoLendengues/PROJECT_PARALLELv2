@@ -11,8 +11,14 @@ class DemandasWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.demandas = []
+        self._loaded = False
         self.init_ui()
         self.carregar_demandas()
+
+    def on_show(self):
+        if not self._loaded:
+            self.carregar_demandas()
+            self._loaded = True
     
     def init_ui(self):
         layout = QVBoxLayout(self)

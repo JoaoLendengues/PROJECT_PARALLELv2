@@ -12,9 +12,15 @@ class ColaboradoresWidget(QWidget):
         super().__init__()
         self.colaboradores = []
         self.colaboradores_cache = []  # Cache para filtros
+        self._loaded = False
         self.init_ui()
         self.carregar_colaboradores()
     
+    def on_show(self):
+        if not self._loaded:
+            self.carregar_colaboradores()
+            self._loaded = True
+
     def init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)

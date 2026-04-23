@@ -7,6 +7,7 @@ from PySide6.QtGui import QFont, QColor, QCursor
 from api_client import api_client
 from widgets.toast_notification import notification_manager
 
+
 class MateriaisWidget(QWidget):
     def __init__(self):
         super().__init__()
@@ -14,10 +15,17 @@ class MateriaisWidget(QWidget):
         self.dados_cache = []
         self.categorias = []
         self.empresas = []
+        self._loaded = False  # ✅ Flag para controle de carregamento
         self.init_ui()
-        self.carregar_categorias()
-        self.carregar_empresas()
-        self.carregar_materiais()
+        # ⚠️ NÃO carregar dados aqui - será feito no on_show()
+    
+    def on_show(self):
+        """✅ Chamado quando a aba é selecionada - carrega dados sob demanda"""
+        if not self._loaded:
+            self.carregar_categorias()
+            self.carregar_empresas()
+            self.carregar_materiais()
+            self._loaded = True
     
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -271,7 +279,7 @@ class MateriaisWidget(QWidget):
                 QMessageBox.critical(self, 'Erro', f'Erro ao deletar: {e}')
 
 
-# CLASSE DO DIALOG
+# CLASSE DO DIALOG (mantida igual, sem alterações)
 class MaterialDialog(QDialog):
     def __init__(self, item_data=None, parent=None):
         super().__init__(parent)
@@ -528,4 +536,5 @@ class MaterialDialog(QDialog):
 
         except Exception as e:
             QApplication.restoreOverrideCursor()
-            QMessageBox.critical(self, 'Erro', 'Erro ao salvar: {e}')
+            QMessageBox.critical(self, 'Erro', f'Erro ao salvar: {e}')
+            

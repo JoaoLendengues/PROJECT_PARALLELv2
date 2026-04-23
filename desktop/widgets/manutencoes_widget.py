@@ -14,10 +14,15 @@ class ManutencoesWidget(QWidget):
         self.manutencoes_cache = []
         self.maquinas = []
         self.empresas = []
+        self._loaded = False
         self.init_ui()
-        self.carregar_maquinas()
-        self.carregar_empresas()
-        self.carregar_manutencoes()
+
+    def on_show(self):
+        if not self._loaded:
+            self.carregar_maquinas()
+            self.carregar_empresas()
+            self.carregar_manutencoes()
+            self._loaded = True
     
     def init_ui(self):
         layout = QVBoxLayout(self)

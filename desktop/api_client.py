@@ -1,10 +1,12 @@
 import requests
 import os
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
 
 API_URL = os.getenv('API_URL', 'http://10.1.1.151:8000')
+
 
 class APIClient:
     """Cliente para comunicação com a API do Project Parallel"""
@@ -12,10 +14,37 @@ class APIClient:
     def __init__(self):
         self.base_url = API_URL
         self.token = None
+        # ✅ CACHE para dados estáticos
+        self._cache = {}
+        self._cache_time = {}
+        self._cache_ttl = 300  # 5 minutos
+
+    def _get_cache(self, key):
+        """Obtém valor do cache se ainda válido"""
+        if key in self._cache and key in self._cache_time:
+            if datetime.now() - self._cache_time[key] < timedelta(seconds=self._cache_ttl):
+                return self._cache[key]
+        return None
+
+    def _set_cache(self, key, value):
+        """Armazena valor no cache"""
+        self._cache[key] = value
+        self._cache_time[key] = datetime.now()
+
+    def _clear_cache(self, key=None):
+        """Limpa o cache (tudo ou uma chave específica)"""
+        if key:
+            self._cache.pop(key, None)
+            self._cache_time.pop(key, None)
+        else:
+            self._cache.clear()
+            self._cache_time.clear()
 
     def set_token(self, token):
         """Define o token de autenticação"""
         self.token = token
+        # ✅ Limpar cache ao trocar de usuário
+        self._clear_cache()
 
     def get_headers(self):
         """retorna os headers para as requisições"""
@@ -41,6 +70,8 @@ class APIClient:
             if response.status_code == 200:
                 data = response.json()
                 self.set_token(data["access_token"])
+                # ✅ Limpar cache ao fazer login
+                self._clear_cache()
                 return {"success": True, "usuario": data["usuario"]}
             else:
                 try:
@@ -56,9 +87,9 @@ class APIClient:
     # Materiais
     # =====================================================
 
-    def listar_materiais(self, search=None, categoria=None, empresa=None, status="ativo"):
-        """Lista materiais com filtros"""
-        params = {"status": status}
+    def listar_materiais(self, search=None, categoria=None, empresa=None, status="ativo", page=1, page_size=50):
+        """Lista materiais com filtros e paginação"""
+        params = {"status": status, "page": page, "limit": page_size}
         if search:
             params["search"] = search
         if categoria:
@@ -100,6 +131,8 @@ class APIClient:
                 timeout=30
             )
             if response.status_code == 201:
+                # ✅ Limpar cache de materiais
+                self._clear_cache("materiais_lista")
                 return response.json()
             else:
                 print(f"Erro ao criar material: {response.status_code}")
@@ -118,6 +151,8 @@ class APIClient:
                 timeout=30
             )
             if response.status_code == 200:
+                # ✅ Limpar cache
+                self._clear_cache("materiais_lista")
                 return response.json()
             return None
         except Exception as e:
@@ -132,12 +167,20 @@ class APIClient:
                 headers=self.get_headers(),
                 timeout=30
             )
+            if response.status_code == 200:
+                # ✅ Limpar cache
+                self._clear_cache("materiais_lista")
             return response.status_code == 200
         except:
             return False
     
-    def listar_categorias(self):
-        """Lista categorias de materiais"""
+    def listar_categorias(self, use_cache=True):
+        """Lista categorias de materiais com cache"""
+        if use_cache:
+            cached = self._get_cache("categorias")
+            if cached is not None:
+                return cached
+        
         try:
             response = requests.get(
                 f"{self.base_url}/api/materiais/categorias/lista",
@@ -146,7 +189,9 @@ class APIClient:
             )
             if response.status_code == 200:
                 data = response.json()
-                return data.get("categorias", [])
+                categorias = data.get("categorias", [])
+                self._set_cache("categorias", categorias)
+                return categorias
             return []
         except:
             return []
@@ -192,6 +237,7 @@ class APIClient:
                 timeout=30
             )
             if response.status_code == 201:
+                self._clear_cache("maquinas_lista")
                 return response.json()
             return None
         except:
@@ -207,6 +253,7 @@ class APIClient:
                 timeout=30
             )
             if response.status_code == 200:
+                self._clear_cache("maquinas_lista")
                 return response.json()
             return None
         except:
@@ -220,6 +267,8 @@ class APIClient:
                 headers=self.get_headers(),
                 timeout=30
             )
+            if response.status_code == 200:
+                self._clear_cache("maquinas_lista")
             return response.status_code == 200
         except:
             return False
@@ -234,7 +283,6 @@ class APIClient:
             )
             if response.status_code == 200:
                 data = response.json()
-                # O backend retorna {'departamentos': [...]}
                 return data
             return []
         except:
@@ -536,6 +584,7 @@ class APIClient:
                 timeout=30
             )
             if response.status_code == 201:
+                self._clear_cache("colaboradores_lista")
                 return response.json()
             return None
         except:
@@ -551,6 +600,7 @@ class APIClient:
                 timeout=30
             )
             if response.status_code == 200:
+                self._clear_cache("colaboradores_lista")
                 return response.json()
             return None
         except:
@@ -564,6 +614,8 @@ class APIClient:
                 headers=self.get_headers(),
                 timeout=30
             )
+            if response.status_code == 200:
+                self._clear_cache("colaboradores_lista")
             return response.status_code == 200
         except:
             return False
@@ -701,6 +753,7 @@ class APIClient:
                 timeout=30
             )
             if response.status_code == 201:
+                self._clear_cache("usuarios_lista")
                 return response.json()
             return None
         except:
@@ -716,6 +769,7 @@ class APIClient:
                 timeout=30
             )
             if response.status_code == 200:
+                self._clear_cache("usuarios_lista")
                 return response.json()
             return None
         except:
@@ -729,6 +783,8 @@ class APIClient:
                 headers=self.get_headers(),
                 timeout=30
             )
+            if response.status_code == 200:
+                self._clear_cache("usuarios_lista")
             return response.status_code == 200
         except:
             return False
@@ -779,11 +835,16 @@ class APIClient:
             return {"proximo_codigo": "1"}
 
     # =====================================================
-    # CRUD para Empresas, Departamentos e Categorias
+    # CRUD para Empresas, Departamentos e Categorias (COM CACHE)
     # =====================================================
 
-    def get_empresas(self):
-        """Retorna lista de empresas do backend"""
+    def get_empresas(self, use_cache=True):
+        """Retorna lista de empresas do backend com cache"""
+        if use_cache:
+            cached = self._get_cache("empresas")
+            if cached is not None:
+                return cached
+        
         try:
             response = requests.get(
                 f"{self.base_url}/api/configuracoes/empresas",
@@ -791,7 +852,9 @@ class APIClient:
                 timeout=30
             )
             if response.status_code == 200:
-                return response.json()
+                data = response.json()
+                self._set_cache("empresas", data)
+                return data
             return []
         except Exception as e:
             print(f"❌ Erro ao carregar empresas: {e}")
@@ -806,6 +869,8 @@ class APIClient:
                 headers=self.get_headers(),
                 timeout=30
             )
+            if response.status_code == 200:
+                self._clear_cache("empresas")  # ✅ Limpar cache
             return response.status_code == 200
         except Exception as e:
             print(f"❌ Erro ao adicionar empresa: {e}")
@@ -819,13 +884,20 @@ class APIClient:
                 headers=self.get_headers(),
                 timeout=30
             )
+            if response.status_code == 200:
+                self._clear_cache("empresas")  # ✅ Limpar cache
             return response.status_code == 200
         except Exception as e:
             print(f"❌ Erro ao remover empresa: {e}")
             return False
 
-    def get_departamentos(self):
-        """Retorna lista de departamentos do backend"""
+    def get_departamentos(self, use_cache=True):
+        """Retorna lista de departamentos do backend com cache"""
+        if use_cache:
+            cached = self._get_cache("departamentos")
+            if cached is not None:
+                return cached
+        
         try:
             response = requests.get(
                 f"{self.base_url}/api/configuracoes/departamentos",
@@ -833,7 +905,9 @@ class APIClient:
                 timeout=30
             )
             if response.status_code == 200:
-                return response.json()
+                data = response.json()
+                self._set_cache("departamentos", data)
+                return data
             return []
         except Exception as e:
             print(f"❌ Erro ao carregar departamentos: {e}")
@@ -848,6 +922,8 @@ class APIClient:
                 headers=self.get_headers(),
                 timeout=30
             )
+            if response.status_code == 200:
+                self._clear_cache("departamentos")  # ✅ Limpar cache
             return response.status_code == 200
         except Exception as e:
             print(f"❌ Erro ao adicionar departamento: {e}")
@@ -861,13 +937,20 @@ class APIClient:
                 headers=self.get_headers(),
                 timeout=30
             )
+            if response.status_code == 200:
+                self._clear_cache("departamentos")  # ✅ Limpar cache
             return response.status_code == 200
         except Exception as e:
             print(f"❌ Erro ao remover departamento: {e}")
             return False
 
-    def get_categorias(self):
-        """Retorna lista de categorias do backend"""
+    def get_categorias(self, use_cache=True):
+        """Retorna lista de categorias do backend com cache"""
+        if use_cache:
+            cached = self._get_cache("categorias")
+            if cached is not None:
+                return cached
+        
         try:
             response = requests.get(
                 f"{self.base_url}/api/configuracoes/categorias",
@@ -875,7 +958,9 @@ class APIClient:
                 timeout=30
             )
             if response.status_code == 200:
-                return response.json()
+                data = response.json()
+                self._set_cache("categorias", data)
+                return data
             return []
         except Exception as e:
             print(f"❌ Erro ao carregar categorias: {e}")
@@ -890,6 +975,8 @@ class APIClient:
                 headers=self.get_headers(),
                 timeout=30
             )
+            if response.status_code == 200:
+                self._clear_cache("categorias")  # ✅ Limpar cache
             return response.status_code == 200
         except Exception as e:
             print(f"❌ Erro ao adicionar categoria: {e}")
@@ -903,6 +990,8 @@ class APIClient:
                 headers=self.get_headers(),
                 timeout=30
             )
+            if response.status_code == 200:
+                self._clear_cache("categorias")  # ✅ Limpar cache
             return response.status_code == 200
         except Exception as e:
             print(f"❌ Erro ao remover categoria: {e}")
@@ -1038,8 +1127,13 @@ class APIClient:
     # Departamentos (CRUD)
     # =====================================================
 
-    def get_departamentos_lista(self):
-        """Retorna lista de nomes de departamentos para combobox"""
+    def get_departamentos_lista(self, use_cache=True):
+        """Retorna lista de nomes de departamentos para combobox com cache"""
+        if use_cache:
+            cached = self._get_cache("departamentos_lista")
+            if cached is not None:
+                return cached
+        
         try:
             response = requests.get(
                 f"{self.base_url}/api/departamentos/lista",
@@ -1047,7 +1141,9 @@ class APIClient:
                 timeout=30
             )
             if response.status_code == 200:
-                return response.json()
+                data = response.json()
+                self._set_cache("departamentos_lista", data)
+                return data
             return []
         except Exception as e:
             print(f"❌ Erro ao carregar departamentos: {e}")
@@ -1077,6 +1173,8 @@ class APIClient:
                 headers=self.get_headers(),
                 timeout=30
             )
+            if response.status_code == 201:
+                self._clear_cache("departamentos_lista")
             return response.status_code == 201
         except Exception as e:
             print(f"❌ Erro ao criar departamento: {e}")
@@ -1091,6 +1189,8 @@ class APIClient:
                 headers=self.get_headers(),
                 timeout=30
             )
+            if response.status_code == 200:
+                self._clear_cache("departamentos_lista")
             return response.status_code == 200
         except Exception as e:
             print(f"❌ Erro ao atualizar departamento: {e}")
@@ -1104,6 +1204,8 @@ class APIClient:
                 headers=self.get_headers(),
                 timeout=30
             )
+            if response.status_code == 200:
+                self._clear_cache("departamentos_lista")
             return response.status_code == 200
         except Exception as e:
             print(f"❌ Erro ao deletar departamento: {e}")
@@ -1113,8 +1215,13 @@ class APIClient:
     # Cargos (CRUD)
     # =====================================================
 
-    def get_cargos_lista(self):
-        """Retorna lista de nomes de cargos para combobox"""
+    def get_cargos_lista(self, use_cache=True):
+        """Retorna lista de nomes de cargos para combobox com cache"""
+        if use_cache:
+            cached = self._get_cache("cargos_lista")
+            if cached is not None:
+                return cached
+        
         try:
             response = requests.get(
                 f"{self.base_url}/api/cargos/lista",
@@ -1122,7 +1229,9 @@ class APIClient:
                 timeout=30
             )
             if response.status_code == 200:
-                return response.json()
+                data = response.json()
+                self._set_cache("cargos_lista", data)
+                return data
             return []
         except Exception as e:
             print(f"❌ Erro ao carregar cargos: {e}")
@@ -1152,6 +1261,8 @@ class APIClient:
                 headers=self.get_headers(),
                 timeout=30
             )
+            if response.status_code == 201:
+                self._clear_cache("cargos_lista")
             return response.status_code == 201
         except Exception as e:
             print(f"❌ Erro ao criar cargo: {e}")
@@ -1166,6 +1277,8 @@ class APIClient:
                 headers=self.get_headers(),
                 timeout=30
             )
+            if response.status_code == 200:
+                self._clear_cache("cargos_lista")
             return response.status_code == 200
         except Exception as e:
             print(f"❌ Erro ao atualizar cargo: {e}")
@@ -1179,6 +1292,8 @@ class APIClient:
                 headers=self.get_headers(),
                 timeout=30
             )
+            if response.status_code == 200:
+                self._clear_cache("cargos_lista")
             return response.status_code == 200
         except Exception as e:
             print(f"❌ Erro ao deletar cargo: {e}")
@@ -1280,6 +1395,7 @@ class APIClient:
         except Exception as e:
             print(f"❌ Erro ao criar notificação: {e}")
             return None
+
 
 # Instância global do cliente
 api_client = APIClient()

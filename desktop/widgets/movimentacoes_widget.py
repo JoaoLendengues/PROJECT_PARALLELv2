@@ -17,11 +17,16 @@ class MovimentacoesWidget(QWidget):
         self.materiais = []
         self.colaboradores = []
         self.colaboradores = []
+        self._loaded = False
         self.init_ui()
-        self.carregar_materiais()
-        self.carregar_colaboradores()
-        self.carregar_empresas()
-        self.carregar_movimentacoes()
+        
+    def on_show(self):
+        if not self._loaded:
+            self.carregar_colaboradores()
+            self.carregar_empresas()
+            self.carregar_materiais()
+            self.carregar_movimentacoes()
+            self._loaded = True
     
     def init_ui(self):
         layout = QVBoxLayout(self)

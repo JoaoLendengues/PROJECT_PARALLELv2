@@ -11,12 +11,11 @@ class HomeWidget(QWidget):
         super().__init__()
         self.usuario_nome = None
         self.main_window = None
+        self._loaded = False  # ✅ Flag para controle de carregamento
         self.init_ui()
         
-        # Timer para atualizar status da internet a cada 30 segundos
-        self.timer_internet = QTimer()
-        self.timer_internet.timeout.connect(self.atualizar_status_internet)
-        self.timer_internet.start(30000)  # 30 segundos
+        # Timer para atualizar status da internet a cada 30 segundos (já começa após carregar)
+        self.timer_internet = None
     
     def set_usuario(self, nome):
         """Define o nome do usuário para a saudação"""
@@ -26,6 +25,18 @@ class HomeWidget(QWidget):
     def set_main_window(self, main_window):
         """Define a referência para a janela principal (para navegação)"""
         self.main_window = main_window
+    
+    def on_show(self):
+        """✅ Chamado quando a aba é selecionada - carrega dados sob demanda"""
+        if not self._loaded:
+            self.carregar_dados()
+            self._loaded = True
+            
+            # Iniciar timer de internet APÓS o primeiro carregamento
+            if not self.timer_internet:
+                self.timer_internet = QTimer()
+                self.timer_internet.timeout.connect(self.atualizar_status_internet)
+                self.timer_internet.start(30000)  # 30 segundos
     
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -44,7 +55,7 @@ class HomeWidget(QWidget):
         self.data_hora_label.setStyleSheet("color: #64748b; margin-bottom: 30px;")
         layout.addWidget(self.data_hora_label)
         
-        # Timer
+        # Timer para data/hora (sempre rodando)
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_datetime)
         self.timer.start(1000)
@@ -55,9 +66,10 @@ class HomeWidget(QWidget):
         self.cards_layout.setSpacing(20)
         layout.addLayout(self.cards_layout)
         
-        # Criar cards interativos
+        # Criar cards interativos (UI apenas, sem dados)
         self.criar_cards_interativos()
-        self.carregar_dados()
+        
+        # ⚠️ NÃO carregar dados aqui - será feito no on_show()
         
         layout.addStretch()
     
@@ -328,7 +340,6 @@ class HomeWidget(QWidget):
                 latencia = status.get("latencia_ms", 0)
                 cor = status.get("cor", "#06b6d4")
                 
-                # Mapear qualidade para texto e cor
                 textos_qualidade = {
                     "excelente": "🟢 Excelente",
                     "bom": "📶 Bom",
@@ -338,14 +349,9 @@ class HomeWidget(QWidget):
                 
                 texto_qualidade = textos_qualidade.get(qualidade, "🟡 Desconhecido")
                 
-                # Atualizar o valor principal (como os outros cards)
                 self.internet_valor.setText(texto_qualidade)
                 self.internet_valor.setStyleSheet(f"color: {cor}; font-size: 20px; font-weight: bold; background: transparent; border: none;")
-                
-                # Atualizar subtítulo com latência
                 self.internet_subtitulo.setText(f"Latência: {latencia} ms")
-                
-                # Atualizar ícone
                 self.internet_icon.setText(status.get("icone", "🌐"))
                 self.internet_icon.setStyleSheet(f"color: {cor}; background: transparent; border: none;")
                 
@@ -387,3 +393,4 @@ class HomeWidget(QWidget):
         
         # Atualizar status da internet ao carregar a tela
         self.atualizar_status_internet()
+        

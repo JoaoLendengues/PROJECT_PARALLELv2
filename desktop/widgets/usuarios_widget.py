@@ -12,10 +12,15 @@ class UsuariosWidget(QWidget):
         super().__init__()
         self.usuarios = []
         self.usuarios_cache = []
+        self._loaded = False
         self.init_ui()
-        self.carregar_empresas()
-        self.carregar_usuarios()
-        self.carregar_cargos()
+        
+    def on_show(self):
+        if not self._loaded:
+            self.carregar_empresas()
+            self.carregar_usuarios()
+            self.carregar_cargos()
+            self._loaded = True
     
     def init_ui(self):
         layout = QVBoxLayout(self)

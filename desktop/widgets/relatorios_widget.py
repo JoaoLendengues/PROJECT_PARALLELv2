@@ -17,7 +17,7 @@ from reportlab.lib.units import mm, cm
 from datetime import datetime
 import os
 
-# Estilo para o calendário com cabeçalho de dias da semana em BRANCO
+# Estilo para o calendário
 CALENDAR_STYLE = """
     QDateEdit {
         background-color: #ffffff;
@@ -65,7 +65,6 @@ CALENDAR_STYLE = """
         background-color: #e6f0ff;
         color: #1e293b;
     }
-    /* ✅ FORÇANDO O CABEÇALHO COM TEXTO BRANCO */
     QCalendarWidget QWidget {
         alternate-background-color: #2c7da0;
     }
@@ -105,16 +104,29 @@ CALENDAR_STYLE = """
     QCalendarWidget QAbstractItemView#qt_calendar_weekend {
         color: #e76f51;
     }
-    /* Força adicional para o texto do cabeçalho */
     QCalendarWidget QHeaderView::section:horizontal {
         color: #ffffff;
     }
 """
 
+
 class RelatoriosWidget(QWidget):
     def __init__(self):
         super().__init__()
+        self._loaded_tabs = {
+            'movimentacoes': False,
+            'estoque': False,
+            'pedidos': False,
+            'demandas': False
+        }  # ✅ Controle de carregamento por aba
         self.init_ui()
+        # ⚠️ NÃO carregar dados aqui - será feito no on_show() ou quando cada aba for ativada
+    
+    def on_show(self):
+        """✅ Chamado quando a aba principal do relatório é selecionada"""
+        # Aqui não carregamos nada automaticamente porque o relatório tem abas internas
+        # Cada aba carregará seus dados quando for selecionada pela primeira vez
+        pass
     
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -127,23 +139,47 @@ class RelatoriosWidget(QWidget):
         layout.addWidget(titulo)
         
         # Tabs
-        tabs = QTabWidget()
-        tabs.setObjectName("paramTabs")
+        self.tabs = QTabWidget()
+        self.tabs.setObjectName("paramTabs")
+        self.tabs.currentChanged.connect(self.on_tab_changed)  # ✅ Conectar evento de mudança de aba
         
         # Abas
-        tab_movimentacoes = self.create_tab_movimentacoes()
-        tabs.addTab(tab_movimentacoes, "📊 Movimentações")
+        self.tab_movimentacoes = self.create_tab_movimentacoes()
+        self.tabs.addTab(self.tab_movimentacoes, "📊 Movimentações")
         
-        tab_estoque = self.create_tab_estoque()
-        tabs.addTab(tab_estoque, "📦 Estoque")
+        self.tab_estoque = self.create_tab_estoque()
+        self.tabs.addTab(self.tab_estoque, "📦 Estoque")
         
-        tab_pedidos = self.create_tab_pedidos()
-        tabs.addTab(tab_pedidos, "📋 Pedidos")
+        self.tab_pedidos = self.create_tab_pedidos()
+        self.tabs.addTab(self.tab_pedidos, "📋 Pedidos")
         
-        tab_demandas = self.create_tab_demandas()
-        tabs.addTab(tab_demandas, "🎫 Demandas")
+        self.tab_demandas = self.create_tab_demandas()
+        self.tabs.addTab(self.tab_demandas, "🎫 Demandas")
         
-        layout.addWidget(tabs)
+        layout.addWidget(self.tabs)
+    
+    def on_tab_changed(self, index):
+        """✅ Carrega dados da aba quando ela é selecionada pela primeira vez"""
+        tab_text = self.tabs.tabText(index)
+        
+        if tab_text == "📊 Movimentações" and not self._loaded_tabs['movimentacoes']:
+            self.carregar_movimentacoes()
+            self.carregar_empresas_movimentacoes()  # Carregar empresas para o filtro
+            self._loaded_tabs['movimentacoes'] = True
+            
+        elif tab_text == "📦 Estoque" and not self._loaded_tabs['estoque']:
+            self.carregar_categorias()
+            self.carregar_estoque()
+            self._loaded_tabs['estoque'] = True
+            
+        elif tab_text == "📋 Pedidos" and not self._loaded_tabs['pedidos']:
+            self.carregar_pedidos()
+            self.carregar_empresas_pedidos()
+            self._loaded_tabs['pedidos'] = True
+            
+        elif tab_text == "🎫 Demandas" and not self._loaded_tabs['demandas']:
+            self.carregar_demandas()
+            self._loaded_tabs['demandas'] = True
     
     def create_tab_movimentacoes(self):
         """Aba de relatório de movimentações"""
@@ -182,7 +218,7 @@ class RelatoriosWidget(QWidget):
         # Empresa
         filtros_layout.addWidget(QLabel("Empresa:"))
         self.mov_empresa = QComboBox()
-        self.mov_empresa.addItems(["Todas", "Matriz", "Filial 1", "Filial 2", "Filial 3"])
+        self.mov_empresa.addItems(["Todas"])
         self.mov_empresa.setObjectName("configCombo")
         filtros_layout.addWidget(self.mov_empresa)
         
@@ -195,7 +231,7 @@ class RelatoriosWidget(QWidget):
         
         self.btn_atualizar = QPushButton("🔍 Atualizar")
         self.btn_atualizar.setObjectName("btnPrimary")
-        self.btn_atualizar.clicked.connect(self.carregar_movimentacoes)
+        self.btn_atualizar.clicked.connect(self.atualizar_movimentacoes)
         btn_layout.addWidget(self.btn_atualizar)
         
         btn_layout.addStretch()
@@ -212,14 +248,13 @@ class RelatoriosWidget(QWidget):
         
         layout.addLayout(btn_layout)
         
-        # Tabela com estilo melhorado
+        # Tabela
         self.mov_tabela = QTableWidget()
         self.mov_tabela.setAlternatingRowColors(True)
         self.mov_tabela.setSelectionBehavior(QTableWidget.SelectRows)
         self.mov_tabela.verticalHeader().setVisible(False)
         self.mov_tabela.setSortingEnabled(True)
         
-        # Estilo da tabela
         self.mov_tabela.setStyleSheet("""
             QTableWidget::item {
                 padding: 10px 8px;
@@ -243,6 +278,30 @@ class RelatoriosWidget(QWidget):
         
         return widget
     
+    def carregar_empresas_movimentacoes(self):
+        """Carrega empresas para o filtro de movimentações"""
+        try:
+            empresas = api_client.get_empresas()
+            self.mov_empresa.clear()
+            self.mov_empresa.addItem("Todas")
+            for emp in empresas:
+                if emp and emp.strip():
+                    self.mov_empresa.addItem(emp)
+        except Exception as e:
+            print(f"Erro ao carregar empresas: {e}")
+    
+    def carregar_empresas_pedidos(self):
+        """Carrega empresas para o filtro de pedidos"""
+        try:
+            empresas = api_client.get_empresas()
+            self.ped_empresa.clear()
+            self.ped_empresa.addItem("Todas")
+            for emp in empresas:
+                if emp and emp.strip():
+                    self.ped_empresa.addItem(emp)
+        except Exception as e:
+            print(f"Erro ao carregar empresas: {e}")
+    
     def create_tab_estoque(self):
         """Aba de relatório de estoque"""
         widget = QWidget()
@@ -265,7 +324,7 @@ class RelatoriosWidget(QWidget):
         # Empresa
         filtros_layout.addWidget(QLabel("Empresa:"))
         self.est_empresa = QComboBox()
-        self.est_empresa.addItems(["Todas", "Matriz", "Filial 1", "Filial 2", "Filial 3"])
+        self.est_empresa.addItems(["Todas"])
         self.est_empresa.setObjectName("configCombo")
         filtros_layout.addWidget(self.est_empresa)
         
@@ -285,7 +344,7 @@ class RelatoriosWidget(QWidget):
         
         self.btn_carregar_estoque = QPushButton("🔍 Atualizar")
         self.btn_carregar_estoque.setObjectName("btnPrimary")
-        self.btn_carregar_estoque.clicked.connect(self.carregar_estoque)
+        self.btn_carregar_estoque.clicked.connect(self.atualizar_estoque)
         btn_layout.addWidget(self.btn_carregar_estoque)
         
         btn_layout.addStretch()
@@ -302,13 +361,12 @@ class RelatoriosWidget(QWidget):
         
         layout.addLayout(btn_layout)
         
-        # Tabela com estilo melhorado
+        # Tabela
         self.est_tabela = QTableWidget()
         self.est_tabela.setAlternatingRowColors(True)
         self.est_tabela.verticalHeader().setVisible(False)
         self.est_tabela.setSortingEnabled(True)
         
-        # Estilo da tabela
         self.est_tabela.setStyleSheet("""
             QTableWidget::item {
                 padding: 10px 8px;
@@ -325,8 +383,7 @@ class RelatoriosWidget(QWidget):
         
         layout.addWidget(self.est_tabela)
         
-        # Carregar categorias
-        self.carregar_categorias()
+        # ⚠️ NÃO carregar categorias aqui - será feito no on_tab_changed
         
         return widget
     
@@ -367,7 +424,7 @@ class RelatoriosWidget(QWidget):
         # Empresa
         filtros_layout.addWidget(QLabel("Empresa:"))
         self.ped_empresa = QComboBox()
-        self.ped_empresa.addItems(["Todas", "Matriz", "Filial 1", "Filial 2", "Filial 3"])
+        self.ped_empresa.addItems(["Todas"])
         self.ped_empresa.setObjectName("configCombo")
         filtros_layout.addWidget(self.ped_empresa)
         
@@ -380,7 +437,7 @@ class RelatoriosWidget(QWidget):
         
         self.btn_carregar_pedidos = QPushButton("🔍 Atualizar")
         self.btn_carregar_pedidos.setObjectName("btnPrimary")
-        self.btn_carregar_pedidos.clicked.connect(self.carregar_pedidos)
+        self.btn_carregar_pedidos.clicked.connect(self.atualizar_pedidos)
         btn_layout.addWidget(self.btn_carregar_pedidos)
         
         btn_layout.addStretch()
@@ -397,13 +454,12 @@ class RelatoriosWidget(QWidget):
         
         layout.addLayout(btn_layout)
         
-        # Tabela com estilo melhorado
+        # Tabela
         self.ped_tabela = QTableWidget()
         self.ped_tabela.setAlternatingRowColors(True)
         self.ped_tabela.verticalHeader().setVisible(False)
         self.ped_tabela.setSortingEnabled(True)
         
-        # Estilo da tabela
         self.ped_tabela.setStyleSheet("""
             QTableWidget::item {
                 padding: 10px 8px;
@@ -472,7 +528,7 @@ class RelatoriosWidget(QWidget):
         
         self.btn_carregar_demandas = QPushButton("🔍 Atualizar")
         self.btn_carregar_demandas.setObjectName("btnPrimary")
-        self.btn_carregar_demandas.clicked.connect(self.carregar_demandas)
+        self.btn_carregar_demandas.clicked.connect(self.atualizar_demandas)
         btn_layout.addWidget(self.btn_carregar_demandas)
         
         btn_layout.addStretch()
@@ -489,13 +545,12 @@ class RelatoriosWidget(QWidget):
         
         layout.addLayout(btn_layout)
         
-        # Tabela com estilo melhorado
+        # Tabela
         self.dem_tabela = QTableWidget()
         self.dem_tabela.setAlternatingRowColors(True)
         self.dem_tabela.verticalHeader().setVisible(False)
         self.dem_tabela.setSortingEnabled(True)
         
-        # Estilo da tabela
         self.dem_tabela.setStyleSheet("""
             QTableWidget::item {
                 padding: 10px 8px;
@@ -514,6 +569,10 @@ class RelatoriosWidget(QWidget):
         
         return widget
     
+    # =====================================================
+    # MÉTODOS DE CARREGAMENTO (movidos para on_tab_changed)
+    # =====================================================
+    
     def carregar_categorias(self):
         """Carrega as categorias para o filtro"""
         try:
@@ -522,6 +581,14 @@ class RelatoriosWidget(QWidget):
             self.est_categoria.addItem("Todas")
             for cat in categorias:
                 self.est_categoria.addItem(cat)
+            
+            # Carregar empresas para o filtro de estoque
+            empresas = api_client.get_empresas()
+            self.est_empresa.clear()
+            self.est_empresa.addItem("Todas")
+            for emp in empresas:
+                if emp and emp.strip():
+                    self.est_empresa.addItem(emp)
         except Exception as e:
             print(f"Erro ao carregar categorias: {e}")
     
@@ -529,49 +596,69 @@ class RelatoriosWidget(QWidget):
         """Carrega movimentações para o relatório"""
         try:
             movimentacoes = api_client.listar_movimentacoes()
-            
-            # Ordenar por data/hora (mais recente primeiro)
             movimentacoes.sort(key=lambda x: x.get("data_hora", ""), reverse=True)
-            
-            self.mov_tabela.setRowCount(len(movimentacoes))
-            
-            for row, mov in enumerate(movimentacoes):
-                self.mov_tabela.setItem(row, 0, QTableWidgetItem(str(mov.get("id", ""))))
-                self.mov_tabela.setItem(row, 1, QTableWidgetItem(mov.get("material_nome", "-")))
-                
-                tipo = mov.get("tipo", "")
-                tipo_item = QTableWidgetItem(tipo.upper())
-                if tipo == "entrada":
-                    tipo_item.setForeground(QColor(42, 157, 143))
-                else:
-                    tipo_item.setForeground(QColor(231, 111, 81))
-                self.mov_tabela.setItem(row, 2, tipo_item)
-                
-                self.mov_tabela.setItem(row, 3, QTableWidgetItem(str(mov.get("quantidade", 0))))
-                self.mov_tabela.setItem(row, 4, QTableWidgetItem(mov.get("empresa", "-")))
-                self.mov_tabela.setItem(row, 5, QTableWidgetItem(mov.get("destinatario", "-")))
-                
-                data = mov.get("data_hora", "")
-                if data:
-                    data = data[:16].replace("T", " ")
-                self.mov_tabela.setItem(row, 6, QTableWidgetItem(data))
-                self.mov_tabela.setItem(row, 7, QTableWidgetItem(mov.get("usuario_nome", "-")))
-                
-                # Tratar observação None
-                obs = mov.get('observacao')
-                if obs is None:
-                    obs = '-'
-                else:
-                    obs = str(obs)[:50]
-                self.mov_tabela.setItem(row, 8, QTableWidgetItem(obs))
-            
+            self.atualizar_tabela_movimentacoes(movimentacoes)
             print(f"✅ {len(movimentacoes)} movimentações carregadas")
         except Exception as e:
             print(f"❌ Erro ao carregar movimentações: {e}")
             QMessageBox.warning(self, "Erro", f"Erro ao carregar movimentações: {e}")
     
+    def atualizar_movimentacoes(self):
+        """Atualiza as movimentações com os filtros atuais"""
+        try:
+            # Aqui você pode adicionar filtros por data, tipo, empresa
+            movimentacoes = api_client.listar_movimentacoes()
+            movimentacoes.sort(key=lambda x: x.get("data_hora", ""), reverse=True)
+            self.atualizar_tabela_movimentacoes(movimentacoes)
+        except Exception as e:
+            print(f"❌ Erro ao atualizar movimentações: {e}")
+    
+    def atualizar_tabela_movimentacoes(self, movimentacoes):
+        """Atualiza a tabela de movimentações"""
+        self.mov_tabela.setRowCount(len(movimentacoes))
+        
+        for row, mov in enumerate(movimentacoes):
+            self.mov_tabela.setItem(row, 0, QTableWidgetItem(str(mov.get("id", ""))))
+            self.mov_tabela.setItem(row, 1, QTableWidgetItem(mov.get("material_nome", "-")))
+            
+            tipo = mov.get("tipo", "")
+            tipo_item = QTableWidgetItem(tipo.upper())
+            if tipo == "entrada":
+                tipo_item.setForeground(QColor(42, 157, 143))
+            else:
+                tipo_item.setForeground(QColor(231, 111, 81))
+            self.mov_tabela.setItem(row, 2, tipo_item)
+            
+            self.mov_tabela.setItem(row, 3, QTableWidgetItem(str(mov.get("quantidade", 0))))
+            self.mov_tabela.setItem(row, 4, QTableWidgetItem(mov.get("empresa", "-")))
+            self.mov_tabela.setItem(row, 5, QTableWidgetItem(mov.get("destinatario", "-")))
+            
+            data = mov.get("data_hora", "")
+            if data:
+                data = data[:16].replace("T", " ")
+            self.mov_tabela.setItem(row, 6, QTableWidgetItem(data))
+            self.mov_tabela.setItem(row, 7, QTableWidgetItem(mov.get("usuario_nome", "-")))
+            
+            obs = mov.get('observacao')
+            if obs is None:
+                obs = '-'
+            else:
+                obs = str(obs)[:50]
+            self.mov_tabela.setItem(row, 8, QTableWidgetItem(obs))
+    
     def carregar_estoque(self):
         """Carrega estoque para o relatório"""
+        try:
+            materiais = api_client.listar_materiais()
+            materiais.sort(key=lambda x: x.get("nome", "").lower())
+            self.atualizar_tabela_estoque(materiais)
+            print(f"✅ {len(materiais)} materiais carregados")
+        except Exception as e:
+            print(f"❌ Erro ao carregar estoque: {e}")
+            QMessageBox.warning(self, "Erro", f"Erro ao carregar estoque: {e}")
+    
+    def atualizar_estoque(self):
+        """Atualiza o estoque com os filtros atuais"""
         try:
             categoria = self.est_categoria.currentText()
             if categoria == "Todas":
@@ -586,34 +673,43 @@ class RelatoriosWidget(QWidget):
                 status = None
             
             materiais = api_client.listar_materiais(categoria=categoria, empresa=empresa, status=status)
-            
-            # Ordenar por nome
             materiais.sort(key=lambda x: x.get("nome", "").lower())
-            
-            self.est_tabela.setRowCount(len(materiais))
-            
-            for row, mat in enumerate(materiais):
-                self.est_tabela.setItem(row, 0, QTableWidgetItem(str(mat.get("id", ""))))
-                self.est_tabela.setItem(row, 1, QTableWidgetItem(mat.get("nome", "")))
-                self.est_tabela.setItem(row, 2, QTableWidgetItem(mat.get("descricao", "")[:60]))
-                self.est_tabela.setItem(row, 3, QTableWidgetItem(str(mat.get("quantidade", 0))))
-                self.est_tabela.setItem(row, 4, QTableWidgetItem(mat.get("categoria", "-")))
-                self.est_tabela.setItem(row, 5, QTableWidgetItem(mat.get("empresa", "-")))
-                
-                status_item = QTableWidgetItem(mat.get("status", "ativo").upper())
-                if mat.get("status") == "ativo":
-                    status_item.setForeground(QColor(42, 157, 143))
-                else:
-                    status_item.setForeground(QColor(231, 111, 81))
-                self.est_tabela.setItem(row, 6, status_item)
-            
-            print(f"✅ {len(materiais)} materiais carregados")
+            self.atualizar_tabela_estoque(materiais)
         except Exception as e:
-            print(f"❌ Erro ao carregar estoque: {e}")
-            QMessageBox.warning(self, "Erro", f"Erro ao carregar estoque: {e}")
+            print(f"❌ Erro ao atualizar estoque: {e}")
+    
+    def atualizar_tabela_estoque(self, materiais):
+        """Atualiza a tabela de estoque"""
+        self.est_tabela.setRowCount(len(materiais))
+        
+        for row, mat in enumerate(materiais):
+            self.est_tabela.setItem(row, 0, QTableWidgetItem(str(mat.get("id", ""))))
+            self.est_tabela.setItem(row, 1, QTableWidgetItem(mat.get("nome", "")))
+            self.est_tabela.setItem(row, 2, QTableWidgetItem(mat.get("descricao", "")[:60]))
+            self.est_tabela.setItem(row, 3, QTableWidgetItem(str(mat.get("quantidade", 0))))
+            self.est_tabela.setItem(row, 4, QTableWidgetItem(mat.get("categoria", "-")))
+            self.est_tabela.setItem(row, 5, QTableWidgetItem(mat.get("empresa", "-")))
+            
+            status_item = QTableWidgetItem(mat.get("status", "ativo").upper())
+            if mat.get("status") == "ativo":
+                status_item.setForeground(QColor(42, 157, 143))
+            else:
+                status_item.setForeground(QColor(231, 111, 81))
+            self.est_tabela.setItem(row, 6, status_item)
     
     def carregar_pedidos(self):
         """Carrega pedidos para o relatório"""
+        try:
+            pedidos = api_client.listar_pedidos()
+            pedidos.sort(key=lambda x: x.get("data_solicitacao", ""), reverse=True)
+            self.atualizar_tabela_pedidos(pedidos)
+            print(f"✅ {len(pedidos)} pedidos carregados")
+        except Exception as e:
+            print(f"❌ Erro ao carregar pedidos: {e}")
+            QMessageBox.warning(self, "Erro", f"Erro ao carregar pedidos: {e}")
+    
+    def atualizar_pedidos(self):
+        """Atualiza os pedidos com os filtros atuais"""
         try:
             status = self.ped_status.currentText().lower()
             if status == "todos":
@@ -624,39 +720,48 @@ class RelatoriosWidget(QWidget):
                 empresa = None
             
             pedidos = api_client.listar_pedidos(status=status, empresa=empresa)
-            
-            # Ordenar por data de solicitação (mais recente primeiro)
             pedidos.sort(key=lambda x: x.get("data_solicitacao", ""), reverse=True)
-            
-            self.ped_tabela.setRowCount(len(pedidos))
-            
-            status_cores = {
-                "pendente": QColor(244, 162, 97),
-                "aprovado": QColor(42, 157, 143),
-                "concluido": QColor(44, 125, 160),
-                "cancelado": QColor(231, 111, 81)
-            }
-            
-            for row, ped in enumerate(pedidos):
-                self.ped_tabela.setItem(row, 0, QTableWidgetItem(str(ped.get("id", ""))))
-                self.ped_tabela.setItem(row, 1, QTableWidgetItem(ped.get("material_nome", "-")))
-                self.ped_tabela.setItem(row, 2, QTableWidgetItem(str(ped.get("quantidade", 0))))
-                self.ped_tabela.setItem(row, 3, QTableWidgetItem(ped.get("solicitante", "-")))
-                self.ped_tabela.setItem(row, 4, QTableWidgetItem(ped.get("empresa", "-")))
-                self.ped_tabela.setItem(row, 5, QTableWidgetItem(ped.get("data_solicitacao", "-")))
-                self.ped_tabela.setItem(row, 6, QTableWidgetItem(ped.get("data_conclusao", "-") or "-"))
-                
-                status_item = QTableWidgetItem(ped.get("status", "pendente").upper())
-                status_item.setForeground(status_cores.get(ped.get("status", "pendente"), QColor(0, 0, 0)))
-                self.ped_tabela.setItem(row, 7, status_item)
-            
-            print(f"✅ {len(pedidos)} pedidos carregados")
+            self.atualizar_tabela_pedidos(pedidos)
         except Exception as e:
-            print(f"❌ Erro ao carregar pedidos: {e}")
-            QMessageBox.warning(self, "Erro", f"Erro ao carregar pedidos: {e}")
+            print(f"❌ Erro ao atualizar pedidos: {e}")
+    
+    def atualizar_tabela_pedidos(self, pedidos):
+        """Atualiza a tabela de pedidos"""
+        self.ped_tabela.setRowCount(len(pedidos))
+        
+        status_cores = {
+            "pendente": QColor(244, 162, 97),
+            "aprovado": QColor(42, 157, 143),
+            "concluido": QColor(44, 125, 160),
+            "cancelado": QColor(231, 111, 81)
+        }
+        
+        for row, ped in enumerate(pedidos):
+            self.ped_tabela.setItem(row, 0, QTableWidgetItem(str(ped.get("id", ""))))
+            self.ped_tabela.setItem(row, 1, QTableWidgetItem(ped.get("material_nome", "-")))
+            self.ped_tabela.setItem(row, 2, QTableWidgetItem(str(ped.get("quantidade", 0))))
+            self.ped_tabela.setItem(row, 3, QTableWidgetItem(ped.get("solicitante", "-")))
+            self.ped_tabela.setItem(row, 4, QTableWidgetItem(ped.get("empresa", "-")))
+            self.ped_tabela.setItem(row, 5, QTableWidgetItem(ped.get("data_solicitacao", "-")))
+            self.ped_tabela.setItem(row, 6, QTableWidgetItem(ped.get("data_conclusao", "-") or "-"))
+            
+            status_item = QTableWidgetItem(ped.get("status", "pendente").upper())
+            status_item.setForeground(status_cores.get(ped.get("status", "pendente"), QColor(0, 0, 0)))
+            self.ped_tabela.setItem(row, 7, status_item)
     
     def carregar_demandas(self):
         """Carrega demandas para o relatório"""
+        try:
+            demandas = api_client.listar_demandas()
+            demandas.sort(key=lambda x: x.get("data_abertura", ""), reverse=True)
+            self.atualizar_tabela_demandas(demandas)
+            print(f"✅ {len(demandas)} demandas carregadas")
+        except Exception as e:
+            print(f"❌ Erro ao carregar demandas: {e}")
+            QMessageBox.warning(self, "Erro", f"Erro ao carregar demandas: {e}")
+    
+    def atualizar_demandas(self):
+        """Atualiza as demandas com os filtros atuais"""
         try:
             status = self.dem_status.currentText().lower()
             if status == "todos":
@@ -667,40 +772,42 @@ class RelatoriosWidget(QWidget):
                 prioridade = None
             
             demandas = api_client.listar_demandas(status=status, prioridade=prioridade)
-            
-            # Ordenar por data de abertura (mais recente primeiro)
             demandas.sort(key=lambda x: x.get("data_abertura", ""), reverse=True)
-            
-            self.dem_tabela.setRowCount(len(demandas))
-            
-            prioridade_cores = {
-                "alta": QColor(231, 111, 81),
-                "media": QColor(244, 162, 97),
-                "baixa": QColor(42, 157, 143)
-            }
-            
-            for row, dem in enumerate(demandas):
-                self.dem_tabela.setItem(row, 0, QTableWidgetItem(str(dem.get("id", ""))))
-                self.dem_tabela.setItem(row, 1, QTableWidgetItem(dem.get("titulo", "")[:60]))
-                self.dem_tabela.setItem(row, 2, QTableWidgetItem(dem.get("solicitante", "-")))
-                
-                prioridade_item = QTableWidgetItem(dem.get("prioridade", "media").upper())
-                prioridade_item.setForeground(prioridade_cores.get(dem.get("prioridade", "media"), QColor(0, 0, 0)))
-                self.dem_tabela.setItem(row, 3, prioridade_item)
-                
-                status_item = QTableWidgetItem(dem.get("status", "aberto").upper())
-                self.dem_tabela.setItem(row, 4, status_item)
-                
-                data = dem.get("data_abertura", "")
-                if data:
-                    data = data[:10]
-                self.dem_tabela.setItem(row, 5, QTableWidgetItem(data))
-                self.dem_tabela.setItem(row, 6, QTableWidgetItem(dem.get("responsavel", "-")))
-            
-            print(f"✅ {len(demandas)} demandas carregadas")
+            self.atualizar_tabela_demandas(demandas)
         except Exception as e:
-            print(f"❌ Erro ao carregar demandas: {e}")
-            QMessageBox.warning(self, "Erro", f"Erro ao carregar demandas: {e}")
+            print(f"❌ Erro ao atualizar demandas: {e}")
+    
+    def atualizar_tabela_demandas(self, demandas):
+        """Atualiza a tabela de demandas"""
+        self.dem_tabela.setRowCount(len(demandas))
+        
+        prioridade_cores = {
+            "alta": QColor(231, 111, 81),
+            "media": QColor(244, 162, 97),
+            "baixa": QColor(42, 157, 143)
+        }
+        
+        for row, dem in enumerate(demandas):
+            self.dem_tabela.setItem(row, 0, QTableWidgetItem(str(dem.get("id", ""))))
+            self.dem_tabela.setItem(row, 1, QTableWidgetItem(dem.get("titulo", "")[:60]))
+            self.dem_tabela.setItem(row, 2, QTableWidgetItem(dem.get("solicitante", "-")))
+            
+            prioridade_item = QTableWidgetItem(dem.get("prioridade", "media").upper())
+            prioridade_item.setForeground(prioridade_cores.get(dem.get("prioridade", "media"), QColor(0, 0, 0)))
+            self.dem_tabela.setItem(row, 3, prioridade_item)
+            
+            status_item = QTableWidgetItem(dem.get("status", "aberto").upper())
+            self.dem_tabela.setItem(row, 4, status_item)
+            
+            data = dem.get("data_abertura", "")
+            if data:
+                data = data[:10]
+            self.dem_tabela.setItem(row, 5, QTableWidgetItem(data))
+            self.dem_tabela.setItem(row, 6, QTableWidgetItem(dem.get("responsavel", "-")))
+    
+    # =====================================================
+    # MÉTODOS DE EXPORTAÇÃO (mantidos originais)
+    # =====================================================
     
     def exportar_excel(self, tipo):
         """Exporta dados para Excel"""
@@ -717,7 +824,6 @@ class RelatoriosWidget(QWidget):
             ws = wb.active
             ws.title = f"Relatório {tipo.capitalize()}"
             
-            # Estilos
             header_font = Font(name='Arial', size=11, bold=True, color='FFFFFF')
             header_fill = PatternFill(start_color='2C7DA0', end_color='2C7DA0', fill_type='solid')
             header_alignment = Alignment(horizontal='center', vertical='center')
@@ -729,7 +835,6 @@ class RelatoriosWidget(QWidget):
                 bottom=Side(style='thin')
             )
             
-            # Cabeçalho do relatório
             ws.merge_cells('A1:Z1')
             titulo_cell = ws['A1']
             titulo_cell.value = f"Relatório de {tipo.upper()}"
@@ -739,7 +844,6 @@ class RelatoriosWidget(QWidget):
             ws['A2'] = f"Data de emissão: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
             ws.merge_cells('A2:Z2')
             
-            # Dados
             if tipo == "movimentacoes":
                 headers = ["ID", "Material", "Tipo", "Quantidade", "Empresa", "Destinatário", "Data/Hora", "Usuário", "Observação"]
                 dados = self.mov_tabela
@@ -753,7 +857,6 @@ class RelatoriosWidget(QWidget):
                 headers = ["ID", "Título", "Solicitante", "Prioridade", "Status", "Data Abertura", "Responsável"]
                 dados = self.dem_tabela
             
-            # Escrever cabeçalhos
             for col, header in enumerate(headers, 1):
                 cell = ws.cell(row=4, column=col, value=header)
                 cell.font = header_font
@@ -761,7 +864,6 @@ class RelatoriosWidget(QWidget):
                 cell.alignment = header_alignment
                 cell.border = border
             
-            # Escrever dados
             for row in range(dados.rowCount()):
                 for col in range(dados.columnCount()):
                     item = dados.item(row, col)
@@ -770,7 +872,6 @@ class RelatoriosWidget(QWidget):
                     cell.border = border
                     cell.alignment = Alignment(horizontal='left', vertical='center')
             
-            # Ajustar largura das colunas
             for col in range(1, len(headers) + 1):
                 ws.column_dimensions[get_column_letter(col)].width = 20
             
@@ -855,3 +956,4 @@ class RelatoriosWidget(QWidget):
             
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao exportar PDF: {e}")
+            
