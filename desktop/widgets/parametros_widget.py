@@ -668,7 +668,7 @@ class ParametrosWidget(QWidget):
             self.tabela_departamentos.setRowCount(len(departamentos))
             for i, dept in enumerate(departamentos):
                 self.tabela_departamentos.setItem(i, 0, QTableWidgetItem(str(dept.get("id", ""))))
-                self.tabela_departamentos.setItem(i, 1, QTableWidgetItem(dept.get("nome", ""))))
+                self.tabela_departamentos.setItem(i, 1, QTableWidgetItem(dept.get("nome", "")))
                 self.tabela_departamentos.setItem(i, 2, QTableWidgetItem("Ativo" if dept.get("ativo", True) else "Inativo"))
         except Exception as e:
             print(f"❌ Erro ao carregar departamentos: {e}")
@@ -1202,4 +1202,3 @@ class ParametrosWidget(QWidget):
     def carregar_dados(self):
         self.carregar_configuracoes()
         self.carregar_info_servidor()
-        

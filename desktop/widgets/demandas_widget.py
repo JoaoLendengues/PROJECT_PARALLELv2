@@ -13,7 +13,6 @@ class DemandasWidget(QWidget):
         self.demandas = []
         self._loaded = False
         self.init_ui()
-        self.carregar_demandas()
 
     def on_show(self):
         if not self._loaded:

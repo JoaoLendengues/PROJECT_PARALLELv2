@@ -14,7 +14,6 @@ class ColaboradoresWidget(QWidget):
         self.colaboradores_cache = []  # Cache para filtros
         self._loaded = False
         self.init_ui()
-        self.carregar_colaboradores()
     
     def on_show(self):
         if not self._loaded:
