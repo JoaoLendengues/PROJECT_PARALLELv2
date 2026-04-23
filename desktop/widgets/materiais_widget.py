@@ -350,7 +350,8 @@ class MaterialDialog(QDialog):
                 border: none;
             }
         """)
-        self.categoria_combo.setEditable(True)
+        self.categoria_combo.setEditable(False)
+        self.categoria_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_categorias()
         form_layout.addRow("Categoria:", self.categoria_combo)
         
@@ -390,7 +391,8 @@ class MaterialDialog(QDialog):
                 border: none;
             }
         """)
-        self.empresa_combo.setEditable(True)
+        self.empresa_combo.setEditable(False)
+        self.empresa_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_empresas()
         form_layout.addRow("Empresa:", self.empresa_combo)
         
@@ -479,16 +481,12 @@ class MaterialDialog(QDialog):
         idx = self.categoria_combo.findText(categoria)
         if idx >= 0:
             self.categoria_combo.setCurrentIndex(idx)
-        else:
-            self.categoria_combo.setEditText(categoria)
         
         empresa = str(self.dados_item.get("empresa", ""))
         idx = self.empresa_combo.findText(empresa)
         if idx >= 0:
             self.empresa_combo.setCurrentIndex(idx)
-        else:
-            self.empresa_combo.setEditText(empresa)
-        
+    
         status = str(self.dados_item.get("status", "ativo"))
         idx = self.status_combo.findText(status)
         if idx >= 0:

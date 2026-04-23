@@ -31,20 +31,22 @@ def show_login():
 def on_login_success(usuario):
     """Callback quando o login é bem sucedido"""
     global _current_window
-    
-    _current_window.close()
+
+    if _current_window:
+        _current_window.close()
+
     _current_window = MainWindow(usuario)
-    _current_window.show()
-    
-    # Iniciar serviço de alertas
+    _current_window.showMaximized()
+
+    # Iniciar seviço de alertas
     try:
         from core.alert_service import alert_service
         alert_service.iniciar()
-        print("✅ Serviço de alertas iniciado")
+        print('✅ Serviço de alertas iniciado')
     except Exception as e:
-        print(f"⚠️ Erro ao iniciar serviço de alertas: {e}")
-    
-    # Verificar atualizações em segundo plano após o login
+        print(f'⚠️ Erro ao iniciar serviço de alertas: {e}')
+
+    # Verificar atualizações em segundo plano
     verificar_atualizacoes()
 
 

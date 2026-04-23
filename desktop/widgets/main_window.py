@@ -26,7 +26,14 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.usuario = usuario
         self.setWindowTitle(f"Project Parallel - Sistema de Controle de Estoque - {usuario['nome']}")
+        
+
+        # ✅ Definir tamanho mínimo (opcional, mas recomendado)
+        self.setMinimumSize(1200, 700)
+
+        # ✅ Opcional: Definir geometria inicial (fallback se maximizado não funcionar)
         self.setGeometry(100, 100, 1400, 800)
+
 
         core_mn.set_parent(self)
 

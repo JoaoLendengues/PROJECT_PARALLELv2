@@ -324,13 +324,16 @@ class MaquinaDialog(QDialog):
         form_layout.addRow("Endereço MAC:", self.mac_edit)
         
         self.empresa_combo = QComboBox()
+        self.empresa_combo.setEditable(False)
+        self.empresa_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_empresas_combo()
-        self.empresa_combo.setEditable(True)
         form_layout.addRow("Empresa:", self.empresa_combo)
         
+        
         self.departamento_combo = QComboBox()
+        self.departamento_combo.setEditable(False)
+        self.departamento_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_departamentos_combo()
-        self.departamento_combo.setEditable(True)
         form_layout.addRow("Departamento:", self.departamento_combo)
         
         self.status_combo = QComboBox()
@@ -400,15 +403,11 @@ class MaquinaDialog(QDialog):
         idx = self.empresa_combo.findText(empresa)
         if idx >= 0:
             self.empresa_combo.setCurrentIndex(idx)
-        else:
-            self.empresa_combo.setEditText(empresa)
         
         departamento = str(self.dados_item.get("departamento", ""))
         idx = self.departamento_combo.findText(departamento)
         if idx >= 0:
             self.departamento_combo.setCurrentIndex(idx)
-        else:
-            self.departamento_combo.setEditText(departamento)
         
         status = str(self.dados_item.get("status", "ativo"))
         idx = self.status_combo.findText(status)
