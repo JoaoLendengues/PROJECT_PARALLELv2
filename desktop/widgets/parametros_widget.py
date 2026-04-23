@@ -103,11 +103,6 @@ class ParametrosWidget(QWidget):
         self.nome_sistema.setObjectName("configInputOnly")
         form_sistema.addRow("📌 Nome do Sistema:", self.nome_sistema)
         
-        self.versao = QLineEdit("1.0.0")
-        self.versao.setReadOnly(True)
-        self.versao.setObjectName("configInputReadonly")
-        form_sistema.addRow("🔢 Versão:", self.versao)
-        
         self.empresa_padrao = QComboBox()
         self.empresa_padrao.setObjectName("configCombo")
         form_sistema.addRow("🏢 Empresa Padrão:", self.empresa_padrao)
