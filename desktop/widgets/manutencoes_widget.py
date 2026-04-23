@@ -304,6 +304,7 @@ class ManutencaoDialog(QDialog):
         super().__init__(parent)
         self.dados_item = manutencao_data
         self.maquinas = maquinas or []
+        self.maquinas_filtradas = self.maquinas.copy()
         self.setWindowTitle("Cadastro de Manutenção" if not manutencao_data else "Editar Manutenção")
         self.setModal(True)
         self.setMinimumWidth(550)
@@ -328,13 +329,21 @@ class ManutencaoDialog(QDialog):
         
         form_layout = QFormLayout()
         form_layout.setSpacing(15)
+
+        # Empresa (NOVO)
+        self.empresa_combo = QComboBox()
+        self.empresa_combo.setEditable(False)
+        self.empresa_combo.setInsertPolicy(QComboBox.NoInsert)
+        self.carregar_empresas()
+        self.empresa_combo.currentIndexChanged.connect(self.filtrar_maquinas_por_empresa)
+        form_layout.addRow('Empresa:', self.empresa_combo)
         
         # Máquina
         self.maquina_combo = QComboBox()
-        self.maquina_combo.setEditable(True)
-        for maq in self.maquinas:
-            self.maquina_combo.addItem(f"{maq.get('nome', '')} - {maq.get('empresa', '')}", maq.get("id"))
-        form_layout.addRow("Máquina:", self.maquina_combo)
+        self.maquina_combo.setEditable(False)
+        self.maquina_combo.setInsertPolicy(QComboBox.NoInsert)
+        self.carregar_maquinas_combo()
+        form_layout.addRow('Máquina:', self.maquina_combo)
         
         # Tipo
         self.tipo_combo = QComboBox()
@@ -398,6 +407,42 @@ class ManutencaoDialog(QDialog):
         btn_layout.addWidget(cancelar_btn)
         
         layout.addLayout(btn_layout)
+
+    def carregar_empresas(self):
+        """Carrega as empresas do backend para o combobox"""
+        try:
+            empresas = api_client.get_empresas()
+            self.empresa_combo.clear()
+            self.empresa_combo.addItem("Todas as empresas")  # Opção para mostrar todas
+            for emp in empresas:
+                if emp and emp.strip():
+                    self.empresa_combo.addItem(emp)
+        except Exception as e:
+            print(f'❌ Erro ao carregar empresas: {e}')
+            self.empresa_combo.addItem("Todas as empresas")
+            default_empresas = ["Matriz", "Filial 1", "Filial 2", "Filial 3"]
+            for emp in default_empresas:
+                self.empresa_combo.addItem(emp)
+    
+    def carregar_maquinas_combo(self):
+        """Carrega as máquinas no combo box"""
+        self.maquina_combo.clear()
+        for maq in self.maquinas_filtradas:
+            self.maquina_combo.addItem(
+                f"{maq.get('nome', '')} - {maq.get('empresa', '')}", 
+                maq.get("id")
+            )
+
+    def filtrar_maquinas_por_empresa(self):
+        """Filtra as máquinas pela empresa selecionada"""
+        empresa = self.empresa_combo.currentText()
+        
+        if empresa == "Todas as empresas" or not empresa:
+            self.maquinas_filtradas = self.maquinas.copy()
+        else:
+            self.maquinas_filtradas = [m for m in self.maquinas if m.get("empresa") == empresa]
+        
+        self.carregar_maquinas_combo()
     
     def carregar_dados_edicao(self):
         """Carrega os dados da manutenção para edição (mostra campo de data fim)"""
@@ -408,8 +453,22 @@ class ManutencaoDialog(QDialog):
         self.data_fim_label.setVisible(True)
         self.data_fim.setVisible(True)
         
-        # Máquina
+        # Buscar a máquina para saber a empresa
         maquina_id = self.dados_item.get("maquina_id")
+        maquina_selecionada = None
+        for maq in self.maquinas:
+            if maq.get("id") == maquina_id:
+                maquina_selecionada = maq
+                break
+        
+        # Selecionar a empresa correta no filtro
+        if maquina_selecionada:
+            empresa = maquina_selecionada.get("empresa", "")
+            idx = self.empresa_combo.findText(empresa)
+            if idx >= 0:
+                self.empresa_combo.setCurrentIndex(idx)
+        
+        # Selecionar a máquina
         for i in range(self.maquina_combo.count()):
             if self.maquina_combo.itemData(i) == maquina_id:
                 self.maquina_combo.setCurrentIndex(i)

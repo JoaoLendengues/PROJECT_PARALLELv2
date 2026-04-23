@@ -17,6 +17,99 @@ from reportlab.lib.units import mm, cm
 from datetime import datetime
 import os
 
+# Estilo para o calendário com cabeçalho de dias da semana em BRANCO
+CALENDAR_STYLE = """
+    QDateEdit {
+        background-color: #ffffff;
+        color: #1e293b;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 8px 12px;
+        min-height: 32px;
+        font-size: 13px;
+    }
+    QDateEdit::drop-down {
+        border: none;
+        width: 24px;
+    }
+    QDateEdit::down-arrow {
+        image: none;
+    }
+    QCalendarWidget {
+        background-color: #ffffff;
+    }
+    QCalendarWidget QToolButton {
+        color: #1e293b;
+        background-color: #f1f5f9;
+        border: none;
+        border-radius: 4px;
+        padding: 8px;
+        font-weight: bold;
+        font-size: 14px;
+    }
+    QCalendarWidget QToolButton:hover {
+        background-color: #e2e8f0;
+    }
+    QCalendarWidget QMenu {
+        background-color: #ffffff;
+        color: #1e293b;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 4px;
+    }
+    QCalendarWidget QMenu::item {
+        padding: 6px 20px;
+        border-radius: 4px;
+    }
+    QCalendarWidget QMenu::item:selected {
+        background-color: #e6f0ff;
+        color: #1e293b;
+    }
+    /* ✅ FORÇANDO O CABEÇALHO COM TEXTO BRANCO */
+    QCalendarWidget QWidget {
+        alternate-background-color: #2c7da0;
+    }
+    QCalendarWidget QHeaderView {
+        background-color: #2c7da0;
+        color: #ffffff;
+        font-weight: bold;
+        font-size: 12px;
+    }
+    QCalendarWidget QHeaderView::section {
+        background-color: #2c7da0;
+        color: #ffffff;
+        padding: 8px;
+        border: none;
+        font-weight: bold;
+    }
+    QCalendarWidget QAbstractItemView {
+        background-color: #ffffff;
+        color: #1e293b;
+        selection-background-color: #2c7da0;
+        selection-color: #ffffff;
+        outline: 0;
+    }
+    QCalendarWidget QAbstractItemView:!enabled {
+        color: #cbd5e1;
+        background-color: #f8fafc;
+    }
+    QCalendarWidget QAbstractItemView:selected {
+        background-color: #2c7da0;
+        color: #ffffff;
+        border-radius: 4px;
+    }
+    QCalendarWidget QAbstractItemView:hover {
+        background-color: #e6f0ff;
+        border-radius: 4px;
+    }
+    QCalendarWidget QAbstractItemView#qt_calendar_weekend {
+        color: #e76f51;
+    }
+    /* Força adicional para o texto do cabeçalho */
+    QCalendarWidget QHeaderView::section:horizontal {
+        color: #ffffff;
+    }
+"""
 
 class RelatoriosWidget(QWidget):
     def __init__(self):
@@ -69,14 +162,14 @@ class RelatoriosWidget(QWidget):
         self.mov_data_inicio = QDateEdit()
         self.mov_data_inicio.setDate(QDate.currentDate().addMonths(-1))
         self.mov_data_inicio.setCalendarPopup(True)
-        self.mov_data_inicio.setObjectName("configInput")
+        self.mov_data_inicio.setStyleSheet(CALENDAR_STYLE)
         filtros_layout.addWidget(self.mov_data_inicio)
         
         filtros_layout.addWidget(QLabel("Data Fim:"))
         self.mov_data_fim = QDateEdit()
         self.mov_data_fim.setDate(QDate.currentDate())
         self.mov_data_fim.setCalendarPopup(True)
-        self.mov_data_fim.setObjectName("configInput")
+        self.mov_data_fim.setStyleSheet(CALENDAR_STYLE)
         filtros_layout.addWidget(self.mov_data_fim)
         
         # Tipo
@@ -254,14 +347,14 @@ class RelatoriosWidget(QWidget):
         self.ped_data_inicio = QDateEdit()
         self.ped_data_inicio.setDate(QDate.currentDate().addMonths(-1))
         self.ped_data_inicio.setCalendarPopup(True)
-        self.ped_data_inicio.setObjectName("configInput")
+        self.ped_data_inicio.setStyleSheet(CALENDAR_STYLE)
         filtros_layout.addWidget(self.ped_data_inicio)
         
         filtros_layout.addWidget(QLabel("Data Fim:"))
         self.ped_data_fim = QDateEdit()
         self.ped_data_fim.setDate(QDate.currentDate())
         self.ped_data_fim.setCalendarPopup(True)
-        self.ped_data_fim.setObjectName("configInput")
+        self.ped_data_fim.setStyleSheet(CALENDAR_STYLE)
         filtros_layout.addWidget(self.ped_data_fim)
         
         # Status
@@ -346,14 +439,14 @@ class RelatoriosWidget(QWidget):
         self.dem_data_inicio = QDateEdit()
         self.dem_data_inicio.setDate(QDate.currentDate().addMonths(-1))
         self.dem_data_inicio.setCalendarPopup(True)
-        self.dem_data_inicio.setObjectName("configInput")
+        self.dem_data_inicio.setStyleSheet(CALENDAR_STYLE)
         filtros_layout.addWidget(self.dem_data_inicio)
         
         filtros_layout.addWidget(QLabel("Data Fim:"))
         self.dem_data_fim = QDateEdit()
         self.dem_data_fim.setDate(QDate.currentDate())
         self.dem_data_fim.setCalendarPopup(True)
-        self.dem_data_fim.setObjectName("configInput")
+        self.dem_data_fim.setStyleSheet(CALENDAR_STYLE)
         filtros_layout.addWidget(self.dem_data_fim)
         
         # Status

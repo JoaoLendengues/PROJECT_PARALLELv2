@@ -431,6 +431,8 @@ class PedidoDialog(QDialog):
         material_layout.addWidget(self.material_edit)
         
         self.material_combo = QComboBox()
+        self.material_combo.setEditable(False)
+        self.material_combo.setInsertPolicy(QComboBox.NoInsert)
         self.material_combo.addItem("-- Selecione um material existente --")
         for mat in self.materiais:
             self.material_combo.addItem(
@@ -464,14 +466,16 @@ class PedidoDialog(QDialog):
         
         # Empresa
         self.empresa_combo = QComboBox()
-        self.empresa_combo.addItems(["Matriz", "Filial 1", "Filial 2", "Filial 3"])
-        self.empresa_combo.setEditable(True)
+        self.empresa_combo.setEditable(False)
+        self.empresa_combo.setInsertPolicy(QComboBox.NoInsert)
+        self.carregar_empresas_combo()
         form_layout.addRow("Empresa:", self.empresa_combo)
         
         # Departamento
         self.departamento_combo = QComboBox()
-        self.departamento_combo.addItems(["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logística"])
-        self.departamento_combo.setEditable(True)
+        self.departamento_combo.setEditable(False)
+        self.departamento_combo.setInsertPolicy(QComboBox.NoInsert)
+        self.carregar_departamentos_combo()
         form_layout.addRow("Departamento:", self.departamento_combo)
         
         # Status (só aparece na edição)
@@ -504,16 +508,43 @@ class PedidoDialog(QDialog):
         
         layout.addLayout(btn_layout)
 
+    def carregar_empresas_combo(self):
+        """Carrega as empresas do backend para o combobox"""
+        try:
+            empresas = api_client.get_empresas()
+            self.empresa_combo.clear()
+            for emp in empresas:
+                if emp and emp.strip():
+                    self.empresa_combo.addItem(emp)
+        except Exception as e:
+            print(f'❌ Erro ao carregar empresas: {e}')
+            # Fallback
+            default_empresas = ["Matriz", "Filial 1", "Filial 2", "Filial 3"]
+            for emp in default_empresas:
+                self.empresa_combo.addItem(emp)
+
     def carregar_departamentos_combo(self):
         """Carrega os departamentos do backend para o combobox"""
         try:
             departamentos = api_client.get_departamentos_lista()
             self.departamento_combo.clear()
+            # ✅ Adiciona apenas os departamentos do backend
             for dept in departamentos:
                 if dept and dept.strip():
                     self.departamento_combo.addItem(dept)
+            
+            # ✅ Se ainda estiver vazio, usa fallback
+            if self.departamento_combo.count() == 0:
+                default_depts = ["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logística"]
+                for dept in default_depts:
+                    self.departamento_combo.addItem(dept)
+                    
         except Exception as e:
             print(f"❌ Erro ao carregar departamentos: {e}")
+            # Fallback em caso de erro
+            default_depts = ["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logística"]
+            for dept in default_depts:
+                self.departamento_combo.addItem(dept)
     
     def on_material_selecionado(self, index):
         """Quando um material existente é selecionado no combo"""
@@ -588,16 +619,12 @@ class PedidoDialog(QDialog):
         idx = self.empresa_combo.findText(empresa)
         if idx >= 0:
             self.empresa_combo.setCurrentIndex(idx)
-        else:
-            self.empresa_combo.setEditText(empresa)
         
         # Departamento
         departamento = str(self.dados_item.get("departamento", ""))
         idx = self.departamento_combo.findText(departamento)
         if idx >= 0:
             self.departamento_combo.setCurrentIndex(idx)
-        else:
-            self.departamento_combo.setEditText(departamento)
         
         # Status
         status = str(self.dados_item.get("status", "pendente"))
@@ -625,6 +652,10 @@ class PedidoDialog(QDialog):
         
         if not solicitante:
             QMessageBox.warning(self, "Atenção", "Informe o nome do solicitante!")
+            return
+        
+        if not empresa:
+            QMessageBox.warning(self, "Atenção", "Selecione uma empresa!")
             return
         
         # Verificar se o material já existe no banco
@@ -675,4 +706,5 @@ class PedidoDialog(QDialog):
                     QMessageBox.warning(self, "Erro", "Erro ao criar pedido")
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao salvar: {e}")
+
             

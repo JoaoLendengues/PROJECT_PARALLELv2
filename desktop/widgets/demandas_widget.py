@@ -333,14 +333,16 @@ class DemandaDialog(QDialog):
         
         # Departamento
         self.departamento_combo = QComboBox()
-        self.departamento_combo.addItems(["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logística"])
-        self.departamento_combo.setEditable(True)
+        self.departamento_combo.setEditable(False)
+        self.departamento_combo.setInsertPolicy(QComboBox.NoInsert)
+        self.carregar_departamentos_combo()
         form_layout.addRow("Departamento:", self.departamento_combo)
         
         # Empresa
         self.empresa_combo = QComboBox()
-        self.empresa_combo.addItems(["Matriz", "Filial 1", "Filial 2", "Filial 3"])
-        self.empresa_combo.setEditable(True)
+        self.empresa_combo.setEditable(False)
+        self.empresa_combo.setInsertPolicy(QComboBox.NoInsert)
+        self.carregar_empresas_combo()
         form_layout.addRow("Empresa:", self.empresa_combo)
         
         # Prioridade
@@ -393,6 +395,40 @@ class DemandaDialog(QDialog):
         
         if self.readonly:
             self.set_readonly()
+
+    def carregar_departamentos_combo(self):
+        """Carregar os departamentos do backend para o combobox"""
+        """Carrega os departamentos do backend para o combobox"""
+        try:
+            departamentos = api_client.get_departamentos_lista()
+            self.departamento_combo.clear()
+            for dept in departamentos:
+                if dept and dept.strip():
+                    self.departamento_combo.addItem(dept)
+            
+            if self.departamento_combo.count() == 0:
+                default_depts = ["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logística"]
+                for dept in default_depts:
+                    self.departamento_combo.addItem(dept)
+        except Exception as e:
+            print(f"❌ Erro ao carregar departamentos: {e}")
+            default_depts = ["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logística"]
+            for dept in default_depts:
+                self.departamento_combo.addItem(dept)
+    
+    def carregar_empresas_combo(self):
+        """Carrega as empresas do backend para o combobox"""
+        try:
+            empresas = api_client.get_empresas()
+            self.empresa_combo.clear()
+            for emp in empresas:
+                if emp and emp.strip():
+                    self.empresa_combo.addItem(emp)
+        except Exception as e:
+            print(f"❌ Erro ao carregar empresas: {e}")
+            default_empresas = ["Matriz", "Filial 1", "Filial 2", "Filial 3"]
+            for emp in default_empresas:
+                self.empresa_combo.addItem(emp)
     
     def set_readonly(self):
         self.titulo_edit.setReadOnly(True)
@@ -419,15 +455,11 @@ class DemandaDialog(QDialog):
         idx = self.departamento_combo.findText(dept)
         if idx >= 0:
             self.departamento_combo.setCurrentIndex(idx)
-        else:
-            self.departamento_combo.setEditText(dept)
         
         empresa = str(self.dados_item.get("empresa", ""))
         idx = self.empresa_combo.findText(empresa)
         if idx >= 0:
             self.empresa_combo.setCurrentIndex(idx)
-        else:
-            self.empresa_combo.setEditText(empresa)
         
         prioridade = str(self.dados_item.get("prioridade", "media"))
         idx = self.prioridade_combo.findText(prioridade)
@@ -446,7 +478,7 @@ class DemandaDialog(QDialog):
         
         data_prevista = self.dados_item.get("data_prevista")
         if data_prevista:
-            self.data_prevista.setDate(QDate.fromString(data_prevista, "yyyy-MM-dd"))
+            self.data_prevista.setDate(QDate.fromString(data_prevista, "dd-MM-yyyy"))
         
         self.responsavel_edit.setText(str(self.dados_item.get("responsavel", "")))
         self.observacao_edit.setPlainText(str(self.dados_item.get("observacao", "")))
@@ -464,7 +496,7 @@ class DemandaDialog(QDialog):
             "prioridade": self.prioridade_combo.currentText(),
             "urgencia": self.urgencia_combo.currentText(),
             "status": self.status_combo.currentText(),
-            "data_prevista": self.data_prevista.date().toString("yyyy-MM-dd"),
+            "data_prevista": self.data_prevista.date().toString("dd-MM-yyyy"),
             "responsavel": self.responsavel_edit.text().strip() or None,
             "observacao": self.observacao_edit.toPlainText().strip() or None
         }

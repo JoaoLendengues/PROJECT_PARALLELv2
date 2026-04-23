@@ -292,6 +292,7 @@ class MovimentacaoDialog(QDialog):
         """)
         
         self.init_ui()
+        self.carregar_empresas() # Buscar empresas do backend
     
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -301,7 +302,8 @@ class MovimentacaoDialog(QDialog):
         
         # Material
         self.material_combo = QComboBox()
-        self.material_combo.setEditable(True)
+        self.material_combo.setEditable(False)
+        self.material_combo.setInsertPolicy(QComboBox.NoInsert)
         for mat in self.materiais:
             self.material_combo.addItem(
                 f"{mat.get('nome', '')} - Estoque: {mat.get('quantidade', 0)} - {mat.get('empresa', '')}", 
@@ -323,14 +325,15 @@ class MovimentacaoDialog(QDialog):
         
         # Empresa
         self.empresa_combo = QComboBox()
-        self.empresa_combo.addItems(["Matriz", "Filial 1", "Filial 2", "Filial 3"])
-        self.empresa_combo.setEditable(True)
-        form_layout.addRow("Empresa:", self.empresa_combo)
+        self.empresa_combo.setEditable(False)
+        self.empresa_combo.setInsertPolicy(QComboBox.NoInsert)
+        form_layout.addRow('Empresa:', self.empresa_combo)
         
         # Destinatário (com colaboradores)
         self.destinatario_label = QLabel("Colaborador:")
         self.destinatario_combo = QComboBox()
-        self.destinatario_combo.setEditable(True)
+        self.destinatario_combo.setEditable(False)
+        self.destinatario_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_colaboradores_no_combo()
         form_layout.addRow(self.destinatario_label, self.destinatario_combo)
         
@@ -364,13 +367,27 @@ class MovimentacaoDialog(QDialog):
         # Atualizar informação de estoque ao mudar material
         self.material_combo.currentIndexChanged.connect(self.atualizar_info_estoque)
         self.atualizar_info_estoque()
+
+    def carregar_empresas(self):
+        """Carrega as empresas do backend para o combobox"""
+        try:
+            empresas = api_client.get_empresas()
+            self.empresa_combo.clear()
+            for emp in empresas:
+                if emp and emp.strip():
+                    self.empresa_combo.addItem(emp)
+        except Exception as e:
+            print(f'❌ Erro ao carregar empresas: {e}')
+            # Fallback
+            default_empresas = ['Matriz', 'Filial 1', 'Filial 2', 'Filial 3']
+            for emp in default_empresas:
+                self.empresa_combo.addItem(emp)
     
     def carregar_colaboradores_no_combo(self):
         """Carrega os colaboradores no combo box"""
         try:
             self.destinatario_combo.clear()
             # Adicionar opção de digitar manualmente
-            self.destinatario_combo.addItem("--- Digite ou selecione ---")
             for colab in self.colaboradores:
                 if colab.get("ativo", True):
                     self.destinatario_combo.addItem(colab.get("nome", ""))
@@ -379,12 +396,20 @@ class MovimentacaoDialog(QDialog):
     
     def on_tipo_changed(self):
         """Altera o texto do destinatário conforme o tipo"""
-        if self.tipo_combo.currentText() == "entrada":
+        tipo = self.tipo_combo.currentText()
+        if tipo == "entrada":
             self.destinatario_label.setText("Fornecedor/Origem:")
-            self.destinatario_combo.setEditText("Fornecedor")
+            # ✅ Para entrada, permitir digitar (fornecedor pode não estar cadastrado)
+            self.destinatario_combo.setEditable(True)
+            self.destinatario_combo.clear()
+            self.destinatario_combo.addItem("")
+            self.destinatario_combo.setPlaceholderText("Digite o nome do fornecedor")
         else:
             self.destinatario_label.setText("Colaborador:")
-            self.destinatario_combo.setEditText("")
+            # ✅ Para saída, apenas seleção (colaboradores cadastrados)
+            self.destinatario_combo.setEditable(False)
+            self.destinatario_combo.setInsertPolicy(QComboBox.NoInsert)
+            self.carregar_colaboradores_no_combo()
     
     def atualizar_info_estoque(self):
         """Atualiza a label com a informação do estoque atual"""
@@ -410,10 +435,24 @@ class MovimentacaoDialog(QDialog):
         destinatario = self.destinatario_combo.currentText().strip()
         observacao = self.observacao_edit.toPlainText().strip()
         
-        # Verificar se o destinatário é o placeholder
-        if destinatario == "--- Digite ou selecione ---" or not destinatario:
-            QMessageBox.warning(self, "Atenção", "Informe o destinatário/origem!")
+        # Verificar destinatário
+        if not destinatario:
+            if tipo == "entrada":
+                QMessageBox.warning(self, "Atenção", "Informe o fornecedor/origem!")
+            else:
+                QMessageBox.warning(self, "Atenção", "Selecione um colaborador!")
             return
+        
+        # Verificar estoque para saída
+        if tipo == "saida":
+            material = self.materiais[idx]
+            if material.get("quantidade", 0) < quantidade:
+                QMessageBox.warning(
+                    self, 
+                    "Atenção", 
+                    f"Estoque insuficiente!\nDisponível: {material.get('quantidade', 0)}"
+                )
+                return
         
         dados = {
             "material_id": material_id,

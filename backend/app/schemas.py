@@ -181,7 +181,7 @@ class PedidoResponse(PedidoBase):
 class UsuarioSistemaBase(BaseModel):
     codigo: str
     nome: str
-    cargo: str
+    cargo: Optional[str] = None
     empresa: str
     nivel_acesso: str = 'usuario' # admin, gerente, usuario
     ativo: bool = True
