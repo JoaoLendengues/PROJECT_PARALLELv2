@@ -81,6 +81,7 @@ class LoginWidget(QWidget):
                 border-color: #2c7da0;
             }
         """)
+        self.codigo_input.returnPressed.connect(self.ao_pressionar_enter)
         card_layout.addWidget(self.codigo_input)
         
         card_layout.addSpacing(10)
@@ -107,6 +108,7 @@ class LoginWidget(QWidget):
                 border-color: #2c7da0;
             }
         """)
+        self.senha_input.returnPressed.connect(self.ao_pressionar_enter)
         card_layout.addWidget(self.senha_input)
         
         card_layout.addSpacing(20)
@@ -140,6 +142,15 @@ class LoginWidget(QWidget):
         card_layout.addWidget(self.status_label)
         
         layout.addWidget(card)
+
+        self.codigo_input.setFocus()
+
+    def ao_pressionar_enter(self):
+        if self.sender() is self.codigo_input and self.codigo_input.text().strip() and not self.senha_input.text():
+            self.senha_input.setFocus()
+            return
+
+        self.fazer_login()
     
     def fazer_login(self):
         codigo = self.codigo_input.text().strip()
