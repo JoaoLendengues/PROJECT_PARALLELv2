@@ -164,6 +164,49 @@ class UpdateInstaller:
     PROTECTED_DIRS = ("backup", "logs", "temp_update", "__pycache__")
 
     @staticmethod
+    def _get_short_path(path: Path):
+        """Retorna um caminho curto do Windows para uso em scripts CMD."""
+        try:
+            import ctypes
+
+            target = str(path)
+            required_size = ctypes.windll.kernel32.GetShortPathNameW(target, None, 0)
+            if not required_size:
+                return None
+
+            buffer = ctypes.create_unicode_buffer(required_size)
+            result = ctypes.windll.kernel32.GetShortPathNameW(target, buffer, required_size)
+            if result:
+                return buffer.value
+        except Exception:
+            return None
+
+        return None
+
+    @staticmethod
+    def _to_cmd_safe_path(path: Path) -> str:
+        """
+        Converte caminhos para uma forma ASCII segura em arquivos .bat.
+        Isso evita falhas em perfis do Windows com acentos no nome do usuario.
+        """
+        path = Path(path)
+
+        try:
+            resolved = path.resolve(strict=False)
+        except Exception:
+            resolved = path
+
+        short_path = UpdateInstaller._get_short_path(resolved)
+        if short_path:
+            return short_path
+
+        parent_short_path = UpdateInstaller._get_short_path(resolved.parent)
+        if parent_short_path:
+            return str(Path(parent_short_path) / resolved.name)
+
+        return str(resolved)
+
+    @staticmethod
     def install_update(update_file):
         try:
             if not getattr(sys, "frozen", False):
@@ -242,59 +285,92 @@ class UpdateInstaller:
         for flag_name in ("CREATE_NEW_PROCESS_GROUP", "DETACHED_PROCESS", "CREATE_NO_WINDOW"):
             flags |= getattr(subprocess, flag_name, 0)
 
-        subprocess.Popen(
-            ["cmd", "/c", str(script_path)],
-            creationflags=flags,
-            close_fds=True,
-        )
+        if script_path.suffix.lower() == ".ps1":
+            command = [
+                "powershell.exe",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(script_path),
+            ]
+        else:
+            command = ["cmd", "/c", str(script_path)]
+
+        subprocess.Popen(command, creationflags=flags, close_fds=True)
 
     @staticmethod
     def _write_installer_update_script(app_dir: Path, installer_file: Path, process_id: int):
         script_path = Path(tempfile.gettempdir()) / (
-            f"project_parallel_apply_update_{datetime.now().strftime('%Y%m%d_%H%M%S')}.bat"
+            f"project_parallel_apply_update_{datetime.now().strftime('%Y%m%d_%H%M%S')}.ps1"
         )
-        log_path = app_dir / "update.log"
 
         script_content = "\n".join(
             [
-                "@echo off",
-                "setlocal enableextensions",
-                f'set "APP_DIR={app_dir}"',
-                f'set "INSTALLER_FILE={installer_file}"',
-                f'set "PROCESS_ID={process_id}"',
-                f'set "LOG_FILE={log_path}"',
-                'for %%I in ("%INSTALLER_FILE%") do set "INSTALLER_DIR=%%~dpI"',
-                'echo [%DATE% %TIME%] Iniciando atualizacao pelo setup > "%LOG_FILE%"',
+                "$ErrorActionPreference = 'Stop'",
+                f"$AppDir = '{app_dir}'",
+                f"$InstallerFile = '{installer_file}'",
+                f"$ProcessIdToWait = {process_id}",
+                "$LogFile = Join-Path $AppDir 'update.log'",
+                "$InstallerDir = Split-Path -Parent $InstallerFile",
                 "",
-                ":wait_for_exit",
-                'tasklist /FI "PID eq %PROCESS_ID%" | find "%PROCESS_ID%" >nul',
-                "if not errorlevel 1 (",
-                "    timeout /t 1 /nobreak >nul",
-                "    goto wait_for_exit",
+                "function Write-UpdateLog {",
+                "    param([string]$Message)",
+                "    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'",
+                "    Add-Content -Path $LogFile -Value \"[$timestamp] $Message\" -Encoding UTF8",
+                "}",
+                "",
+                "New-Item -ItemType Directory -Path $AppDir -Force | Out-Null",
+                "Set-Content -Path $LogFile -Value '' -Encoding UTF8",
+                "Write-UpdateLog 'Iniciando atualizacao pelo setup'",
+                "",
+                "while (Get-Process -Id $ProcessIdToWait -ErrorAction SilentlyContinue) {",
+                "    Start-Sleep -Seconds 1",
+                "}",
+                "",
+                "Write-UpdateLog 'Processo principal encerrado'",
+                "Start-Sleep -Seconds 2",
+                "",
+                "if (-not (Test-Path $InstallerFile)) {",
+                "    Write-UpdateLog 'Falha ao localizar o instalador baixado'",
+                "    exit 1",
+                "}",
+                "",
+                "Write-UpdateLog 'Executando instalador silencioso'",
+                "$arguments = @(",
+                "    '/SP-',",
+                "    '/VERYSILENT',",
+                "    '/SUPPRESSMSGBOXES',",
+                "    '/NORESTART',",
+                "    '/CLOSEAPPLICATIONS',",
+                "    '/FORCECLOSEAPPLICATIONS',",
+                "    '/LOG',",
+                "    '/LOGCLOSEAPPLICATIONS',",
+                "    \"/DIR=$AppDir\"",
                 ")",
+                "$process = Start-Process -FilePath $InstallerFile -ArgumentList $arguments -PassThru -Wait -WindowStyle Hidden",
+                "$installExit = $process.ExitCode",
+                "Write-UpdateLog \"Instalador retornou $installExit\"",
+                "if ($installExit -ne 0) {",
+                "    Write-UpdateLog 'Falha ao instalar a atualizacao'",
+                "    exit 1",
+                "}",
+                "if (-not (Test-Path (Join-Path $AppDir 'main.exe'))) {",
+                "    Write-UpdateLog 'main.exe nao encontrado apos a instalacao'",
+                "    exit 1",
+                "}",
                 "",
-                'echo [%DATE% %TIME%] Processo principal encerrado >> "%LOG_FILE%"',
-                "timeout /t 2 /nobreak >nul",
-                'if not exist "%INSTALLER_FILE%" goto install_error',
-                'echo [%DATE% %TIME%] Executando instalador silencioso >> "%LOG_FILE%"',
-                '"%INSTALLER_FILE%" /SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /FORCECLOSEAPPLICATIONS /LOG /LOGCLOSEAPPLICATIONS /DIR="%APP_DIR%" >> "%LOG_FILE%" 2>&1',
-                'set "INSTALL_EXIT=%ERRORLEVEL%"',
-                'echo [%DATE% %TIME%] Instalador retornou %INSTALL_EXIT% >> "%LOG_FILE%"',
-                'if not "%INSTALL_EXIT%"=="0" goto install_error',
-                'if not exist "%APP_DIR%\\main.exe" goto install_error',
-                'echo [%DATE% %TIME%] Instalacao concluida. Reiniciando aplicativo >> "%LOG_FILE%"',
-                'start "" /D "%APP_DIR%" "%APP_DIR%\\main.exe"',
-                'rmdir /s /q "%INSTALLER_DIR%" >> "%LOG_FILE%" 2>&1',
-                'del "%~f0"',
-                "exit /b 0",
-                "",
-                ":install_error",
-                'echo [%DATE% %TIME%] Falha ao instalar a atualizacao >> "%LOG_FILE%"',
-                "exit /b 1",
+                "Write-UpdateLog 'Instalacao concluida. Reiniciando aplicativo'",
+                "Start-Process -FilePath (Join-Path $AppDir 'main.exe') -WorkingDirectory $AppDir",
+                "if (Test-Path $InstallerDir) {",
+                "    Remove-Item $InstallerDir -Recurse -Force -ErrorAction SilentlyContinue",
+                "}",
+                "Remove-Item $PSCommandPath -Force -ErrorAction SilentlyContinue",
+                "exit 0",
             ]
         )
 
-        script_path.write_text(script_content, encoding="utf-8", newline="\r\n")
+        script_path.write_text(script_content, encoding="utf-8-sig", newline="\r\n")
         return script_path
 
     @staticmethod
@@ -302,65 +378,67 @@ class UpdateInstaller:
         app_dir: Path, staging_dir: Path, payload_dir: Path, process_id: int
     ):
         script_path = Path(tempfile.gettempdir()) / (
-            f"project_parallel_apply_update_{datetime.now().strftime('%Y%m%d_%H%M%S')}.bat"
+            f"project_parallel_apply_update_{datetime.now().strftime('%Y%m%d_%H%M%S')}.ps1"
         )
-        log_path = app_dir / "update.log"
-
-        exclude_files = " ".join(f"/XF {name}" for name in UpdateInstaller.PROTECTED_FILES)
-        exclude_dirs = " ".join(f"/XD {name}" for name in UpdateInstaller.PROTECTED_DIRS)
 
         script_content = "\n".join(
             [
-                "@echo off",
-                "setlocal enableextensions",
-                f'set "APP_DIR={app_dir}"',
-                f'set "STAGING_DIR={staging_dir}"',
-                f'set "PAYLOAD_DIR={payload_dir}"',
-                f'set "PROCESS_ID={process_id}"',
-                f'set "LOG_FILE={log_path}"',
-                'echo [%DATE% %TIME%] Iniciando atualizacao > "%LOG_FILE%"',
+                "$ErrorActionPreference = 'Stop'",
+                f"$AppDir = '{app_dir}'",
+                f"$StagingDir = '{staging_dir}'",
+                f"$PayloadDir = '{payload_dir}'",
+                f"$ProcessIdToWait = {process_id}",
+                "$LogFile = Join-Path $AppDir 'update.log'",
+                "$ProtectedFiles = @('.env', 'config.ini', 'database.db')",
+                "$ProtectedDirs = @('backup', 'logs', 'temp_update', '__pycache__')",
                 "",
-                ":wait_for_exit",
-                'tasklist /FI "PID eq %PROCESS_ID%" | find "%PROCESS_ID%" >nul',
-                "if not errorlevel 1 (",
-                "    timeout /t 1 /nobreak >nul",
-                "    goto wait_for_exit",
-                ")",
+                "function Write-UpdateLog {",
+                "    param([string]$Message)",
+                "    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'",
+                "    Add-Content -Path $LogFile -Value \"[$timestamp] $Message\" -Encoding UTF8",
+                "}",
                 "",
-                'echo [%DATE% %TIME%] Processo principal encerrado >> "%LOG_FILE%"',
-                "timeout /t 2 /nobreak >nul",
-                'set /a COPY_ATTEMPT=0',
+                "New-Item -ItemType Directory -Path $AppDir -Force | Out-Null",
+                "Set-Content -Path $LogFile -Value '' -Encoding UTF8",
+                "Write-UpdateLog 'Iniciando atualizacao'",
                 "",
-                ":copy_files",
-                'set /a COPY_ATTEMPT+=1',
-                'echo [%DATE% %TIME%] Tentativa de copia %COPY_ATTEMPT% >> "%LOG_FILE%"',
-                'if exist "%APP_DIR%\\main.exe" del /f /q "%APP_DIR%\\main.exe" >> "%LOG_FILE%" 2>&1',
-                'if exist "%APP_DIR%\\_internal" rmdir /s /q "%APP_DIR%\\_internal" >> "%LOG_FILE%" 2>&1',
+                "while (Get-Process -Id $ProcessIdToWait -ErrorAction SilentlyContinue) {",
+                "    Start-Sleep -Seconds 1",
+                "}",
                 "",
-                f'robocopy "%PAYLOAD_DIR%" "%APP_DIR%" /E /R:2 /W:1 /NFL /NDL /NJH /NJS /NP {exclude_files} {exclude_dirs} >> "%LOG_FILE%" 2>&1',
-                'set "ROBOCOPY_EXIT=%ERRORLEVEL%"',
-                'echo [%DATE% %TIME%] Robocopy retornou %ROBOCOPY_EXIT% >> "%LOG_FILE%"',
-                "if %ROBOCOPY_EXIT% GEQ 8 (",
-                "    if %COPY_ATTEMPT% LSS 6 (",
-                "        timeout /t 2 /nobreak >nul",
-                "        goto copy_files",
-                "    )",
-                "    goto copy_error",
-                ")",
-                'if not exist "%APP_DIR%\\main.exe" goto copy_error',
+                "Write-UpdateLog 'Processo principal encerrado'",
+                "Start-Sleep -Seconds 2",
                 "",
-                'echo [%DATE% %TIME%] Arquivos copiados com sucesso >> "%LOG_FILE%"',
-                'start "" /D "%APP_DIR%" "%APP_DIR%\\main.exe"',
-                'echo [%DATE% %TIME%] Aplicativo reiniciado >> "%LOG_FILE%"',
-                'rmdir /s /q "%STAGING_DIR%"',
-                'del "%~f0"',
-                "exit /b 0",
+                "if (Test-Path (Join-Path $AppDir 'main.exe')) {",
+                "    Remove-Item (Join-Path $AppDir 'main.exe') -Force -ErrorAction SilentlyContinue",
+                "}",
+                "if (Test-Path (Join-Path $AppDir '_internal')) {",
+                "    Remove-Item (Join-Path $AppDir '_internal') -Recurse -Force -ErrorAction SilentlyContinue",
+                "}",
                 "",
-                ":copy_error",
-                'echo [%DATE% %TIME%] Falha ao copiar os arquivos da atualizacao >> "%LOG_FILE%"',
-                "exit /b 1",
+                "foreach ($item in Get-ChildItem $PayloadDir -Force) {",
+                "    if ($ProtectedFiles -contains $item.Name) { continue }",
+                "    if ($item.PSIsContainer -and ($ProtectedDirs -contains $item.Name)) { continue }",
+                "",
+                "    $destination = Join-Path $AppDir $item.Name",
+                "    Copy-Item -Path $item.FullName -Destination $destination -Recurse -Force",
+                "}",
+                "",
+                "if (-not (Test-Path (Join-Path $AppDir 'main.exe'))) {",
+                "    Write-UpdateLog 'Falha ao copiar os arquivos da atualizacao'",
+                "    exit 1",
+                "}",
+                "",
+                "Write-UpdateLog 'Arquivos copiados com sucesso'",
+                "Start-Process -FilePath (Join-Path $AppDir 'main.exe') -WorkingDirectory $AppDir",
+                "Write-UpdateLog 'Aplicativo reiniciado'",
+                "if (Test-Path $StagingDir) {",
+                "    Remove-Item $StagingDir -Recurse -Force -ErrorAction SilentlyContinue",
+                "}",
+                "Remove-Item $PSCommandPath -Force -ErrorAction SilentlyContinue",
+                "exit 0",
             ]
         )
 
-        script_path.write_text(script_content, encoding="utf-8", newline="\r\n")
+        script_path.write_text(script_content, encoding="utf-8-sig", newline="\r\n")
         return script_path

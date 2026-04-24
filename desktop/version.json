@@ -1,5 +1,5 @@
 {
-    "version": "1.1.10",
+    "version": "1.1.11",
     "release_date": "2026-04-24",
-    "changelog": "Correcao na criacao de demandas, listagem de colaboradores, filtros dos widgets, monitoramento da rede local e proximo codigo de usuarios."
+    "changelog": "Correcao do updater em perfis Windows com acentos no caminho do usuario, mantendo os ajustes de demandas, filtros, colaboradores, rede local e codigo de usuarios."
 }
