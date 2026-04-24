@@ -1,0 +1,5 @@
+{
+    "version": "1.1.12",
+    "release_date": "2026-04-24",
+    "changelog": "Tela de login agora permite entrar com a tecla Enter, mantendo as correcoes anteriores de updater, demandas, filtros, colaboradores, rede local e codigo de usuarios."
+}
