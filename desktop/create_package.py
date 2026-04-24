@@ -16,7 +16,6 @@ DESKTOP_DIR = ROOT_DIR / "desktop"
 VERSION_FILE = DESKTOP_DIR / "version.json"
 SPEC_FILE = DESKTOP_DIR / "main.spec"
 DIST_ROOT = DESKTOP_DIR / "output"
-DIST_DIR = DIST_ROOT / "main"
 BUILD_DIR = DESKTOP_DIR / "build"
 INSTALLER_SCRIPT = ROOT_DIR / "installer_script.iss"
 ARTIFACTS_DIR = ROOT_DIR / "installer_output"
@@ -63,7 +62,8 @@ def run_command(command, cwd=ROOT_DIR):
     subprocess.run(command, cwd=cwd, check=True)
 
 
-def build_desktop():
+def build_desktop(dist_root, build_dir):
+    dist_dir = dist_root / "main"
     pyinstaller_command = [
         sys.executable,
         "-m",
@@ -72,13 +72,13 @@ def build_desktop():
         "--noconfirm",
         "--clean",
         "--distpath",
-        str(DIST_ROOT),
+        str(dist_root),
         "--workpath",
-        str(BUILD_DIR),
+        str(build_dir),
     ]
     run_command(pyinstaller_command, cwd=ROOT_DIR)
 
-    executable_path = DIST_DIR / "main.exe"
+    executable_path = dist_dir / "main.exe"
     if not executable_path.exists():
         raise FileNotFoundError(
             f"Build concluido sem encontrar o executavel esperado em {executable_path}"
@@ -87,22 +87,22 @@ def build_desktop():
     return executable_path
 
 
-def create_portable_zip(version):
-    if not DIST_DIR.exists():
+def create_portable_zip(version, dist_dir, artifacts_dir):
+    if not dist_dir.exists():
         raise FileNotFoundError(
-            "Nao encontrei o build do desktop. Rode o script sem --skip-build primeiro."
+            f"Nao encontrei o build do desktop em {dist_dir}. Rode o script sem --skip-build primeiro."
         )
 
-    ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
-    zip_path = ARTIFACTS_DIR / f"ProjectParallel_Portable_v{version}.zip"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    zip_path = artifacts_dir / f"ProjectParallel_Portable_v{version}.zip"
 
     if zip_path.exists():
         zip_path.unlink()
 
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
-        for path in DIST_DIR.rglob("*"):
+        for path in dist_dir.rglob("*"):
             if path.is_file():
-                archive.write(path, path.relative_to(DIST_DIR))
+                archive.write(path, path.relative_to(dist_dir))
 
     return zip_path
 
@@ -130,7 +130,7 @@ def find_inno_compiler():
     return None
 
 
-def build_installer(version):
+def build_installer(version, dist_dir, artifacts_dir):
     compiler = find_inno_compiler()
     if not compiler:
         print("! Inno Setup nao encontrado. O ZIP portatil foi gerado, mas o setup foi pulado.")
@@ -139,12 +139,12 @@ def build_installer(version):
     command = [
         str(compiler),
         f"/DMyAppVersion={version}",
-        f"/DBuildRoot={DIST_DIR}",
+        f"/DBuildRoot={dist_dir}",
         str(INSTALLER_SCRIPT),
     ]
     run_command(command, cwd=ROOT_DIR)
 
-    installer_path = ARTIFACTS_DIR / f"ProjectParallel_Setup_v{version}.exe"
+    installer_path = artifacts_dir / f"ProjectParallel_Setup_v{version}.exe"
     if installer_path.exists():
         return installer_path
 
@@ -168,11 +168,25 @@ def parse_args():
         action="store_true",
         help="Gera apenas o ZIP portatil usado pelo updater.",
     )
+    parser.add_argument(
+        "--dist-root",
+        default=str(DIST_ROOT),
+        help="Diretorio base do build do PyInstaller. O executavel sera gerado em <dist-root>/main.",
+    )
+    parser.add_argument(
+        "--artifacts-dir",
+        default=str(ARTIFACTS_DIR),
+        help="Diretorio onde os artefatos finais da release serao salvos.",
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+    dist_root = Path(args.dist_root).resolve()
+    dist_dir = dist_root / "main"
+    build_dir = BUILD_DIR.resolve()
+    artifacts_dir = Path(args.artifacts_dir).resolve()
     version_data = update_version_file(
         version=args.version,
         release_date=args.release_date,
@@ -185,14 +199,14 @@ def main():
     print("=" * 60)
 
     if not args.skip_build:
-        build_desktop()
-    elif not (DIST_DIR / "main.exe").exists():
+        build_desktop(dist_root, build_dir)
+    elif not (dist_dir / "main.exe").exists():
         raise FileNotFoundError(
-            "Voce usou --skip-build, mas nao existe um build valido em desktop/output/main."
+            f"Voce usou --skip-build, mas nao existe um build valido em {dist_dir}."
         )
 
-    portable_zip = create_portable_zip(version)
-    installer_path = None if args.skip_installer else build_installer(version)
+    portable_zip = create_portable_zip(version, dist_dir, artifacts_dir)
+    installer_path = None if args.skip_installer else build_installer(version, dist_dir, artifacts_dir)
 
     print()
     print("Artefatos gerados:")

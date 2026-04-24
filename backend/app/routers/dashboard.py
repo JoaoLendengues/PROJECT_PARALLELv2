@@ -9,7 +9,7 @@ router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
 @router.get("/resumo")
 def get_dashboard_resumo(db: Session = Depends(get_db)):
     """Retorna resumo para o dashboard"""
-    
+
     # Contar materiais ativos
     total_materiais = db.query(models.Material).filter(
         models.Material.status == 'ativo'
@@ -44,7 +44,7 @@ def get_dashboard_resumo(db: Session = Depends(get_db)):
 
     # Contar items com estoque baixo
     itens_baixo_estoque = 0
-    
+
 
     return {
         'resumo': {
@@ -60,24 +60,36 @@ def get_dashboard_resumo(db: Session = Depends(get_db)):
 
 @router.get('/status-internet')
 def get_status_internet():
-    """Retorna o status da internet (latência e qualidade)"""
+    """Retorna o status da rede local (latencia e qualidade)."""
     import os
+    import socket
     import time
-    import requests
+    from urllib.parse import urlparse
 
-    # Usar variável de ambiente ou valor padrão
-    SERVIDOR_DNS = os.getenv("SERVIDOR_DNS", "8.8.8.8")
-    url = f"https://{SERVIDOR_DNS}"
-    
+    def get_local_target():
+        configured_host = os.getenv("REDE_LOCAL_HOST") or os.getenv("LOCAL_NETWORK_HOST")
+        configured_port = os.getenv("REDE_LOCAL_PORT") or os.getenv("LOCAL_NETWORK_PORT")
+
+        if configured_host:
+            return configured_host, int(configured_port or 8000)
+
+        database_url = os.getenv("DATABASE_URL", "")
+        parsed_database = urlparse(database_url)
+        if parsed_database.hostname and parsed_database.hostname not in {"localhost", "127.0.0.1"}:
+            return parsed_database.hostname, int(configured_port or parsed_database.port or 8000)
+
+        return "10.1.1.151", int(configured_port or 8000)
+
     try:
-        # Medir latência para o servidor DNS configurado
+        host, port = get_local_target()
         start_time = time.time()
-        response = requests.get(url, timeout=5, verify=False)
+        with socket.create_connection((host, port), timeout=3):
+            pass
         end_time = time.time()
 
         latency_ms = int((end_time - start_time) * 1000)
 
-        # Determinar qualidade da internet baseada na latência
+        # Determinar qualidade da rede local baseada na latencia TCP.
         if latency_ms < 50:
             qualidade = 'excelente'
             cor = '#10b981'  # Verde
@@ -106,10 +118,10 @@ def get_status_internet():
             'cor': cor,
             'barras': barras,
             'icone': icone,
-            'servidor': f'DNS {SERVIDOR_DNS}'
+            'servidor': f'Rede local {host}:{port}'
         }
-    
-    except requests.exceptions.Timeout:
+
+    except TimeoutError:
         return {
             "status": "offline",
             "latencia_ms": None,
@@ -117,9 +129,9 @@ def get_status_internet():
             "cor": "#ef4444",
             "barras": 0,
             "icone": "🔴",
-            "servidor": f"DNS {SERVIDOR_DNS} (Timeout)"
+            "servidor": "Rede local (timeout)"
         }
-    
+
     except Exception as e:
         return {
             'status': 'erro',

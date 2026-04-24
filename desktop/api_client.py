@@ -67,7 +67,7 @@ class APIClient:
                 headers={"Content-Type": "application/json"},
                 timeout=30
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
                 self.set_token(data["access_token"])
@@ -88,16 +88,18 @@ class APIClient:
     # Materiais
     # =====================================================
 
-    def listar_materiais(self, search=None, categoria=None, empresa=None, status="ativo", page=1, page_size=50):
+    def listar_materiais(self, search=None, categoria=None, empresa=None, status="", page=1, page_size=200):
         """Lista materiais com filtros e paginação"""
-        params = {"status": status, "page": page, "limit": page_size}
+        params = {"page": page, "limit": page_size}
+        if status is not None:
+            params["status"] = status
         if search:
             params["search"] = search
         if categoria:
             params["categoria"] = categoria
         if empresa:
             params["empresa"] = empresa
-        
+
         try:
             response = requests.get(
                 f"{self.base_url}/api/materiais",
@@ -105,7 +107,7 @@ class APIClient:
                 params=params,
                 timeout=30
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
                 if isinstance(data, dict) and "items" in data:
@@ -121,7 +123,7 @@ class APIClient:
         except Exception as e:
             print(f"❌ Erro ao listar materiais: {e}")
             return []
-    
+
     def criar_material(self, material):
         """Cria um novo material"""
         try:
@@ -141,7 +143,7 @@ class APIClient:
         except Exception as e:
             print(f"Erro ao criar material: {e}")
             return None
-    
+
     def atualizar_material(self, material_id, material):
         """Atualiza um material"""
         try:
@@ -159,7 +161,7 @@ class APIClient:
         except Exception as e:
             print(f"Erro ao atualizar material: {e}")
             return None
-    
+
     def deletar_material(self, material_id):
         """Deleta um material"""
         try:
@@ -174,14 +176,14 @@ class APIClient:
             return response.status_code == 200
         except:
             return False
-    
+
     def listar_categorias(self, use_cache=True):
         """Lista categorias de materiais com cache"""
         if use_cache:
             cached = self._get_cache("categorias")
             if cached is not None:
                 return cached
-        
+
         try:
             response = requests.get(
                 f"{self.base_url}/api/materiais/categorias/lista",
@@ -201,16 +203,18 @@ class APIClient:
     # Máquinas
     # =====================================================
 
-    def listar_maquinas(self, search=None, empresa=None, departamento=None, status="ativo"):
+    def listar_maquinas(self, search=None, empresa=None, departamento=None, status=""):
         """Lista máquinas com filtros"""
-        params = {"status": status}
+        params = {}
+        if status is not None:
+            params["status"] = status
         if search:
             params["search"] = search
         if empresa:
             params["empresa"] = empresa
         if departamento:
             params["departamento"] = departamento
-        
+
         try:
             response = requests.get(
                 f"{self.base_url}/api/maquinas",
@@ -227,7 +231,7 @@ class APIClient:
             return []
         except:
             return []
-    
+
     def criar_maquina(self, maquina):
         """Cria uma nova máquina"""
         try:
@@ -243,7 +247,7 @@ class APIClient:
             return None
         except:
             return None
-    
+
     def atualizar_maquina(self, maquina_id, maquina):
         """Atualiza uma máquina"""
         try:
@@ -259,7 +263,7 @@ class APIClient:
             return None
         except:
             return None
-    
+
     def deletar_maquina(self, maquina_id):
         """Deleta uma máquina"""
         try:
@@ -273,7 +277,7 @@ class APIClient:
             return response.status_code == 200
         except:
             return False
-    
+
     def listar_departamentos(self):
         """Lista departamentos"""
         try:
@@ -302,7 +306,7 @@ class APIClient:
             params["tipo"] = tipo
         if empresa:
             params["empresa"] = empresa
-        
+
         try:
             response = requests.get(
                 f"{self.base_url}/api/movimentacoes",
@@ -317,7 +321,7 @@ class APIClient:
             return []
         except:
             return []
-    
+
     def criar_movimentacao(self, movimentacao):
         """Registra uma movimentação"""
         try:
@@ -332,15 +336,15 @@ class APIClient:
             return None
         except:
             return None
-    
+
     def listar_materiais_para_movimentacao(self):
         """Lista materiais para combo box"""
-        return self.listar_materiais()
-    
+        return self.listar_materiais(status="ativo")
+
     def listar_colaboradores_para_movimentacao(self):
         """Lista colaboradores para combo box"""
         return self.listar_colaboradores()
-    
+
     def deletar_movimentacao(self, movimentacao_id):
         """Deleta uma movimentação (requer admin)"""
         try:
@@ -365,7 +369,7 @@ class APIClient:
             params["status"] = status
         if maquina_id:
             params["maquina_id"] = maquina_id
-        
+
         try:
             response = requests.get(
                 f"{self.base_url}/api/manutencoes",
@@ -380,7 +384,7 @@ class APIClient:
             return []
         except:
             return []
-    
+
     def criar_manutencao(self, manutencao):
         """Cria uma nova manutenção"""
         try:
@@ -395,7 +399,7 @@ class APIClient:
             return None
         except:
             return None
-    
+
     def atualizar_manutencao(self, manutencao_id, manutencao):
         """Atualiza uma manutenção"""
         try:
@@ -410,7 +414,7 @@ class APIClient:
             return None
         except:
             return None
-    
+
     def deletar_manutencao(self, manutencao_id):
         """Deleta uma manutenção"""
         try:
@@ -422,7 +426,7 @@ class APIClient:
             return response.status_code == 200
         except:
             return False
-    
+
     def concluir_manutencao(self, manutencao_id):
         """Conclui uma manutenção"""
         try:
@@ -434,7 +438,7 @@ class APIClient:
             return response.status_code == 200
         except:
             return False
-    
+
     def listar_maquinas_para_manutencao(self):
         """Lista máquinas para combo box"""
         return self.listar_maquinas()
@@ -450,7 +454,7 @@ class APIClient:
             params["status"] = status
         if empresa:
             params["empresa"] = empresa
-        
+
         try:
             response = requests.get(
                 f"{self.base_url}/api/pedidos",
@@ -465,7 +469,7 @@ class APIClient:
             return []
         except:
             return []
-    
+
     def criar_pedido(self, pedido):
         """Cria um novo pedido"""
         try:
@@ -480,7 +484,7 @@ class APIClient:
             return None
         except:
             return None
-    
+
     def atualizar_pedido(self, pedido_id, pedido):
         """Atualiza um pedido"""
         try:
@@ -495,7 +499,7 @@ class APIClient:
             return None
         except:
             return None
-    
+
     def aprovar_pedido(self, pedido_id):
         """Aprova um pedido"""
         try:
@@ -507,7 +511,7 @@ class APIClient:
             return response.status_code == 200
         except:
             return False
-    
+
     def concluir_pedido(self, pedido_id):
         """Conclui um pedido"""
         try:
@@ -520,8 +524,8 @@ class APIClient:
         except Exception as e:
             print(f'❌ Erro ao concluir pedido> {e}')
             return False
-            
-    
+
+
     def cancelar_pedido(self, pedido_id):
         """Cancela um pedido"""
         try:
@@ -533,7 +537,7 @@ class APIClient:
             return response.status_code == 200
         except:
             return False
-    
+
     def deletar_pedido(self, pedido_id):
         """Deleta um pedido"""
         try:
@@ -545,10 +549,10 @@ class APIClient:
             return response.status_code == 200
         except:
             return False
-    
+
     def listar_materiais_para_pedido(self):
         """Lista materiais para combo box"""
-        return self.listar_materiais()
+        return self.listar_materiais(status="ativo")
 
     # =====================================================
     # Colaboradores
@@ -556,10 +560,10 @@ class APIClient:
 
     def listar_colaboradores(self, empresa=None):
         """Lista colaboradores"""
-        params = {}
+        params = {"limit": 500}
         if empresa:
             params["empresa"] = empresa
-        
+
         try:
             response = requests.get(
                 f"{self.base_url}/api/colaboradores",
@@ -569,12 +573,17 @@ class APIClient:
             )
             if response.status_code == 200:
                 data = response.json()
+                if isinstance(data, dict) and "items" in data:
+                    return data["items"]
                 if isinstance(data, list):
                     return data
+            else:
+                print(f"Erro ao listar colaboradores: {response.status_code} - {response.text[:200]}")
             return []
-        except:
+        except Exception as e:
+            print(f"Erro ao listar colaboradores: {e}")
             return []
-    
+
     def criar_colaborador(self, colaborador):
         """Cria um novo colaborador"""
         try:
@@ -587,10 +596,12 @@ class APIClient:
             if response.status_code == 201:
                 self._clear_cache("colaboradores_lista")
                 return response.json()
+            print(f"Erro ao criar colaborador: {response.status_code} - {response.text[:200]}")
             return None
-        except:
+        except Exception as e:
+            print(f"Erro ao criar colaborador: {e}")
             return None
-    
+
     def atualizar_colaborador(self, colaborador_id, colaborador):
         """Atualiza um colaborador"""
         try:
@@ -606,7 +617,7 @@ class APIClient:
             return None
         except:
             return None
-    
+
     def deletar_colaborador(self, colaborador_id):
         """Deleta um colaborador"""
         try:
@@ -634,7 +645,7 @@ class APIClient:
             params["prioridade"] = prioridade
         if empresa:
             params["empresa"] = empresa
-        
+
         try:
             response = requests.get(
                 f"{self.base_url}/api/demandas",
@@ -649,7 +660,7 @@ class APIClient:
             return []
         except:
             return []
-    
+
     def criar_demanda(self, demanda):
         """Cria uma nova demanda"""
         try:
@@ -661,10 +672,12 @@ class APIClient:
             )
             if response.status_code == 201:
                 return response.json()
+            print(f"Erro ao criar demanda: {response.status_code} - {response.text[:200]}")
             return None
-        except:
+        except Exception as e:
+            print(f"Erro ao criar demanda: {e}")
             return None
-    
+
     def atualizar_demanda(self, demanda_id, demanda):
         """Atualiza uma demanda"""
         try:
@@ -679,7 +692,7 @@ class APIClient:
             return None
         except:
             return None
-    
+
     def concluir_demanda(self, demanda_id):
         """Conclui uma demanda"""
         try:
@@ -691,7 +704,7 @@ class APIClient:
             return response.status_code == 200
         except:
             return False
-    
+
     def cancelar_demanda(self, demanda_id):
         """Cancela uma demanda"""
         try:
@@ -703,7 +716,7 @@ class APIClient:
             return response.status_code == 200
         except:
             return False
-    
+
     def deletar_demanda(self, demanda_id):
         """Deleta uma demanda"""
         try:
@@ -743,7 +756,7 @@ class APIClient:
         except Exception as e:
             print(f"❌ Erro ao listar usuários: {e}")
             return []
-    
+
     def criar_usuario(self, usuario):
         """Cria um novo usuário"""
         try:
@@ -759,7 +772,7 @@ class APIClient:
             return None
         except:
             return None
-    
+
     def atualizar_usuario(self, usuario_id, usuario):
         """Atualiza um usuário"""
         try:
@@ -775,7 +788,7 @@ class APIClient:
             return None
         except:
             return None
-    
+
     def deletar_usuario(self, usuario_id):
         """Deleta um usuário"""
         try:
@@ -789,13 +802,13 @@ class APIClient:
             return response.status_code == 200
         except:
             return False
-    
+
     def resetar_senha_usuario(self, usuario_id, nova_senha=None):
         """Reseta a senha de um usuário"""
         data = {}
         if nova_senha:
             data["nova_senha"] = nova_senha
-        
+
         try:
             response = requests.post(
                 f"{self.base_url}/api/usuarios/{usuario_id}/resetar-senha",
@@ -806,7 +819,7 @@ class APIClient:
             return response.status_code == 200
         except:
             return False
-    
+
     def alterar_senha_usuario(self, usuario_id, nova_senha):
         """Altera a senha de um usuário"""
         try:
@@ -830,10 +843,21 @@ class APIClient:
             )
             if response.status_code == 200:
                 return response.json()
-            return {"proximo_codigo": "1"}
+            print(f"Erro ao buscar proximo codigo: {response.status_code} - {response.text[:200]}")
         except Exception as e:
             print(f"❌ Erro ao buscar próximo código: {e}")
-            return {"proximo_codigo": "1"}
+        return {"proximo_codigo": self.calcular_proximo_codigo_local()}
+
+    def calcular_proximo_codigo_local(self):
+        """Calcula o proximo codigo usando a lista de usuarios disponivel."""
+        max_codigo = 0
+        for usuario in self.listar_usuarios():
+            try:
+                codigo = int(str(usuario.get("codigo", "")).strip())
+            except ValueError:
+                continue
+            max_codigo = max(max_codigo, codigo)
+        return str(max_codigo + 1)
 
     # =====================================================
     # CRUD para Empresas, Departamentos e Categorias (COM CACHE)
@@ -845,7 +869,7 @@ class APIClient:
             cached = self._get_cache("empresas")
             if cached is not None:
                 return cached
-        
+
         try:
             response = requests.get(
                 f"{self.base_url}/api/configuracoes/empresas",
@@ -898,7 +922,7 @@ class APIClient:
             cached = self._get_cache("departamentos")
             if cached is not None:
                 return cached
-        
+
         try:
             response = requests.get(
                 f"{self.base_url}/api/configuracoes/departamentos",
@@ -951,7 +975,7 @@ class APIClient:
             cached = self._get_cache("categorias")
             if cached is not None:
                 return cached
-        
+
         try:
             response = requests.get(
                 f"{self.base_url}/api/configuracoes/categorias",
@@ -1030,11 +1054,11 @@ class APIClient:
         except Exception as e:
             print(f"❌ Erro ao salvar configurações: {e}")
             return False
-        
+
     # =====================================================
     # Backup
     # =====================================================
-     
+
     def executar_backup(self):
         """Executa backup manual do banco de dados"""
         try:
@@ -1048,8 +1072,8 @@ class APIClient:
             return False, None
         except Exception as e:
             print(f"❌ Erro ao executar backup: {e}")
-            return False, None 
-        
+            return False, None
+
     def listar_backups(self):
         """Lista todos os backups disponíveis"""
         try:
@@ -1064,7 +1088,7 @@ class APIClient:
         except Exception as e:
             print(f"❌ Erro ao listar backups: {e}")
             return []
-        
+
     def restaurar_backup(self, filename):
         """Restaura um backup específico"""
         try:
@@ -1077,7 +1101,7 @@ class APIClient:
         except Exception as e:
             print(f"❌ Erro ao restaurar backup: {e}")
             return False, None
-        
+
     def reconfigurar_backup(self):
         """Reconfigura o scheduler de backup"""
         try:
@@ -1108,7 +1132,7 @@ class APIClient:
             return {"resumo": {}}
         except:
             return {"resumo": {}}
-        
+
     def get_status_internet(self):
         """Obtém o status da internet (latência e qualidade)"""
         try:
@@ -1123,7 +1147,7 @@ class APIClient:
         except Exception as e:
             print(f'❌ Erro ao obter status da internet: {e}')
             return {'status': 'offline', 'qualidade': 'erro', 'latencia_ms': None}
-        
+
     # =====================================================
     # Departamentos (CRUD)
     # =====================================================
@@ -1134,7 +1158,7 @@ class APIClient:
             cached = self._get_cache("departamentos_lista")
             if cached is not None:
                 return cached
-        
+
         try:
             response = requests.get(
                 f"{self.base_url}/api/departamentos/lista",
@@ -1211,7 +1235,7 @@ class APIClient:
         except Exception as e:
             print(f"❌ Erro ao deletar departamento: {e}")
             return False
-        
+
     # =====================================================
     # Cargos (CRUD)
     # =====================================================
@@ -1222,7 +1246,7 @@ class APIClient:
             cached = self._get_cache("cargos_lista")
             if cached is not None:
                 return cached
-        
+
         try:
             response = requests.get(
                 f"{self.base_url}/api/cargos/lista",
@@ -1313,7 +1337,7 @@ class APIClient:
                 params["status"] = status
             if prioridade:
                 params["prioridade"] = prioridade
-            
+
             response = requests.get(
                 f"{self.base_url}/api/notificacoes",
                 headers=self.get_headers(),
@@ -1326,7 +1350,7 @@ class APIClient:
         except Exception as e:
             print(f"❌ Erro ao listar notificações: {e}")
             return []
-        
+
     def contar_notificacoes_nao_lidas(self):
         """Retorna a quantidade de notificações não lidas"""
         try:
@@ -1341,7 +1365,7 @@ class APIClient:
         except Exception as e:
             print(f"❌ Erro ao contar notificações: {e}")
             return 0
-        
+
     def marcar_notificacao_lida(self, notificacao_id):
         """Marca uma notificação como lida"""
         try:
@@ -1354,7 +1378,7 @@ class APIClient:
         except Exception as e:
             print(f"❌ Erro ao marcar notificação: {e}")
             return False
-        
+
     def marcar_todas_notificacoes_lidas(self):
         """Marca todas as notificações como lidas"""
         try:
@@ -1367,7 +1391,7 @@ class APIClient:
         except Exception as e:
             print(f"❌ Erro ao marcar todas notificações: {e}")
             return False
-    
+
     def deletar_notificacao(self, notificacao_id):
         """Deleta uma notificação"""
         try:

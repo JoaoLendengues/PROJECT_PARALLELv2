@@ -1,5 +1,5 @@
 {
-    "version": "1.1.9",
-    "release_date": "2026-04-23",
-    "changelog": "Correcao do restart automatico e uso do setup silencioso para autoatualizacao."
+    "version": "1.1.10",
+    "release_date": "2026-04-24",
+    "changelog": "Correcao na criacao de demandas, listagem de colaboradores, filtros dos widgets, monitoramento da rede local e proximo codigo de usuarios."
 }

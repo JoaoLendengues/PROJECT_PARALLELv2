@@ -16,15 +16,34 @@ def listar_usuarios(
     offset: int = Query(0, ge=0)
 ):
     """Lista todos os usuários (apenas administradores)"""
-    
+
     query = db.query(models.UsuarioSistema)
-    
+
     if ativo is not None:
         query = query.filter(models.UsuarioSistema.ativo == ativo)
-    
+
     usuarios = query.order_by(models.UsuarioSistema.nome).offset(offset).limit(limit).all()
-    
+
     return usuarios
+
+
+@router.get('/proximo-codigo')
+def get_proximo_codigo(
+    db: Session = Depends(get_db),
+    admin: models.UsuarioSistema = Depends(auth.verificar_admin)
+):
+    """Retorna o proximo codigo numerico disponivel para novo usuario."""
+    usuarios = db.query(models.UsuarioSistema.codigo).all()
+
+    max_codigo = 0
+    for usuario in usuarios:
+        try:
+            codigo_int = int(str(usuario.codigo).strip())
+        except (TypeError, ValueError):
+            continue
+        max_codigo = max(max_codigo, codigo_int)
+
+    return {"proximo_codigo": str(max_codigo + 1)}
 
 
 @router.get('/{usuario_id}', response_model=schemas.UsuarioSistemaResponse)
@@ -34,12 +53,12 @@ def obter_usuario(
     admin: models.UsuarioSistema = Depends(auth.verificar_admin)
 ):
     """Obtém um usuário específico"""
-    
+
     usuario = db.query(models.UsuarioSistema).filter(models.UsuarioSistema.id == usuario_id).first()
-    
+
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    
+
     return usuario
 
 
@@ -50,15 +69,15 @@ def criar_usuario(
     admin: models.UsuarioSistema = Depends(auth.verificar_admin)
 ):
     """Cria um novo usuário (apenas administradores)"""
-    
+
     # Verificar se código já existe
     existing = db.query(models.UsuarioSistema).filter(
         models.UsuarioSistema.codigo == usuario.codigo
     ).first()
-    
+
     if existing:
         raise HTTPException(status_code=400, detail="Código de usuário já existe")
-    
+
     # Criar usuário com senha padrão
     senha_padrao = "123456"
     novo_usuario = models.UsuarioSistema(
@@ -74,7 +93,7 @@ def criar_usuario(
     db.add(novo_usuario)
     db.commit()
     db.refresh(novo_usuario)
-    
+
     return novo_usuario
 
 
@@ -86,20 +105,20 @@ def atualizar_usuario(
     admin: models.UsuarioSistema = Depends(auth.verificar_admin)
 ):
     """Atualiza um usuário (apenas administradores)"""
-    
+
     usuario_existente = db.query(models.UsuarioSistema).filter(models.UsuarioSistema.id == usuario_id).first()
-    
+
     if not usuario_existente:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    
+
     update_data = usuario.model_dump(exclude_unset=True)
-    
+
     for field, value in update_data.items():
         setattr(usuario_existente, field, value)
-    
+
     db.commit()
     db.refresh(usuario_existente)
-    
+
     return usuario_existente
 
 
@@ -110,15 +129,15 @@ def deletar_usuario(
     admin: models.UsuarioSistema = Depends(auth.verificar_admin)
 ):
     """Remove um usuário (apenas administradores)"""
-    
+
     usuario = db.query(models.UsuarioSistema).filter(models.UsuarioSistema.id == usuario_id).first()
-    
+
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    
+
     db.delete(usuario)
     db.commit()
-    
+
     return {"message": "Usuário deletado com sucesso"}
 
 
@@ -129,17 +148,17 @@ def resetar_senha(
     admin: models.UsuarioSistema = Depends(auth.verificar_admin)
 ):
     """Reseta a senha do usuário para o padrão (apenas administradores)"""
-    
+
     usuario = db.query(models.UsuarioSistema).filter(models.UsuarioSistema.id == usuario_id).first()
-    
+
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    
+
     senha_padrao = "123456"
     usuario.senha_hash = auth.gerar_hash_senha(senha_padrao)
     usuario.primeiro_acesso = True
     db.commit()
-    
+
     return {"message": f"Senha resetada para padrão: {senha_padrao}"}
 
 
@@ -151,49 +170,21 @@ def alterar_senha(
     admin: models.UsuarioSistema = Depends(auth.verificar_admin)
 ):
     """Altera a senha de um usuário (apenas administradores)"""
-    
+
     nova_senha = request.get("nova_senha")
     if not nova_senha:
         raise HTTPException(status_code=400, detail="Nova senha não fornecida")
-    
+
     if len(nova_senha) < 6:
         raise HTTPException(status_code=400, detail="A senha deve ter no mínimo 6 caracteres")
-    
+
     usuario = db.query(models.UsuarioSistema).filter(models.UsuarioSistema.id == usuario_id).first()
-    
+
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    
+
     usuario.senha_hash = auth.gerar_hash_senha(nova_senha)
     usuario.primeiro_acesso = False  # Se o admin está alterando, não é primeiro acesso
     db.commit()
-    
+
     return {"message": "Senha alterada com sucesso"}
-
-
-# =====================================================
-# GERAR PRÓXIMO CÓDIGO AUTOMATICAMENTE
-# =====================================================
-
-@router.get('/proximo-codigo')
-def get_proximo_codigo(
-    db: Session = Depends(get_db),
-    admin: models.UsuarioSistema = Depends(auth.verificar_admin)
-):
-    """Retorna o próximo código disponível para novo usuário (apenas administradores)"""
-    
-    # Buscar todos os códigos
-    usuarios = db.query(models.UsuarioSistema.codigo).all()
-    
-    max_codigo = 0
-    for u in usuarios:
-        try:
-            codigo_int = int(u.codigo)
-            if codigo_int > max_codigo:
-                max_codigo = codigo_int
-        except ValueError:
-            # Se o código não for numérico, ignorar (ex: "ADMIN001")
-            pass
-    
-    proximo = max_codigo + 1
-    return {"proximo_codigo": str(proximo)}
