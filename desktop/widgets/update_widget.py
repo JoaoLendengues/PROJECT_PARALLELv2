@@ -130,7 +130,10 @@ class UpdateWidget(QWidget):
         self.update_btn.setEnabled(False)
         self.check_btn.setEnabled(False)
 
-        self.downloader = UpdateDownloader(self.update_info["download_url"])
+        self.downloader = UpdateDownloader(
+            self.update_info["download_url"],
+            self.update_info.get("asset_name", ""),
+        )
         self.downloader.progress.connect(self.on_download_progress)
         self.downloader.finished.connect(self.on_download_finished)
         self.downloader.error.connect(self.on_download_error)
