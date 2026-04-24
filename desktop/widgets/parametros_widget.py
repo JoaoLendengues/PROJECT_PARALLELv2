@@ -315,9 +315,12 @@ class ParametrosWidget(QWidget):
     def reiniciar_aplicacao(self):
         """Reinicia a aplicação após restauração"""
         QMessageBox.information(self, "Reiniciando", "O sistema será reiniciado para aplicar as alterações.")
-        python = sys.executable
-        script = os.path.abspath(sys.argv[0])
-        subprocess.Popen([python, script])
+        if getattr(sys, "frozen", False):
+            subprocess.Popen([sys.executable])
+        else:
+            python = sys.executable
+            script = os.path.abspath(sys.argv[0])
+            subprocess.Popen([python, script])
         sys.exit(0)
     
     def create_tab_notificacoes(self):
@@ -1049,8 +1052,10 @@ class ParametrosWidget(QWidget):
             return "127.0.0.1"
     
     def carregar_info_servidor(self):
+        health_url = f"{api_client.base_url}/health"
+
         try:
-            response = requests.get("http://10.1.1.151:8000/health", timeout=5)
+            response = requests.get(health_url, timeout=5)
             if response.status_code == 200:
                 self.status_api.setText("✅ Status da API: Online")
                 self.status_api.setStyleSheet("color: #2a9d8f;")
@@ -1066,7 +1071,7 @@ class ParametrosWidget(QWidget):
             self.api_versao.setText("📦 Versão da API: Não disponível")
         
         try:
-            response = requests.get("http://10.1.1.151:8000/health", timeout=5)
+            response = requests.get(health_url, timeout=5)
             if response.status_code == 200:
                 self.status_banco.setText("✅ Banco de Dados: Conectado")
                 self.status_banco.setStyleSheet("color: #2a9d8f;")

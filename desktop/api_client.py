@@ -2,10 +2,11 @@ import requests
 import os
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+from app_paths import get_env_file_path
 
-load_dotenv()
+load_dotenv(get_env_file_path())
 
-API_URL = os.getenv('API_URL', 'http://10.1.1.151:8000')
+API_URL = os.getenv('API_URL', 'http://10.1.1.151:8000').rstrip('/')
 
 
 class APIClient:

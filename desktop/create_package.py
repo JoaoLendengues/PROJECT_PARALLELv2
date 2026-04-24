@@ -1,211 +1,215 @@
-import os
-import zipfile
+from __future__ import annotations
+
+import argparse
 import json
+import os
 import shutil
-from datetime import datetime
+import subprocess
+import sys
+import zipfile
+from datetime import date
+from pathlib import Path
 
-def create_update_package():
-    """Cria o pacote de atualização com todos os arquivos modificados"""
-    
-    print("=" * 50)
-    print("  PROJECT PARALLEL - CREATE UPDATE PACKAGE")
-    print("=" * 50)
-    print()
-    
-    # Obtém o diretório onde o script está rodando
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    desktop_dir = base_dir  # Já que você roda de dentro do desktop
-    backend_dir = os.path.join(base_dir, '..', 'backend')
-    
-    # Versão
-    version = "1.1.6"
-    
-    # Arquivos e pastas a incluir na atualização
-    files_to_include = [
-        # Backend
-        (os.path.join(backend_dir, 'app', 'models.py'), 'backend/app/models.py'),
-        (os.path.join(backend_dir, 'app', 'schemas.py'), 'backend/app/schemas.py'),
-        (os.path.join(backend_dir, 'app', 'main.py'), 'backend/app/main.py'),
-        (os.path.join(backend_dir, 'app', 'auth.py'), 'backend/app/auth.py'),
-        (os.path.join(backend_dir, 'app', 'routers', '__init__.py'), 'backend/app/routers/__init__.py'),
-        (os.path.join(backend_dir, 'app', 'routers', 'notificacoes.py'), 'backend/app/routers/notificacoes.py'),
-        (os.path.join(backend_dir, 'app', 'routers', 'backup.py'), 'backend/app/routers/backup.py'),
-        (os.path.join(backend_dir, 'app', 'routers', 'cargos.py'), 'backend/app/routers/cargos.py'),
-        (os.path.join(backend_dir, 'app', 'routers', 'departamentos.py'), 'backend/app/routers/departamentos.py'),
-        (os.path.join(backend_dir, 'app', 'routers', 'configuracoes.py'), 'backend/app/routers/configuracoes.py'),
-        (os.path.join(backend_dir, 'requirements.txt'), 'backend/requirements.txt'),
-        
-        # Desktop - Core
-        (os.path.join(desktop_dir, 'core', 'notification_manager.py'), 'desktop/core/notification_manager.py'),
-        (os.path.join(desktop_dir, 'core', 'sound_manager.py'), 'desktop/core/sound_manager.py'),
-        (os.path.join(desktop_dir, 'core', 'alert_service.py'), 'desktop/core/alert_service.py'),
-        
-        # Desktop - Widgets
-        (os.path.join(desktop_dir, 'widgets', 'home_widget.py'), 'desktop/widgets/home_widget.py'),
-        (os.path.join(desktop_dir, 'widgets', 'toast_notification.py'), 'desktop/widgets/toast_notification.py'),
-        (os.path.join(desktop_dir, 'widgets', 'notification_center.py'), 'desktop/widgets/notification_center.py'),
-        (os.path.join(desktop_dir, 'widgets', 'notification_badge.py'), 'desktop/widgets/notification_badge.py'),
-        (os.path.join(desktop_dir, 'widgets', 'main_window.py'), 'desktop/widgets/main_window.py'),
-        (os.path.join(desktop_dir, 'widgets', 'parametros_widget.py'), 'desktop/widgets/parametros_widget.py'),
-        (os.path.join(desktop_dir, 'widgets', 'materiais_widget.py'), 'desktop/widgets/materiais_widget.py'),
-        (os.path.join(desktop_dir, 'widgets', 'maquinas_widget.py'), 'desktop/widgets/maquinas_widget.py'),
-        (os.path.join(desktop_dir, 'widgets', 'movimentacoes_widget.py'), 'desktop/widgets/movimentacoes_widget.py'),
-        (os.path.join(desktop_dir, 'widgets', 'manutencoes_widget.py'), 'desktop/widgets/manutencoes_widget.py'),
-        (os.path.join(desktop_dir, 'widgets', 'pedidos_widget.py'), 'desktop/widgets/pedidos_widget.py'),
-        (os.path.join(desktop_dir, 'widgets', 'colaboradores_widget.py'), 'desktop/widgets/colaboradores_widget.py'),
-        (os.path.join(desktop_dir, 'widgets', 'demandas_widget.py'), 'desktop/widgets/demandas_widget.py'),
-        (os.path.join(desktop_dir, 'widgets', 'relatorios_widget.py'), 'desktop/widgets/relatorios_widget.py'),
-        (os.path.join(desktop_dir, 'widgets', 'usuarios_widget.py'), 'desktop/widgets/usuarios_widget.py'),
-        
-        # Desktop - Main
-        (os.path.join(desktop_dir, 'api_client.py'), 'desktop/api_client.py'),
-        (os.path.join(desktop_dir, 'main.py'), 'desktop/main.py'),
-        (os.path.join(desktop_dir, 'updater.py'), 'desktop/updater.py'),
-        (os.path.join(desktop_dir, 'version.py'), 'desktop/version.py'),
-        (os.path.join(desktop_dir, 'version.json'), 'desktop/version.json'),
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+DESKTOP_DIR = ROOT_DIR / "desktop"
+VERSION_FILE = DESKTOP_DIR / "version.json"
+SPEC_FILE = DESKTOP_DIR / "main.spec"
+DIST_ROOT = DESKTOP_DIR / "output"
+DIST_DIR = DIST_ROOT / "main"
+BUILD_DIR = DESKTOP_DIR / "build"
+INSTALLER_SCRIPT = ROOT_DIR / "installer_script.iss"
+ARTIFACTS_DIR = ROOT_DIR / "installer_output"
+
+
+def load_version_data():
+    with open(VERSION_FILE, "r", encoding="utf-8") as file:
+        return json.load(file)
+
+
+def save_version_data(data):
+    with open(VERSION_FILE, "w", encoding="utf-8") as file:
+        json.dump(data, file, indent=4, ensure_ascii=False)
+        file.write("\n")
+
+
+def update_version_file(version=None, release_date=None, changelog=None):
+    data = load_version_data()
+    changed = False
+
+    if version and data.get("version") != version:
+        data["version"] = version
+        changed = True
+
+    if changelog is not None and data.get("changelog") != changelog:
+        data["changelog"] = changelog
+        changed = True
+
+    if release_date is None and changed:
+        release_date = date.today().isoformat()
+
+    if release_date and data.get("release_date") != release_date:
+        data["release_date"] = release_date
+        changed = True
+
+    if changed:
+        save_version_data(data)
+
+    return data
+
+
+def run_command(command, cwd=ROOT_DIR):
+    print(f"> {' '.join(str(part) for part in command)}")
+    subprocess.run(command, cwd=cwd, check=True)
+
+
+def build_desktop():
+    pyinstaller_command = [
+        sys.executable,
+        "-m",
+        "PyInstaller",
+        str(SPEC_FILE),
+        "--noconfirm",
+        "--clean",
+        "--distpath",
+        str(DIST_ROOT),
+        "--workpath",
+        str(BUILD_DIR),
     ]
-    
-    # Criar pasta temp
-    temp_dir = 'temp_update'
-    if os.path.exists(temp_dir):
-        shutil.rmtree(temp_dir)
-    os.makedirs(temp_dir, exist_ok=True)
-    
-    print("📦 Copiando arquivos...")
-    print("-" * 40)
-    
-    # Copiar arquivos
-    arquivos_copiados = 0
-    arquivos_nao_encontrados = 0
-    
-    for src, dst in files_to_include:
-        if os.path.exists(src):
-            dst_path = os.path.join(temp_dir, dst)
-            os.makedirs(os.path.dirname(dst_path), exist_ok=True)
-            shutil.copy2(src, dst_path)
-            print(f"✅ {os.path.basename(src)}")
-            arquivos_copiados += 1
-        else:
-            print(f"⚠️ Arquivo não encontrado: {src}")
-            arquivos_nao_encontrados += 1
-    
-    print("-" * 40)
-    print(f"📊 Resumo: {arquivos_copiados} arquivos copiados, {arquivos_nao_encontrados} não encontrados")
-    
-    # Criar arquivo de changelog
-    changelog = f"""
-=== PROJECT PARALLEL - ATUALIZAÇÃO v{version} ===
-Data: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}
+    run_command(pyinstaller_command, cwd=ROOT_DIR)
 
-🔧 CORREÇÕES NESTA VERSÃO:
+    executable_path = DIST_DIR / "main.exe"
+    if not executable_path.exists():
+        raise FileNotFoundError(
+            f"Build concluido sem encontrar o executavel esperado em {executable_path}"
+        )
 
-1. 🐛 Corrigido erro 'NoneType' ao carregar movimentações com observação vazia
-2. 🪟 Corrigido toast notification para aparecer dentro da janela do sistema
-3. ❌ Removida barra de título e botões de janela das notificações
-4. 🎨 Ajustado layout das notificações
+    return executable_path
 
-📋 INSTRUÇÕES DE ATUALIZAÇÃO:
 
-1. Faça backup do banco de dados (recomendado)
-2. Substitua os arquivos do backend pelos da pasta 'backend/'
-3. Substitua os arquivos do desktop pelos da pasta 'desktop/'
-4. Reinicie o backend e o frontend
+def create_portable_zip(version):
+    if not DIST_DIR.exists():
+        raise FileNotFoundError(
+            "Nao encontrei o build do desktop. Rode o script sem --skip-build primeiro."
+        )
 
-✅ TESTADO E APROVADO!
-"""
-    
-    changelog_path = os.path.join(temp_dir, 'CHANGELOG.txt')
-    with open(changelog_path, 'w', encoding='utf-8') as f:
-        f.write(changelog)
-    print(f"✅ Criado: CHANGELOG.txt")
-    
-    # Criar script SQL para atualização do banco
-    sql_script = """
--- PROJECT PARALLEL - ATUALIZAÇÃO DO BANCO DE DADOS
--- Versão: 1.1.5
+    ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
+    zip_path = ARTIFACTS_DIR / f"ProjectParallel_Portable_v{version}.zip"
 
--- Verificar versão atual
-SELECT valor as versao_atual FROM configuracoes WHERE chave = 'versao_sistema';
+    if zip_path.exists():
+        zip_path.unlink()
 
--- Atualizar versão
-INSERT INTO configuracoes (chave, valor) VALUES ('versao_sistema', '1.1.5')
-ON CONFLICT (chave) DO UPDATE SET valor = '1.1.5';
-"""
-    
-    sql_path = os.path.join(temp_dir, 'update_database.sql')
-    with open(sql_path, 'w', encoding='utf-8') as f:
-        f.write(sql_script)
-    print(f"✅ Criado: update_database.sql")
-    
-    # Criar arquivo README da atualização
-    readme_content = f"""PROJECT PARALLEL - PACOTE DE ATUALIZAÇÃO v{version}
-=============================================
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
+        for path in DIST_DIR.rglob("*"):
+            if path.is_file():
+                archive.write(path, path.relative_to(DIST_DIR))
 
-📦 CONTEÚDO DO PACOTE:
-- backend/     → Arquivos do servidor (FastAPI)
-- desktop/     → Arquivos do cliente (PySide6)
-- CHANGELOG.txt → Lista de mudanças
-- update_database.sql → Scripts SQL
+    return zip_path
 
-🚀 COMO ATUALIZAR:
 
-1. BACKEND (servidor):
-   - Parar o serviço do backend
-   - Substituir os arquivos da pasta 'backend/'
-   - Executar o script SQL no PostgreSQL
-   - Reiniciar o backend
+def find_inno_compiler():
+    compiler = shutil.which("ISCC.exe")
+    if compiler:
+        return Path(compiler)
 
-2. DESKTOP (clientes):
-   - Substituir os arquivos da pasta 'desktop/'
+    for env_key in ("ProgramFiles(x86)", "ProgramFiles"):
+        base_dir = os.environ.get(env_key)
+        if not base_dir:
+            continue
 
-Versão: {version}
-Data: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}
-"""
-    
-    readme_path = os.path.join(temp_dir, 'README_UPDATE.txt')
-    with open(readme_path, 'w', encoding='utf-8') as f:
-        f.write(readme_content)
-    print(f"✅ Criado: README_UPDATE.txt")
-    
-    # Criar arquivo zip
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    zip_filename = f'project_parallel_update_v{version}_{timestamp}.zip'
-    
+        candidate = Path(base_dir) / "Inno Setup 6" / "ISCC.exe"
+        if candidate.exists():
+            return candidate
+
+    local_appdata = os.environ.get("LOCALAPPDATA")
+    if local_appdata:
+        candidate = Path(local_appdata) / "Programs" / "Inno Setup 6" / "ISCC.exe"
+        if candidate.exists():
+            return candidate
+
+    return None
+
+
+def build_installer(version):
+    compiler = find_inno_compiler()
+    if not compiler:
+        print("! Inno Setup nao encontrado. O ZIP portatil foi gerado, mas o setup foi pulado.")
+        return None
+
+    command = [
+        str(compiler),
+        f"/DMyAppVersion={version}",
+        f"/DBuildRoot={DIST_DIR}",
+        str(INSTALLER_SCRIPT),
+    ]
+    run_command(command, cwd=ROOT_DIR)
+
+    installer_path = ARTIFACTS_DIR / f"ProjectParallel_Setup_v{version}.exe"
+    if installer_path.exists():
+        return installer_path
+
+    return None
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Gera os artefatos de distribuicao do Project Parallel."
+    )
+    parser.add_argument("--version", help="Nova versao a gravar no version.json antes do build.")
+    parser.add_argument("--release-date", help="Data da release no formato YYYY-MM-DD.")
+    parser.add_argument("--changelog", help="Changelog resumido da release.")
+    parser.add_argument(
+        "--skip-build",
+        action="store_true",
+        help="Reaproveita o build ja existente em desktop/output/main.",
+    )
+    parser.add_argument(
+        "--skip-installer",
+        action="store_true",
+        help="Gera apenas o ZIP portatil usado pelo updater.",
+    )
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    version_data = update_version_file(
+        version=args.version,
+        release_date=args.release_date,
+        changelog=args.changelog,
+    )
+    version = version_data["version"]
+
+    print("=" * 60)
+    print(f"Project Parallel - Release Builder v{version}")
+    print("=" * 60)
+
+    if not args.skip_build:
+        build_desktop()
+    elif not (DIST_DIR / "main.exe").exists():
+        raise FileNotFoundError(
+            "Voce usou --skip-build, mas nao existe um build valido em desktop/output/main."
+        )
+
+    portable_zip = create_portable_zip(version)
+    installer_path = None if args.skip_installer else build_installer(version)
+
     print()
-    print("📦 Criando arquivo ZIP...")
-    
-    with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        for root, dirs, files in os.walk(temp_dir):
-            for file in files:
-                file_path = os.path.join(root, file)
-                arcname = os.path.relpath(file_path, temp_dir)
-                zipf.write(file_path, arcname)
-    
-    # Limpar temp
-    shutil.rmtree(temp_dir)
-    
-    # Tamanho do arquivo
-    size_mb = os.path.getsize(zip_filename) / (1024 * 1024)
-    
+    print("Artefatos gerados:")
+    print(f"- ZIP portatil: {portable_zip}")
+    if installer_path:
+        print(f"- Setup Windows: {installer_path}")
+    elif not args.skip_installer:
+        print("- Setup Windows: nao gerado (Inno Setup nao encontrado)")
+
     print()
-    print("=" * 50)
-    print(f"✅ PACOTE DE ATUALIZAÇÃO CRIADO COM SUCESSO!")
-    print("=" * 50)
-    print(f"📦 Arquivo: {zip_filename}")
-    print(f"📏 Tamanho: {size_mb:.2f} MB")
-    print(f"📌 Versão: {version}")
-    print(f"📅 Data: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
-    print("=" * 50)
-    print()
-    print("📋 INSTRUÇÕES:")
-    print("1. Execute o script SQL no banco de dados PostgreSQL")
-    print("2. Substitua os arquivos do backend pelos da pasta 'backend/'")
-    print("3. Substitua os arquivos do desktop pelos da pasta 'desktop/'")
-    print("4. Reinicie o backend e o frontend")
-    print("=" * 50)
-    
-    return zip_filename
+    print("Publicacao sugerida no GitHub Release:")
+    print(f"1. Criar a tag v{version}")
+    print(f"2. Anexar o arquivo {portable_zip.name}")
+    if installer_path:
+        print(f"3. Anexar tambem o arquivo {installer_path.name}")
+    print("4. Publicar o changelog da versao")
 
 
-if __name__ == '__main__':
-    create_update_package()
+if __name__ == "__main__":
+    main()

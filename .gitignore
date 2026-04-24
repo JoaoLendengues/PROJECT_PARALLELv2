@@ -16,6 +16,9 @@ __pycache__/
 dist/
 build/
 output/
+desktop/output/
+desktop/build/
+installer_output/
 eggs/
 .eggs/
 parts/

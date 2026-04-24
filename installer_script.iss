@@ -1,47 +1,55 @@
-; Script gerado para o Projeto Parallel
-; Estrutura: One Directory (com pasta _internal)
-; Usando caminhos relativos para portabilidade
+#define MyAppName "Project Parallel"
+#define MyAppPublisher "JoaoLendengues"
+#define MyAppURL "https://github.com/JoaoLendengues/PROJECT_PARALLELv2"
+
+#ifndef MyAppVersion
+  #define MyAppVersion "1.1.7"
+#endif
+
+#ifndef BuildRoot
+  #define BuildRoot "desktop\output\main"
+#endif
 
 [Setup]
-; Informações Básicas do App
-AppName=Project Parallel
-AppVersion=1.1.7
-AppPublisher=JoaoLendengues
-AppPublisherURL=https://github.com/JoaoLendengues/PROJECT_PARALLELv2
-AppSupportURL=https://github.com/JoaoLendengues/PROJECT_PARALLELv2
-DefaultDirName={autopf}\ProjectParallel
-DefaultGroupName=Project Parallel
+AppId={{3D50B072-6E6D-4A85-A7A2-3EE33F1D6CB1}
+AppName={#MyAppName}
+AppVersion={#MyAppVersion}
+AppPublisher={#MyAppPublisher}
+AppPublisherURL={#MyAppURL}
+AppSupportURL={#MyAppURL}
+DefaultDirName={localappdata}\Programs\ProjectParallel
+DefaultGroupName={#MyAppName}
+UsePreviousAppDir=yes
 AllowNoIcons=yes
 PrivilegesRequired=lowest
 OutputDir=installer_output
-OutputBaseFilename=ProjectParallel_Setup
+OutputBaseFilename=ProjectParallel_Setup_v{#MyAppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayIcon={app}\main.exe
+CloseApplications=force
+RestartApplications=no
 
 [Languages]
 Name: "portuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "Criar ícone na Área de Trabalho"; GroupDescription: "Ícones adicionais:"
-Name: "startmenuicon"; Description: "Criar ícone no Menu Iniciar"; GroupDescription: "Ícones adicionais:"; Flags: unchecked
+Name: "desktopicon"; Description: "Criar icone na Area de Trabalho"; GroupDescription: "Icones adicionais:"
+Name: "startmenuicon"; Description: "Criar icone no Menu Iniciar"; GroupDescription: "Icones adicionais:"; Flags: unchecked
+
+[InstallDelete]
+Type: filesandordirs; Name: "{app}\_internal"
 
 [Files]
-; ✅ Copia o executável principal (caminho relativo)
-Source: "desktop\output\main\main.exe"; DestDir: "{app}"; Flags: ignoreversion
-
-; ✅ Copia a pasta _internal COMPLETA (caminho relativo)
-Source: "desktop\output\main\_internal\*"; DestDir: "{app}\_internal"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#BuildRoot}\main.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BuildRoot}\_internal\*"; DestDir: "{app}\_internal"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "desktop\.env"; DestDir: "{app}"; DestName: ".env"; Flags: ignoreversion onlyifdoesntexist uninsneveruninstall skipifsourcedoesntexist
 
 [Icons]
-; Ícone do Menu Iniciar
 Name: "{group}\Project Parallel"; Filename: "{app}\main.exe"
-; Ícone da Área de Trabalho (condicional)
 Name: "{autodesktop}\Project Parallel"; Filename: "{app}\main.exe"; Tasks: desktopicon
-; Desinstalador
 Name: "{group}\Desinstalar Project Parallel"; Filename: "{uninstallexe}"
 
 [Run]
-; Executa o app após a instalação
 Filename: "{app}\main.exe"; Description: "Executar Project Parallel agora"; Flags: postinstall nowait skipifsilent

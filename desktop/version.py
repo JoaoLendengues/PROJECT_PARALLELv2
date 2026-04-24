@@ -1,38 +1,38 @@
 # version.py
 import json
-import os
+
+from app_paths import get_resource_path
+
+
+def _load_version_data():
+    version_file = get_resource_path("version.json")
+    with open(version_file, "r", encoding="utf-8") as file:
+        return json.load(file)
+
 
 def get_version():
-    """Retorna apenas o número da versão"""
+    """Retorna apenas o numero da versao."""
     try:
-        version_file = os.path.join(os.path.dirname(__file__), 'version.json')
-        if os.path.exists(version_file):
-            with open(version_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                return data.get('version', '1.0.0')
-    except Exception as e:
-        print(f"Erro ao ler versão: {e}")
-    return '1.0.0'
+        return _load_version_data().get("version", "1.0.0")
+    except Exception as error:
+        print(f"Erro ao ler versao: {error}")
+        return "1.0.0"
+
 
 def get_release_date():
-    """Retorna a data da versão"""
+    """Retorna a data da versao."""
     try:
-        version_file = os.path.join(os.path.dirname(__file__), 'version.json')
-        with open(version_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            return data.get('release_date', '')
-    except:
-        return ''
+        return _load_version_data().get("release_date", "")
+    except Exception:
+        return ""
+
 
 def get_changelog():
-    """Retorna o changelog"""
+    """Retorna o changelog."""
     try:
-        version_file = os.path.join(os.path.dirname(__file__), 'version.json')
-        with open(version_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            return data.get('changelog', '')
-    except:
-        return ''
+        return _load_version_data().get("changelog", "")
+    except Exception:
+        return ""
 
-# Versão atual
+
 CURRENT_VERSION = get_version()

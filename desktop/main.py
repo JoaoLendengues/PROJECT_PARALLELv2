@@ -1,16 +1,15 @@
 import sys
-import os
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt, QTimer
 from dotenv import load_dotenv
 
 from widgets.main_window import MainWindow
 from widgets.login_widget import LoginWidget
-from api_client import api_client
 from updater import UpdateChecker
 from widgets.toast_notification import notification_manager
+from app_paths import get_env_file_path, get_resource_path
 
-load_dotenv()
+load_dotenv(get_env_file_path())
 
 # Variáveis globais
 _app = None
@@ -82,7 +81,6 @@ def main():
     _app.setStyle('Windows')
     
     # Configurar o notification_manager com a janela principal (será atualizado depois)
-    from core.notification_manager import notification_manager as core_nm
     # O parent será definido quando a MainWindow for criada
     
     global_style = """
@@ -147,8 +145,8 @@ def main():
         }
     """
     
-    style_path = os.path.join(os.path.dirname(__file__), 'styles', 'style.qss')
-    if os.path.exists(style_path):
+    style_path = get_resource_path('styles', 'style.qss')
+    if style_path.exists():
         with open(style_path, 'r', encoding='utf-8') as f:
             base_style = f.read()
         _app.setStyleSheet(base_style + global_style)
