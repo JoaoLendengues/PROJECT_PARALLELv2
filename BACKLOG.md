@@ -1,6 +1,6 @@
 # Backlog do Produto
 
-Ideias registradas em 2026-04-24 para evolucao futura do desktop.
+Ideias registradas em 2026-04-24 e atualizadas em 2026-04-27 para evolucao futura do desktop.
 
 ## Atendimento e monitoramento
 
@@ -28,6 +28,7 @@ Ideias registradas em 2026-04-24 para evolucao futura do desktop.
 - Centralizar textos e fontes em todas as colunas.
 - Implementar ordenacao em todos os grids ao clicar no cabecalho das colunas.
 - Permitir ordenacao crescente e decrescente por codigo, nome e demais campos relevantes.
+- Reforcar a prioridade da ordenacao dos grids com base nos testes recentes de uso.
 
 ## Acessibilidade e interface
 
@@ -53,6 +54,16 @@ Ideias registradas em 2026-04-24 para evolucao futura do desktop.
 - Implementar busca rapida dentro dos widgets por codigo, nome, status e outros campos relevantes.
 - Criar um painel tecnico discreto com status da API, banco, rede e versao atual do app.
 - Planejar atalhos operacionais para fluxos comuns depois que a navegacao por teclado estiver consolidada.
+
+## Notificacoes e atualizacao em tempo real
+
+- Adicionar um modo "Nao perturbe" para notificacoes.
+- Corrigir o bug em que o card de manutencoes pendentes nao atualiza em tempo real quando o status e alterado.
+
+## Movimentacoes e rastreabilidade
+
+- Exigir confirmacao por senha sempre que registrar uma nova movimentacao, seja entrada ou saida.
+- Aproveitar o sistema de logs ja existente para registrar confirmacoes e operacoes de movimentacao.
 
 ## Proximo passo quando retomarmos
 
