@@ -54,7 +54,7 @@ def criar_cargo(
     ).first()
     
     if existing:
-        raise HTTPException(status_code=400, detail="Cargo já existe")
+        raise HTTPException(status_code=400, detail="Cargo ja existe")
     
     novo_cargo = models.Cargo(**cargo.model_dump())
     db.add(novo_cargo)
@@ -78,12 +78,42 @@ def atualizar_cargo(
     ).first()
     
     if not cargo_existente:
-        raise HTTPException(status_code=404, detail="Cargo não encontrado")
+        raise HTTPException(status_code=404, detail="Cargo nao encontrado")
     
     update_data = cargo.model_dump(exclude_unset=True)
-    
+
+    novo_nome = update_data.get("nome")
+    if novo_nome is not None:
+        novo_nome = novo_nome.strip()
+        if not novo_nome:
+            raise HTTPException(status_code=400, detail="Nome do cargo nao pode estar vazio")
+        update_data["nome"] = novo_nome
+
+    nome_anterior = cargo_existente.nome
+    if novo_nome and novo_nome != nome_anterior:
+        existente_com_nome = db.query(models.Cargo).filter(
+            models.Cargo.nome == novo_nome,
+            models.Cargo.id != cargo_id
+        ).first()
+
+        if existente_com_nome:
+            raise HTTPException(status_code=400, detail="Cargo ja existe")
+
     for field, value in update_data.items():
         setattr(cargo_existente, field, value)
+
+    if novo_nome and novo_nome != nome_anterior:
+        db.query(models.Colaborador).filter(
+            models.Colaborador.cargo == nome_anterior
+        ).update({models.Colaborador.cargo: novo_nome}, synchronize_session=False)
+
+        db.query(models.UsuarioSistema).filter(
+            models.UsuarioSistema.cargo == nome_anterior
+        ).update({models.UsuarioSistema.cargo: novo_nome}, synchronize_session=False)
+
+        db.query(models.Usuario).filter(
+            models.Usuario.cargo == nome_anterior
+        ).update({models.Usuario.cargo: novo_nome}, synchronize_session=False)
     
     db.commit()
     db.refresh(cargo_existente)
@@ -102,9 +132,9 @@ def deletar_cargo(
     cargo = db.query(models.Cargo).filter(models.Cargo.id == cargo_id).first()
     
     if not cargo:
-        raise HTTPException(status_code=404, detail="Cargo não encontrado")
+        raise HTTPException(status_code=404, detail="Cargo nao encontrado")
     
-    # Verificar se está sendo usado em colaboradores ou usuários
+    # Verificar se estÃ¡ sendo usado em colaboradores ou usuÃ¡rios
     colaborador_uso = db.query(models.Colaborador).filter(
         models.Colaborador.cargo == cargo.nome
     ).first()
@@ -112,11 +142,15 @@ def deletar_cargo(
     usuario_uso = db.query(models.UsuarioSistema).filter(
         models.UsuarioSistema.cargo == cargo.nome
     ).first()
+
+    usuario_legado_uso = db.query(models.Usuario).filter(
+        models.Usuario.cargo == cargo.nome
+    ).first()
     
-    if colaborador_uso or usuario_uso:
+    if colaborador_uso or usuario_uso or usuario_legado_uso:
         raise HTTPException(
             status_code=400,
-            detail="Cargo está sendo usado em colaboradores ou usuários"
+            detail="Cargo estÃ¡ sendo usado em outros registros do sistema"
         )
     
     db.delete(cargo)

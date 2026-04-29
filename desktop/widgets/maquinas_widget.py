@@ -7,6 +7,7 @@ from PySide6.QtGui import QFont, QColor, QCursor
 from api_client import api_client
 from widgets.toast_notification import notification_manager
 from widgets.filter_utils import contains_text, is_all_option, same_filter_value, same_text
+from widgets.table_utils import configure_data_table, number_item
 
 
 class MaquinasWidget(QWidget):
@@ -114,9 +115,7 @@ class MaquinasWidget(QWidget):
         headers = ["ID", "Nome", "Modelo", "Endereço MAC", "Empresa", "Departamento", "Status", "Observações"]
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
-
-        self.tabela.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.tabela.horizontalHeader().setSectionResizeMode(7, QHeaderView.Stretch)
+        configure_data_table(self.tabela, stretch_columns=(1, 7))
 
         layout.addWidget(self.tabela)
 
@@ -206,7 +205,7 @@ class MaquinasWidget(QWidget):
         }
 
         for row, maquina in enumerate(maquinas):
-            self.tabela.setItem(row, 0, QTableWidgetItem(str(maquina.get("id", ""))))
+            self.tabela.setItem(row, 0, number_item(maquina.get("id", "")))
             self.tabela.setItem(row, 1, QTableWidgetItem(maquina.get("nome", "")))
             self.tabela.setItem(row, 2, QTableWidgetItem(maquina.get("modelo", "-")))
 

@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QFont, QColor
 from api_client import api_client
 from widgets.filter_utils import is_all_option, same_filter_value
+from widgets.table_utils import configure_data_table, number_item
 
 
 class DemandasWidget(QWidget):
@@ -85,8 +86,7 @@ class DemandasWidget(QWidget):
         headers = ["ID", "Título", "Solicitante", "Prioridade", "Urgência", "Status", "Data Abertura", "Responsável"]
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
-
-        self.tabela.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        configure_data_table(self.tabela, stretch_columns=(1,))
 
         layout.addWidget(self.tabela)
 
@@ -156,7 +156,7 @@ class DemandasWidget(QWidget):
         }
 
         for row, d in enumerate(demandas):
-            self.tabela.setItem(row, 0, QTableWidgetItem(str(d.get("id", ""))))
+            self.tabela.setItem(row, 0, number_item(d.get("id", "")))
             self.tabela.setItem(row, 1, QTableWidgetItem(d.get("titulo", "")[:60]))
             self.tabela.setItem(row, 2, QTableWidgetItem(d.get("solicitante", "-")))
 

@@ -7,6 +7,7 @@ from PySide6.QtCore import Qt, QDate, QThread, Signal
 from PySide6.QtGui import QFont, QColor
 from api_client import api_client
 from widgets.filter_utils import filter_value, is_all_option
+from widgets.table_utils import configure_data_table
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
@@ -268,7 +269,7 @@ class RelatoriosWidget(QWidget):
         headers = ["ID", "Material", "Tipo", "Quantidade", "Empresa", "Destinatário", "Data/Hora", "Usuário", "Observação"]
         self.mov_tabela.setColumnCount(len(headers))
         self.mov_tabela.setHorizontalHeaderLabels(headers)
-        self.mov_tabela.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        configure_data_table(self.mov_tabela, stretch_columns=(1, 8))
 
         layout.addWidget(self.mov_tabela)
 
@@ -380,7 +381,7 @@ class RelatoriosWidget(QWidget):
         headers = ["ID", "Nome", "Descrição", "Quantidade", "Categoria", "Empresa", "Status"]
         self.est_tabela.setColumnCount(len(headers))
         self.est_tabela.setHorizontalHeaderLabels(headers)
-        self.est_tabela.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        configure_data_table(self.est_tabela, stretch_columns=(1, 2))
 
         layout.addWidget(self.est_tabela)
 
@@ -473,7 +474,7 @@ class RelatoriosWidget(QWidget):
         headers = ["ID", "Material", "Qtd", "Solicitante", "Empresa", "Data Solic.", "Data Conclusão", "Status"]
         self.ped_tabela.setColumnCount(len(headers))
         self.ped_tabela.setHorizontalHeaderLabels(headers)
-        self.ped_tabela.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        configure_data_table(self.ped_tabela, stretch_columns=(1,))
 
         layout.addWidget(self.ped_tabela)
 
@@ -564,7 +565,7 @@ class RelatoriosWidget(QWidget):
         headers = ["ID", "Título", "Solicitante", "Prioridade", "Status", "Data Abertura", "Responsável"]
         self.dem_tabela.setColumnCount(len(headers))
         self.dem_tabela.setHorizontalHeaderLabels(headers)
-        self.dem_tabela.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        configure_data_table(self.dem_tabela, stretch_columns=(1,))
 
         layout.addWidget(self.dem_tabela)
 

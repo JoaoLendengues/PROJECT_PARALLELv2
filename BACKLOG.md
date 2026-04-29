@@ -1,68 +1,59 @@
 # Backlog do Produto
 
-<<<<<<< HEAD
 Ideias registradas em 2026-04-24 e atualizadas em 2026-04-27 para evolucao futura do desktop.
-=======
-Ideias registradas em 2026-04-24 para evolução futura do desktop.
->>>>>>> 47f661479ef5dcc65c60d3eaffc5f7850989cfc1
 
 ## Atendimento e monitoramento
 
-- Na tela de demandas, permitir que outros usuários possam lançar novas demandas. Notificar aos gerentes e administradores do sistema da nova inserção.
-- Monitoramento em tempo real das máquinas da mesma rede.
-- Suporte a rede compartilhada entre empresas com comunicação LAN-to-LAN entre pontos e lojas.
+- Na tela de demandas, permitir que outros usuarios possam lancar novas demandas. Notificar aos gerentes e administradores do sistema da nova insercao.
+- Monitoramento em tempo real das maquinas da mesma rede.
+- Suporte a rede compartilhada entre empresas com comunicacao LAN-to-LAN entre pontos e lojas.
 
-## Parâmetros e administração
+## Parametros e administracao
 
-- Permitir edição de parâmetros de empresa, cargos, departamentos e categorias.
-- Criar um botão de edição para os itens cadastrados dentro dessas tabelas de parâmetros.
-- Implementar um sistema de nível de acesso mais moderno e mais restritivo por perfil.
-- Exibir mensagem visual de "Acesso nao permitido" quando o usuário tentar abrir uma tela sem permissão.
-- Definir o comportamento de permissão em duas camadas: menu visivel por perfil e bloqueio real ao entrar na tela.
+- Permitir edicao de parametros de empresa, cargos, departamentos e categorias.
+- Criar um botao de edicao para os itens cadastrados dentro dessas tabelas de parametros.
+- Implementar um sistema de nivel de acesso mais moderno e mais restritivo por perfil.
+- Exibir mensagem visual de "Acesso nao permitido" quando o usuario tentar abrir uma tela sem permissao.
+- Definir o comportamento de permissao em duas camadas: menu visivel por perfil e bloqueio real ao entrar na tela.
 - Criar trilha de auditoria para registrar quem criou, editou ou excluiu itens sensiveis do sistema.
 - Regras iniciais sugeridas:
   - Administrador com acesso total ao sistema, backup, parametros, telas e relatorios.
-  - Gerência com acesso a relatórios, movimentações e telas operacionais selecionadas.
-  - Usuário comum com acesso a movimentações e relatórios básicos.
+  - Gerencia com acesso a relatorios, movimentacoes e telas operacionais selecionadas.
+  - Usuario comum com acesso a movimentacoes e relatorios basicos.
 
 ## Grids e widgets
 
-- Realinhar o tamanho das colunas dos widgets para caber todo o conteúdo do grid.
-- Ajustar colunas que hoje cortam informações, incluindo cabeçalhos como "Departamentos".
+- Realinhar o tamanho das colunas dos widgets para caber todo o conteudo do grid.
+- Ajustar colunas que hoje cortam informacoes, incluindo cabecalhos como "Departamentos".
 - Centralizar textos e fontes em todas as colunas.
-<<<<<<< HEAD
 - Implementar ordenacao em todos os grids ao clicar no cabecalho das colunas.
 - Permitir ordenacao crescente e decrescente por codigo, nome e demais campos relevantes.
 - Reforcar a prioridade da ordenacao dos grids com base nos testes recentes de uso.
-=======
-- Implementar ordenação em todos os grids ao clicar no cabeçalho das colunas.
-- Permitir ordenação crescente e decrescente por código, nome e demais campos relevantes.
->>>>>>> 47f661479ef5dcc65c60d3eaffc5f7850989cfc1
 
 ## Acessibilidade e interface
 
-- Criar uma tabela ou configuração de acessibilidade em Parâmetros.
-- Priorizar um MVP com tema, tamanho da fonte, escala da interface e navegação por teclado.
-- Salvar preferências de acessibilidade por usuário.
+- Criar uma tabela ou configuracao de acessibilidade em Parametros.
+- Priorizar um MVP com tema, tamanho da fonte, escala da interface e navegacao por teclado.
+- Salvar preferencias de acessibilidade por usuario.
 - Tema previsto inicialmente: claro e escuro.
-- Tamanho da fonte previsto inicialmente: pequeno, padrão e grande.
+- Tamanho da fonte previsto inicialmente: pequeno, padrao e grande.
 - Escala da interface prevista inicialmente: 100, 110, 125 e 150.
-- Navegação por teclado prevista inicialmente: ativa ou inativa.
+- Navegacao por teclado prevista inicialmente: ativa ou inativa.
 
 ## Pedidos e compras
 
 - Implementar uma aba em Pedidos.
-- Criar um campo para inserção de links de compra.
+- Criar um campo para insercao de links de compra.
 - Exemplos de links previstos: Mercado Livre, Amazon, Kabum e sites semelhantes.
 
-## Experiência e produtividade
+## Experiencia e produtividade
 
-- Salvar preferências por usuário, como ordenação do grid, largura das colunas e filtros mais usados.
-- Melhorar mensagens de retorno para confirmar ações e explicar erros com mais clareza.
-- Destacar melhor os campos obrigatórios nas telas de cadastro.
-- Implementar busca rápida dentro dos widgets por código, nome, status e outros campos relevantes.
-- Criar um painel técnico discreto com status da API, banco, rede e versão atual do app.
-- Planejar atalhos operacionais para fluxos comuns depois que a navegação por teclado estiver consolidada.
+- Salvar preferencias por usuario, como ordenacao do grid, largura das colunas e filtros mais usados.
+- Melhorar mensagens de retorno para confirmar acoes e explicar erros com mais clareza.
+- Destacar melhor os campos obrigatorios nas telas de cadastro.
+- Implementar busca rapida dentro dos widgets por codigo, nome, status e outros campos relevantes.
+- Criar um painel tecnico discreto com status da API, banco, rede e versao atual do app.
+- Planejar atalhos operacionais para fluxos comuns depois que a navegacao por teclado estiver consolidada.
 
 ## Notificacoes e atualizacao em tempo real
 
@@ -77,5 +68,5 @@ Ideias registradas em 2026-04-24 para evolução futura do desktop.
 ## Proximo passo quando retomarmos
 
 - Quebrar cada bloco em tarefas menores.
-- Definir prioridade entre UX, segurança de acesso e monitoramento.
+- Definir prioridade entre UX, seguranca de acesso e monitoramento.
 - Avaliar impacto de banco, API e desktop em cada item antes de desenvolver.

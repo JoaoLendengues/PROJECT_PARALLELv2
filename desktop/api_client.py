@@ -84,6 +84,20 @@ class APIClient:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
+    def confirmar_senha_atual(self, senha):
+        """Confirma a senha do usuario autenticado para acoes sensiveis."""
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/auth/confirmar-senha",
+                json={"senha": senha},
+                headers=self.get_headers(),
+                timeout=30
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"Erro ao confirmar senha: {e}")
+            return False
+
     # =====================================================
     # Materiais
     # =====================================================
@@ -901,6 +915,22 @@ class APIClient:
             print(f"❌ Erro ao adicionar empresa: {e}")
             return False
 
+    def update_empresa(self, nome_atual, novo_nome):
+        """Atualiza o nome de uma empresa."""
+        try:
+            response = requests.put(
+                f"{self.base_url}/api/configuracoes/empresas/{nome_atual}",
+                json={"nome": novo_nome},
+                headers=self.get_headers(),
+                timeout=30
+            )
+            if response.status_code == 200:
+                self._clear_cache("empresas")
+            return response.status_code == 200
+        except Exception as e:
+            print(f"Erro ao atualizar empresa: {e}")
+            return False
+
     def delete_empresa(self, nome):
         """Remove uma empresa"""
         try:
@@ -925,7 +955,7 @@ class APIClient:
 
         try:
             response = requests.get(
-                f"{self.base_url}/api/configuracoes/departamentos",
+                f"{self.base_url}/api/departamentos/lista",
                 headers=self.get_headers(),
                 timeout=30
             )
@@ -1005,6 +1035,22 @@ class APIClient:
             return response.status_code == 200
         except Exception as e:
             print(f"❌ Erro ao adicionar categoria: {e}")
+            return False
+
+    def update_categoria(self, nome_atual, novo_nome):
+        """Atualiza o nome de uma categoria."""
+        try:
+            response = requests.put(
+                f"{self.base_url}/api/configuracoes/categorias/{nome_atual}",
+                json={"nome": novo_nome},
+                headers=self.get_headers(),
+                timeout=30
+            )
+            if response.status_code == 200:
+                self._clear_cache("categorias")
+            return response.status_code == 200
+        except Exception as e:
+            print(f"Erro ao atualizar categoria: {e}")
             return False
 
     def delete_categoria(self, nome):
@@ -1200,6 +1246,7 @@ class APIClient:
             )
             if response.status_code == 201:
                 self._clear_cache("departamentos_lista")
+                self._clear_cache("departamentos")
             return response.status_code == 201
         except Exception as e:
             print(f"❌ Erro ao criar departamento: {e}")
@@ -1216,6 +1263,7 @@ class APIClient:
             )
             if response.status_code == 200:
                 self._clear_cache("departamentos_lista")
+                self._clear_cache("departamentos")
             return response.status_code == 200
         except Exception as e:
             print(f"❌ Erro ao atualizar departamento: {e}")
@@ -1231,6 +1279,7 @@ class APIClient:
             )
             if response.status_code == 200:
                 self._clear_cache("departamentos_lista")
+                self._clear_cache("departamentos")
             return response.status_code == 200
         except Exception as e:
             print(f"❌ Erro ao deletar departamento: {e}")

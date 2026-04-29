@@ -219,6 +219,9 @@ class LoginResponse(BaseModel):
     token_type: str
     usuario: UsuarioSistemaResponse
 
+class ConfirmarSenhaRequest(BaseModel):
+    senha: str
+
 class TrocarSenhaRequest(BaseModel):
     codigo: str
     senha_atual: str

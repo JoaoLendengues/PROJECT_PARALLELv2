@@ -29,13 +29,13 @@ from version import get_version
 class DataLoaderThread(QThread):
     """Thread para carregar dados em background"""
     finished = Signal(object)
-    
+
     def __init__(self, loader_func, *args, **kwargs):
         super().__init__()
         self.loader_func = loader_func
         self.args = args
         self.kwargs = kwargs
-    
+
     def run(self):
         try:
             result = self.loader_func(*self.args, **self.kwargs)
@@ -50,10 +50,10 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.usuario = usuario
         self.setWindowTitle(f"Project Parallel - Sistema de Controle de Estoque - {usuario['nome']}")
-        
+
         # Definir tamanho mínimo
         self.setMinimumSize(1200, 700)
-        
+
         # Definir geometria inicial
         self.setGeometry(100, 100, 1400, 800)
 
@@ -79,14 +79,14 @@ class MainWindow(QMainWindow):
 
         # ✅ Inicializar telas (sem carregar dados pesados)
         self.init_screens_light()
-        
+
         # ✅ Carregar dados em background
         self.load_background_data()
 
         # Selecionar home por padrão
         self.content_stack.setCurrentWidget(self.home_widget)
         self.home_widget.on_show()  # Carregar dados da home
-    
+
     def set_active_menu(self, button_index):
         """Marca o menu como ativo visualmente"""
         for i, btn in enumerate(self.menu_buttons):
@@ -96,12 +96,12 @@ class MainWindow(QMainWindow):
                 btn.setProperty("active", False)
             btn.style().unpolish(btn)
             btn.style().polish(btn)
-    
+
     def create_sidebar(self):
         """Cria a barra lateral com os menus"""
         sidebar = QFrame()
         sidebar.setProperty('class', 'sidebar')
-        
+
         layout = QVBoxLayout(sidebar)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -139,7 +139,7 @@ class MainWindow(QMainWindow):
             btn.setFixedHeight(48)
             layout.addWidget(btn)
             self.menu_buttons.append(btn)
-        
+
         layout.addStretch()
 
         # botão de Notificações
@@ -149,14 +149,14 @@ class MainWindow(QMainWindow):
 
         # Atualizar contador inicial
         self.notification_btn.atualizar_contador()
-        
+
         # Botão Trocar Usuário
         btn_trocar_usuario = QPushButton("🔄 Trocar Usuário")
         btn_trocar_usuario.setProperty("class", "menu-button-bottom")
         btn_trocar_usuario.setFixedHeight(48)
         btn_trocar_usuario.clicked.connect(self.trocar_usuario)
         layout.addWidget(btn_trocar_usuario)
-        
+
         # Botão Sair
         btn_sair = QPushButton("🚪 Sair")
         btn_sair.setProperty("class", "menu-button-bottom")
@@ -171,7 +171,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(footer)
 
         return sidebar
-    
+
     def init_screens_light(self):
         """✅ Inicializa os widgets (sem carregar dados pesados ainda)"""
         self.home_widget = HomeWidget()
@@ -199,13 +199,13 @@ class MainWindow(QMainWindow):
         self.content_stack.addWidget(self.relatorios_widget)
         self.content_stack.addWidget(self.usuarios_widget)
         self.content_stack.addWidget(self.parametros_widget)
-    
+
     def load_background_data(self):
         """✅ Carrega dados estáticos em segundo plano"""
         def on_dados_carregados(result):
             if result:
                 print(f"✅ Dados de fundo carregados: {len(result.get('empresas', []))} empresas")
-        
+
         def load_all():
             return {
                 'empresas': api_client.get_empresas(),
@@ -213,7 +213,7 @@ class MainWindow(QMainWindow):
                 'categorias': api_client.get_categorias(),
                 'cargos': api_client.get_cargos_lista(),
             }
-        
+
         self.loader_thread = DataLoaderThread(load_all)
         self.loader_thread.finished.connect(on_dados_carregados)
         self.loader_thread.start()
@@ -225,6 +225,11 @@ class MainWindow(QMainWindow):
     def show_home(self):
         self.content_stack.setCurrentWidget(self.home_widget)
         self.home_widget.on_show()
+
+    def refresh_home_dashboard(self):
+        """Atualiza os cards da home sem depender de navegacao manual."""
+        if hasattr(self, "home_widget"):
+            self.home_widget.carregar_dados()
 
     def show_notification_center(self):
         """Abre a Central de Notificações"""
@@ -278,7 +283,7 @@ class MainWindow(QMainWindow):
         self.update_widget = UpdateWidget(self)
         self.content_stack.addWidget(self.update_widget)
         self.content_stack.setCurrentWidget(self.update_widget)
-    
+
     def trocar_usuario(self):
         """Troca o usuário atual (volta para tela de login)"""
         confirm = QMessageBox.question(
@@ -287,18 +292,18 @@ class MainWindow(QMainWindow):
             "Deseja realmente trocar de usuário?\n\nVocê precisará fazer login novamente.",
             QMessageBox.Yes | QMessageBox.No
         )
-        
+
         if confirm == QMessageBox.Yes:
             # Limpar token
             api_client.set_token(None)
-            
+
             # Fechar janela atual
             self.close()
-            
+
             # Abrir tela de login novamente
             from main import show_login
             show_login()
-    
+
     def sair(self):
         """Sai do sistema"""
         confirm = QMessageBox.question(
@@ -307,12 +312,12 @@ class MainWindow(QMainWindow):
             "Deseja realmente sair do sistema?",
             QMessageBox.Yes | QMessageBox.No
         )
-        
+
         if confirm == QMessageBox.Yes:
             # Limpar token
             api_client.set_token(None)
-            
+
             # Fechar aplicação
             self.close()
             QApplication.quit()
-            
+

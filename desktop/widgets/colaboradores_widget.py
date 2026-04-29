@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QColor
 from api_client import api_client
 from widgets.filter_utils import contains_text, is_all_option, same_text
+from widgets.table_utils import configure_data_table, number_item
 
 
 class ColaboradoresWidget(QWidget):
@@ -105,8 +106,7 @@ class ColaboradoresWidget(QWidget):
         headers = ["ID", "Nome", "Cargo", "Departamento", "Empresa", "Status"]
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
-
-        self.tabela.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        configure_data_table(self.tabela, stretch_columns=(1,))
 
         layout.addWidget(self.tabela)
 
@@ -172,7 +172,7 @@ class ColaboradoresWidget(QWidget):
         self.tabela.setRowCount(len(colaboradores))
 
         for row, colab in enumerate(colaboradores):
-            self.tabela.setItem(row, 0, QTableWidgetItem(str(colab.get("id", ""))))
+            self.tabela.setItem(row, 0, number_item(colab.get("id", "")))
             self.tabela.setItem(row, 1, QTableWidgetItem(colab.get("nome", "")))
             self.tabela.setItem(row, 2, QTableWidgetItem(colab.get("cargo", "-")))
             self.tabela.setItem(row, 3, QTableWidgetItem(colab.get("departamento", "-")))

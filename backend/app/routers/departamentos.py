@@ -49,13 +49,13 @@ def criar_departamento(
 ):
     """Cria um novo departamento (apenas admin)"""
     
-    # Verificar se já existe
+    # Verificar se ja existe
     existing = db.query(models.Departamento).filter(
         models.Departamento.nome == departamento.nome
     ).first()
     
     if existing:
-        raise HTTPException(status_code=400, detail="Departamento já existe")
+        raise HTTPException(status_code=400, detail="Departamento ja existe")
     
     novo_departamento = models.Departamento(**departamento.model_dump())
     db.add(novo_departamento)
@@ -79,12 +79,46 @@ def atualizar_departamento(
     ).first()
     
     if not departamento_existente:
-        raise HTTPException(status_code=404, detail="Departamento não encontrado")
+        raise HTTPException(status_code=404, detail="Departamento nao encontrado")
     
     update_data = departamento.model_dump(exclude_unset=True)
-    
+
+    novo_nome = update_data.get("nome")
+    if novo_nome is not None:
+        novo_nome = novo_nome.strip()
+        if not novo_nome:
+            raise HTTPException(status_code=400, detail="Nome do departamento nao pode estar vazio")
+        update_data["nome"] = novo_nome
+
+    nome_anterior = departamento_existente.nome
+    if novo_nome and novo_nome != nome_anterior:
+        existente_com_nome = db.query(models.Departamento).filter(
+            models.Departamento.nome == novo_nome,
+            models.Departamento.id != departamento_id
+        ).first()
+
+        if existente_com_nome:
+            raise HTTPException(status_code=400, detail="Departamento ja existe")
+
     for field, value in update_data.items():
         setattr(departamento_existente, field, value)
+
+    if novo_nome and novo_nome != nome_anterior:
+        db.query(models.Maquina).filter(
+            models.Maquina.departamento == nome_anterior
+        ).update({models.Maquina.departamento: novo_nome}, synchronize_session=False)
+
+        db.query(models.Colaborador).filter(
+            models.Colaborador.departamento == nome_anterior
+        ).update({models.Colaborador.departamento: novo_nome}, synchronize_session=False)
+
+        db.query(models.Pedido).filter(
+            models.Pedido.departamento == nome_anterior
+        ).update({models.Pedido.departamento: novo_nome}, synchronize_session=False)
+
+        db.query(models.Demanda).filter(
+            models.Demanda.departamento == nome_anterior
+        ).update({models.Demanda.departamento: novo_nome}, synchronize_session=False)
     
     db.commit()
     db.refresh(departamento_existente)
@@ -105,22 +139,30 @@ def deletar_departamento(
     ).first()
     
     if not departamento:
-        raise HTTPException(status_code=404, detail="Departamento não encontrado")
+        raise HTTPException(status_code=404, detail="Departamento nao encontrado")
     
-    # Verificar se está sendo usado em máquinas
+    # Verificar se estÃ¡ sendo usado em mÃ¡quinas
     maquina_uso = db.query(models.Maquina).filter(
         models.Maquina.departamento == departamento.nome
     ).first()
     
-    # Verificar se está sendo usado em colaboradores
+    # Verificar se estÃ¡ sendo usado em colaboradores
     colaborador_uso = db.query(models.Colaborador).filter(
         models.Colaborador.departamento == departamento.nome
     ).first()
+
+    pedido_uso = db.query(models.Pedido).filter(
+        models.Pedido.departamento == departamento.nome
+    ).first()
+
+    demanda_uso = db.query(models.Demanda).filter(
+        models.Demanda.departamento == departamento.nome
+    ).first()
     
-    if maquina_uso or colaborador_uso:
+    if maquina_uso or colaborador_uso or pedido_uso or demanda_uso:
         raise HTTPException(
             status_code=400,
-            detail="Departamento está sendo usado em máquinas ou colaboradores"
+            detail="Departamento estÃ¡ sendo usado em outros registros do sistema"
         )
     
     db.delete(departamento)

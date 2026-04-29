@@ -7,6 +7,7 @@ from PySide6.QtGui import QFont, QColor, QCursor
 from api_client import api_client
 from widgets.toast_notification import notification_manager
 from widgets.filter_utils import is_all_option, same_filter_value, same_text
+from widgets.table_utils import configure_data_table, number_item
 
 
 class PedidosWidget(QWidget):
@@ -108,9 +109,7 @@ class PedidosWidget(QWidget):
         headers = ["ID", "Material", "Qtd", "Solicitante", "Empresa", "Dept", "Data Solic.", "Data Conclusão", "Status", "Observação"]
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
-
-        self.tabela.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.tabela.horizontalHeader().setSectionResizeMode(9, QHeaderView.Stretch)
+        configure_data_table(self.tabela, stretch_columns=(1, 9))
 
         layout.addWidget(self.tabela)
 
@@ -220,9 +219,9 @@ class PedidosWidget(QWidget):
         }
 
         for row, pedido in enumerate(pedidos):
-            self.tabela.setItem(row, 0, QTableWidgetItem(str(pedido.get("id", ""))))
+            self.tabela.setItem(row, 0, number_item(pedido.get("id", "")))
             self.tabela.setItem(row, 1, QTableWidgetItem(pedido.get("material_nome", "-")))
-            self.tabela.setItem(row, 2, QTableWidgetItem(str(pedido.get("quantidade", 0))))
+            self.tabela.setItem(row, 2, number_item(pedido.get("quantidade", 0)))
             self.tabela.setItem(row, 3, QTableWidgetItem(pedido.get("solicitante", "-")))
             self.tabela.setItem(row, 4, QTableWidgetItem(pedido.get("empresa", "-")))
             self.tabela.setItem(row, 5, QTableWidgetItem(pedido.get("departamento", "-")))

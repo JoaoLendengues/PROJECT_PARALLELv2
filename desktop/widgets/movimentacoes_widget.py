@@ -8,6 +8,7 @@ from datetime import datetime
 from api_client import api_client
 from widgets.toast_notification import notification_manager
 from widgets.filter_utils import is_all_option, same_filter_value, same_text
+from widgets.table_utils import configure_data_table, number_item
 
 
 class MovimentacoesWidget(QWidget):
@@ -106,9 +107,7 @@ class MovimentacoesWidget(QWidget):
         headers = ["ID", "Material", "Tipo", "Quantidade", "Empresa", "Colaborador", "Data/Hora", "Observação"]
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
-
-        self.tabela.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.tabela.horizontalHeader().setSectionResizeMode(7, QHeaderView.Stretch)
+        configure_data_table(self.tabela, stretch_columns=(1, 7))
 
         layout.addWidget(self.tabela)
 
@@ -193,7 +192,7 @@ class MovimentacoesWidget(QWidget):
         self.tabela.setRowCount(len(movimentacoes))
 
         for row, mov in enumerate(movimentacoes):
-            self.tabela.setItem(row, 0, QTableWidgetItem(str(mov.get("id", ""))))
+            self.tabela.setItem(row, 0, number_item(mov.get("id", "")))
             self.tabela.setItem(row, 1, QTableWidgetItem(mov.get("material_nome", "-")))
 
             tipo_item = QTableWidgetItem(mov.get("tipo", "").upper())
@@ -203,7 +202,7 @@ class MovimentacoesWidget(QWidget):
                 tipo_item.setForeground(QColor(231, 111, 81))
             self.tabela.setItem(row, 2, tipo_item)
 
-            self.tabela.setItem(row, 3, QTableWidgetItem(str(mov.get("quantidade", 0))))
+            self.tabela.setItem(row, 3, number_item(mov.get("quantidade", 0)))
             self.tabela.setItem(row, 4, QTableWidgetItem(mov.get("empresa", "-")))
             self.tabela.setItem(row, 5, QTableWidgetItem(mov.get("destinatario", "-")))
 
@@ -274,6 +273,44 @@ class MovimentacoesWidget(QWidget):
             except Exception as e:
                 QApplication.restoreOverrideCursor()
                 QMessageBox.critical(self, "Erro", f"Erro ao deletar movimentação: {e}")
+
+class ConfirmacaoSenhaDialog(QDialog):
+    def __init__(self, resumo, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Confirmar senha")
+        self.setModal(True)
+        self.setMinimumWidth(420)
+
+        layout = QVBoxLayout(self)
+
+        mensagem = QLabel(
+            "Para registrar esta movimentacao, confirme a sua senha.\n\n"
+            f"{resumo}"
+        )
+        mensagem.setWordWrap(True)
+        layout.addWidget(mensagem)
+
+        form_layout = QFormLayout()
+        self.senha_edit = QLineEdit()
+        self.senha_edit.setEchoMode(QLineEdit.Password)
+        self.senha_edit.returnPressed.connect(self.accept)
+        form_layout.addRow("Senha:", self.senha_edit)
+        layout.addLayout(form_layout)
+
+        botoes = QHBoxLayout()
+        botoes.addStretch()
+
+        confirmar_btn = QPushButton("Confirmar")
+        confirmar_btn.clicked.connect(self.accept)
+        cancelar_btn = QPushButton("Cancelar")
+        cancelar_btn.clicked.connect(self.reject)
+
+        botoes.addWidget(confirmar_btn)
+        botoes.addWidget(cancelar_btn)
+        layout.addLayout(botoes)
+
+    def senha(self):
+        return self.senha_edit.text().strip()
 
 
 class MovimentacaoDialog(QDialog):
@@ -425,6 +462,28 @@ class MovimentacaoDialog(QDialog):
         else:
             self.estoque_label.setText("")
 
+    def confirmar_registro_senha(self, material_nome, tipo, quantidade):
+        resumo = (
+            f"Material: {material_nome}\n"
+            f"Tipo: {tipo.upper()}\n"
+            f"Quantidade: {quantidade}"
+        )
+
+        dialog = ConfirmacaoSenhaDialog(resumo, self)
+        if dialog.exec() != QDialog.Accepted:
+            return False
+
+        senha = dialog.senha()
+        if not senha:
+            QMessageBox.warning(self, "AtenÃ§Ã£o", "Digite a sua senha para confirmar o registro.")
+            return False
+
+        if not api_client.confirmar_senha_atual(senha):
+            QMessageBox.warning(self, "Senha incorreta", "Nao foi possivel confirmar a senha informada.")
+            return False
+
+        return True
+
     def salvar(self):
         # Obter ID do material selecionado
         idx = self.material_combo.currentIndex()
@@ -457,6 +516,10 @@ class MovimentacaoDialog(QDialog):
                     f"Estoque insuficiente!\nDisponível: {material.get('quantidade', 0)}"
                 )
                 return
+
+        material_nome = self.materiais[idx].get("nome", "")
+        if not self.confirmar_registro_senha(material_nome, tipo, quantidade):
+            return
 
         dados = {
             "material_id": material_id,

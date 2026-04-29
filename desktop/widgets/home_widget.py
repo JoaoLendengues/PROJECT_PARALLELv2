@@ -28,14 +28,14 @@ class HomeWidget(QWidget):
 
     def on_show(self):
         """✅ Chamado quando a aba é selecionada - carrega dados sob demanda"""
+        self.carregar_dados()
         if not self._loaded:
-            self.carregar_dados()
             self._loaded = True
 
             # Iniciar timer de internet APÓS o primeiro carregamento
             if not self.timer_internet:
                 self.timer_internet = QTimer()
-                self.timer_internet.timeout.connect(self.atualizar_status_internet)
+                self.timer_internet.timeout.connect(lambda: self.atualizar_status_internet(silent=True))
                 self.timer_internet.start(30000)  # 30 segundos
 
     def init_ui(self):
@@ -328,7 +328,7 @@ class HomeWidget(QWidget):
         if self.main_window and hasattr(self.main_window, acao):
             getattr(self.main_window, acao)()
 
-    def atualizar_status_internet(self):
+    def atualizar_status_internet(self, silent=False):
         """Atualiza o status da internet no card (padronizado)"""
         from widgets.toast_notification import notification_manager
 
@@ -356,14 +356,16 @@ class HomeWidget(QWidget):
                 self.internet_icon.setText(status.get("icone", "🌐"))
                 self.internet_icon.setStyleSheet(f"color: {cor}; background: transparent; border: none;")
 
-                notification_manager.success(f"Rede local: {qualidade.upper()} ({latencia} ms)", self.window(), 3000)
+                if not silent:
+                    notification_manager.success(f"Rede local: {qualidade.upper()} ({latencia} ms)", self.window(), 3000)
 
             else:
                 self.internet_valor.setText("🔴 Offline")
                 self.internet_valor.setStyleSheet("color: #ef4444; font-size: 20px; font-weight: bold; background: transparent; border: none;")
                 self.internet_subtitulo.setText(status.get("servidor", "Sem conexao com a rede local"))
                 self.internet_icon.setText("❌")
-                notification_manager.error("Sem conexao com a rede local", self.window(), 4000)
+                if not silent:
+                    notification_manager.error("Sem conexao com a rede local", self.window(), 4000)
 
         except Exception as e:
             print(f"❌ Erro ao atualizar status da internet: {e}")
@@ -393,4 +395,4 @@ class HomeWidget(QWidget):
             print(f"❌ Erro ao carregar dashboard: {e}")
 
         # Atualizar status da internet ao carregar a tela
-        self.atualizar_status_internet()
+        self.atualizar_status_internet(silent=True)

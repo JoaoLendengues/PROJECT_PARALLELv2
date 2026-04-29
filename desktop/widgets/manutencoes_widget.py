@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QFont, QColor
 from api_client import api_client
 from widgets.filter_utils import is_all_option, same_filter_value, same_text
+from widgets.table_utils import configure_data_table, number_item
 
 
 class ManutencoesWidget(QWidget):
@@ -105,8 +106,7 @@ class ManutencoesWidget(QWidget):
         headers = ["ID", "Máquina", "Tipo", "Descrição", "Data Início", "Data Fim", "Responsável", "Status"]
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
-
-        self.tabela.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
+        configure_data_table(self.tabela, stretch_columns=(3,))
 
         layout.addWidget(self.tabela)
 
@@ -159,6 +159,7 @@ class ManutencoesWidget(QWidget):
             self.manutencoes = api_client.listar_manutencoes()
             self.manutencoes_cache = self.manutencoes.copy()
             self.atualizar_tabela(self.manutencoes)
+            self.atualizar_dashboard_home()
             print(f"✅ Manutenções carregadas: {len(self.manutencoes)}")
         except Exception as e:
             print(f"❌ Erro ao carregar manutenções: {e}")
@@ -209,7 +210,7 @@ class ManutencoesWidget(QWidget):
         }
 
         for row, manut in enumerate(manutencoes):
-            self.tabela.setItem(row, 0, QTableWidgetItem(str(manut.get("id", ""))))
+            self.tabela.setItem(row, 0, number_item(manut.get("id", "")))
             self.tabela.setItem(row, 1, QTableWidgetItem(manut.get("maquina_nome", "-")))
             self.tabela.setItem(row, 2, QTableWidgetItem(manut.get("tipo", "-").upper()))
             self.tabela.setItem(row, 3, QTableWidgetItem(manut.get("descricao", "-")[:60]))
@@ -227,6 +228,7 @@ class ManutencoesWidget(QWidget):
         if dialog.exec():
             self.carregar_manutencoes()
             self.carregar_maquinas()
+            self.atualizar_dashboard_home()
 
     def editar_manutencao(self):
         current_row = self.tabela.currentRow()
@@ -242,6 +244,7 @@ class ManutencoesWidget(QWidget):
             if dialog.exec():
                 self.carregar_manutencoes()
                 self.carregar_maquinas()
+                self.atualizar_dashboard_home()
 
     def concluir_manutencao(self):
         current_row = self.tabela.currentRow()
@@ -301,6 +304,12 @@ class ManutencoesWidget(QWidget):
                     QMessageBox.warning(self, "Erro", "Erro ao deletar manutenção")
             except Exception as e:
                 QMessageBox.critical(self, "Erro", f"Erro ao deletar: {e}")
+
+    def atualizar_dashboard_home(self):
+        """Sincroniza o card da home quando manutencoes mudam."""
+        main_window = self.window()
+        if main_window and hasattr(main_window, "refresh_home_dashboard"):
+            main_window.refresh_home_dashboard()
 
 
 class ManutencaoDialog(QDialog):

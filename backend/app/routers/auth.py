@@ -32,6 +32,18 @@ def login(
     }
 
 
+@router.post('/confirmar-senha')
+def confirmar_senha(
+    dados: schemas.ConfirmarSenhaRequest,
+    current_user: models.UsuarioSistema = Depends(auth.get_current_user)
+):
+    """Confirma a senha do usuario autenticado para acoes sensiveis."""
+    if not auth.verificar_senha(dados.senha, current_user.senha_hash):
+        raise HTTPException(status_code=401, detail="Senha incorreta")
+
+    return {"message": "Senha confirmada com sucesso"}
+
+
 @router.post('/trocar-senha')
 def trocar_senha(
     dados: schemas.TrocarSenhaRequest,

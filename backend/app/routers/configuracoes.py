@@ -24,7 +24,7 @@ def _get_lista(db: Session, chave: str, default: List[str]) -> List[str]:
     return default
 
 
-def _salvar_lista(db: Session, chave: str, lista: List[str]) -> bool:
+def _salvar_lista(db: Session, chave: str, lista: List[str], commit: bool = True) -> bool:
     """Salva uma lista no banco de dados"""
     config = db.query(models.Configuracao).filter(models.Configuracao.chave == chave).first()
     valor_json = json.dumps(lista, ensure_ascii=False)
@@ -35,8 +35,37 @@ def _salvar_lista(db: Session, chave: str, lista: List[str]) -> bool:
         config = models.Configuracao(chave=chave, valor=valor_json)
         db.add(config)
     
-    db.commit()
+    if commit:
+        db.commit()
     return True
+
+
+def _renomear_empresa_em_registros(db: Session, nome_atual: str, novo_nome: str) -> None:
+    """Propaga a troca do nome da empresa para os registros relacionados."""
+    campos_empresa = (
+        (models.Usuario, models.Usuario.empresa),
+        (models.Material, models.Material.empresa),
+        (models.Maquina, models.Maquina.empresa),
+        (models.Movimentacao, models.Movimentacao.empresa),
+        (models.Pedido, models.Pedido.empresa),
+        (models.UsuarioSistema, models.UsuarioSistema.empresa),
+        (models.Colaborador, models.Colaborador.empresa),
+        (models.Demanda, models.Demanda.empresa),
+    )
+
+    for model, coluna in campos_empresa:
+        db.query(model).filter(coluna == nome_atual).update(
+            {coluna: novo_nome},
+            synchronize_session=False,
+        )
+
+
+def _renomear_categoria_em_registros(db: Session, nome_atual: str, novo_nome: str) -> None:
+    """Propaga a troca do nome da categoria para os materiais."""
+    db.query(models.Material).filter(models.Material.categoria == nome_atual).update(
+        {models.Material.categoria: novo_nome},
+        synchronize_session=False,
+    )
 
 
 # =====================================================
@@ -75,6 +104,47 @@ def add_empresa(
     return {"success": True, "message": f"Empresa '{nome_limpo}' adicionada", "lista": empresas}
 
 
+@router.put('/empresas/{nome_atual}')
+def update_empresa(
+    nome_atual: str,
+    request: ItemListaRequest,
+    db: Session = Depends(get_db),
+    current_user: models.UsuarioSistema = Depends(auth.verificar_admin)
+):
+    """Atualiza o nome de uma empresa e propaga a mudanca para os registros relacionados."""
+    if not request.nome or not request.nome.strip():
+        raise HTTPException(status_code=400, detail="Nome da empresa nao pode estar vazio")
+
+    empresas = _get_lista(db, 'empresas', [])
+
+    if nome_atual not in empresas:
+        raise HTTPException(status_code=404, detail="Empresa nao encontrada")
+
+    novo_nome = request.nome.strip()
+
+    if novo_nome != nome_atual and novo_nome in empresas:
+        raise HTTPException(status_code=400, detail="Empresa ja existe")
+
+    if novo_nome == nome_atual:
+        return {"success": True, "message": "Nenhuma alteracao realizada", "lista": empresas}
+
+    empresas = [novo_nome if empresa == nome_atual else empresa for empresa in empresas]
+    empresas.sort()
+
+    _renomear_empresa_em_registros(db, nome_atual, novo_nome)
+    _salvar_lista(db, 'empresas', empresas, commit=False)
+
+    empresa_padrao = db.query(models.Configuracao).filter(
+        models.Configuracao.chave == "empresa_padrao"
+    ).first()
+    if empresa_padrao and empresa_padrao.valor == nome_atual:
+        empresa_padrao.valor = novo_nome
+
+    db.commit()
+
+    return {"success": True, "message": f"Empresa '{nome_atual}' atualizada", "lista": empresas}
+
+
 @router.delete('/empresas/{nome}')
 def delete_empresa(
     nome: str,
@@ -90,9 +160,15 @@ def delete_empresa(
     # Verificar se está sendo usada
     material_uso = db.query(models.Material).filter(models.Material.empresa == nome).first()
     maquina_uso = db.query(models.Maquina).filter(models.Maquina.empresa == nome).first()
+    movimentacao_uso = db.query(models.Movimentacao).filter(models.Movimentacao.empresa == nome).first()
+    pedido_uso = db.query(models.Pedido).filter(models.Pedido.empresa == nome).first()
+    usuario_uso = db.query(models.Usuario).filter(models.Usuario.empresa == nome).first()
+    usuario_sistema_uso = db.query(models.UsuarioSistema).filter(models.UsuarioSistema.empresa == nome).first()
+    colaborador_uso = db.query(models.Colaborador).filter(models.Colaborador.empresa == nome).first()
+    demanda_uso = db.query(models.Demanda).filter(models.Demanda.empresa == nome).first()
     
-    if material_uso or maquina_uso:
-        raise HTTPException(status_code=400, detail="Empresa está sendo usada em materiais ou máquinas")
+    if any([material_uso, maquina_uso, movimentacao_uso, pedido_uso, usuario_uso, usuario_sistema_uso, colaborador_uso, demanda_uso]):
+        raise HTTPException(status_code=400, detail="Empresa está sendo usada em outros registros do sistema")
     
     empresas.remove(nome)
     _salvar_lista(db, 'empresas', empresas)
@@ -150,9 +226,12 @@ def delete_departamento(
     
     # Verificar se está sendo usado
     maquina_uso = db.query(models.Maquina).filter(models.Maquina.departamento == nome).first()
+    colaborador_uso = db.query(models.Colaborador).filter(models.Colaborador.departamento == nome).first()
+    pedido_uso = db.query(models.Pedido).filter(models.Pedido.departamento == nome).first()
+    demanda_uso = db.query(models.Demanda).filter(models.Demanda.departamento == nome).first()
     
-    if maquina_uso:
-        raise HTTPException(status_code=400, detail="Departamento está sendo usado em máquinas")
+    if any([maquina_uso, colaborador_uso, pedido_uso, demanda_uso]):
+        raise HTTPException(status_code=400, detail="Departamento está sendo usado em outros registros do sistema")
     
     departamentos.remove(nome)
     _salvar_lista(db, 'departamentos', departamentos)
@@ -194,6 +273,40 @@ def add_categoria(
     _salvar_lista(db, 'categorias', categorias)
     
     return {"success": True, "message": f"Categoria '{nome_limpo}' adicionada", "lista": categorias}
+
+
+@router.put('/categorias/{nome_atual}')
+def update_categoria(
+    nome_atual: str,
+    request: ItemListaRequest,
+    db: Session = Depends(get_db),
+    current_user: models.UsuarioSistema = Depends(auth.verificar_admin)
+):
+    """Atualiza o nome de uma categoria e propaga a mudanca para os materiais."""
+    if not request.nome or not request.nome.strip():
+        raise HTTPException(status_code=400, detail="Nome da categoria nao pode estar vazio")
+
+    categorias = _get_lista(db, 'categorias', [])
+
+    if nome_atual not in categorias:
+        raise HTTPException(status_code=404, detail="Categoria nao encontrada")
+
+    novo_nome = request.nome.strip()
+
+    if novo_nome != nome_atual and novo_nome in categorias:
+        raise HTTPException(status_code=400, detail="Categoria ja existe")
+
+    if novo_nome == nome_atual:
+        return {"success": True, "message": "Nenhuma alteracao realizada", "lista": categorias}
+
+    categorias = [novo_nome if categoria == nome_atual else categoria for categoria in categorias]
+    categorias.sort()
+
+    _renomear_categoria_em_registros(db, nome_atual, novo_nome)
+    _salvar_lista(db, 'categorias', categorias, commit=False)
+    db.commit()
+
+    return {"success": True, "message": f"Categoria '{nome_atual}' atualizada", "lista": categorias}
 
 
 @router.delete('/categorias/{nome}')
@@ -262,6 +375,7 @@ def get_configuracoes(
         "verificar_alertas_auto": True,
         "intervalo_verificacao": "5 minutos",
         "tempo_notificacao": "5 segundos",
+        "modo_nao_perturbe": False,
         "empresa_padrao": "Matriz"
     }
     

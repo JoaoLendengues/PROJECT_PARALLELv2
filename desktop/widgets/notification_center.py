@@ -6,6 +6,7 @@ from PySide6.QtGui import QFont, QColor
 from api_client import api_client
 from widgets.filter_utils import filter_value, is_all_option
 from widgets.toast_notification import notification_manager
+from widgets.table_utils import configure_data_table
 
 
 class NotificationCenter(QDialog):
@@ -149,13 +150,7 @@ class NotificationCenter(QDialog):
         self.tabela.setShowGrid(False)
         self.tabela.setWordWrap(True)
         self.tabela.setSelectionMode(QTableWidget.ExtendedSelection)
-
-        self.tabela.setColumnWidth(0, 110)
-        self.tabela.setColumnWidth(1, 300)
-        self.tabela.setColumnWidth(2, 450)
-        self.tabela.setColumnWidth(3, 150)
-
-        self.tabela.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        configure_data_table(self.tabela, stretch_columns=(2,))
 
         layout.addWidget(self.tabela)
 
