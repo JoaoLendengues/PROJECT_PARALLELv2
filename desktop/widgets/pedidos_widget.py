@@ -5,6 +5,8 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QFont, QColor, QCursor
 from api_client import api_client
+from access_control import get_action_label, has_action_access
+from widgets.company_filter_utils import company_filter_ready, populate_company_filter, selected_company_value
 from widgets.toast_notification import notification_manager
 from widgets.filter_utils import is_all_option, same_filter_value, same_text
 from widgets.table_utils import configure_data_table, number_item
@@ -13,6 +15,7 @@ from widgets.table_utils import configure_data_table, number_item
 class PedidosWidget(QWidget):
     def __init__(self):
         super().__init__()
+        self.usuario = {}
         self.pedidos = []
         self.pedidos_cache = []
         self.materiais = []
@@ -22,10 +25,9 @@ class PedidosWidget(QWidget):
 
     def on_show(self):
         if not self._loaded:
-            self.carregar_materiais()
             self.carregar_departamentos()
             self.carregar_empresas()
-            self.carregar_pedidos()
+            self._mostrar_prompt_empresa()
             self._loaded = True
 
     def init_ui(self):
@@ -70,8 +72,7 @@ class PedidosWidget(QWidget):
         filtros.addWidget(QLabel("Empresa:"))
         self.empresa_filter = QComboBox()
         self.empresa_filter.setMinimumWidth(150)
-        self.empresa_filter.addItem("Todas as empresas")
-        self.empresa_filter.currentTextChanged.connect(self.filtrar_pedidos)
+        self.empresa_filter.currentIndexChanged.connect(self.ao_alterar_empresa)
         filtros.addWidget(self.empresa_filter)
 
         filtros.addSpacing(20)
@@ -87,6 +88,10 @@ class PedidosWidget(QWidget):
         filtros.addStretch()
 
         layout.addLayout(filtros)
+
+        self.empresa_prompt = QLabel('Selecione uma empresa ou "Todas as empresas" para carregar os pedidos.')
+        self.empresa_prompt.setStyleSheet("color: #64748b; font-size: 13px;")
+        layout.addWidget(self.empresa_prompt)
 
         # Tabela de pedidos com estilo melhorado
         self.tabela = QTableWidget()
@@ -138,11 +143,56 @@ class PedidosWidget(QWidget):
         acoes.addWidget(self.deletar_btn)
 
         layout.addLayout(acoes)
+        self.aplicar_permissoes()
 
-    def carregar_materiais(self):
+    def set_usuario(self, usuario):
+        self.usuario = usuario or {}
+        self.aplicar_permissoes()
+
+    def _pode(self, action_key):
+        return has_action_access(self.usuario, action_key)
+
+    def _avisar_sem_permissao(self, action_key):
+        QMessageBox.warning(self, "Acesso não permitido", f"Você não tem permissão para {get_action_label(action_key)}.")
+
+    def aplicar_permissoes(self):
+        if hasattr(self, "novo_btn"):
+            self.novo_btn.setVisible(self._pode("pedidos.create"))
+        if hasattr(self, "editar_btn"):
+            self.editar_btn.setVisible(self._pode("pedidos.edit"))
+        if hasattr(self, "aprovar_btn"):
+            self.aprovar_btn.setVisible(self._pode("pedidos.approve"))
+        if hasattr(self, "concluir_btn"):
+            self.concluir_btn.setVisible(self._pode("pedidos.complete"))
+        if hasattr(self, "cancelar_btn"):
+            self.cancelar_btn.setVisible(self._pode("pedidos.cancel"))
+        if hasattr(self, "deletar_btn"):
+            self.deletar_btn.setVisible(self._pode("pedidos.delete"))
+
+    def empresa_pronta(self):
+        return company_filter_ready(self.empresa_filter)
+
+    def empresa_param(self):
+        return selected_company_value(self.empresa_filter)
+
+    def _mostrar_prompt_empresa(self):
+        self.pedidos = []
+        self.pedidos_cache = []
+        self.tabela.setRowCount(0)
+        self.empresa_prompt.setVisible(True)
+
+    def ao_alterar_empresa(self):
+        if not self.empresa_pronta():
+            self._mostrar_prompt_empresa()
+            return
+        empresa = self.empresa_param()
+        self.carregar_materiais(empresa=empresa)
+        self.carregar_pedidos()
+
+    def carregar_materiais(self, empresa=None):
         """Carrega a lista de materiais"""
         try:
-            self.materiais = api_client.listar_materiais_para_pedido()
+            self.materiais = api_client.listar_materiais_para_pedido(empresa=empresa)
         except Exception as e:
             print(f"Erro ao carregar materiais: {e}")
 
@@ -163,21 +213,22 @@ class PedidosWidget(QWidget):
         """Carrega a lista de empresas do backend para filtro"""
         try:
             self.empresas = api_client.get_empresas()
-            self.empresa_filter.clear()
-            self.empresa_filter.addItem('Todas as empresas')
-            for emp in self.empresas:
-                if emp and emp.strip():
-                    self.empresa_filter.addItem(emp)
+            populate_company_filter(self.empresa_filter, self.empresas)
             print(f'✅ Empresas carregadas para filtro: {len(self.empresas)}')
         except Exception as e:
             print(f'❌ Erro ao carregar empresas> {e}')
 
     def carregar_pedidos(self):
         """Carrega a lista de pedidos do backend"""
+        if not self.empresa_pronta():
+            self._mostrar_prompt_empresa()
+            return
+
         try:
-            self.pedidos = api_client.listar_pedidos()
+            self.pedidos = api_client.listar_pedidos(empresa=self.empresa_param())
             self.pedidos_cache = self.pedidos.copy()
             self.atualizar_tabela(self.pedidos)
+            self.empresa_prompt.setVisible(False)
             print(f"✅ Pedidos carregados: {len(self.pedidos)}")
         except Exception as e:
             print(f"❌ Erro ao carregar pedidos: {e}")
@@ -185,6 +236,10 @@ class PedidosWidget(QWidget):
 
     def filtrar_pedidos(self):
         """Filtra os pedidos com base nos filtros"""
+        if not self.empresa_pronta():
+            self._mostrar_prompt_empresa()
+            return
+
         status = self.status_filter.currentText()
         empresa = self.empresa_filter.currentText()
         departamento = self.departamento_filter.currentText()
@@ -196,7 +251,7 @@ class PedidosWidget(QWidget):
                 continue
 
             # Filtro por empresa
-            if not is_all_option(empresa) and not same_text(pedido.get("empresa"), empresa):
+            if self.empresa_param() is None and not is_all_option(empresa) and not same_text(pedido.get("empresa"), empresa):
                 continue
 
             # Filtro por departamento
@@ -236,12 +291,20 @@ class PedidosWidget(QWidget):
             self.tabela.setItem(row, 9, QTableWidgetItem(pedido.get("observacao", "-")[:50]))
 
     def novo_pedido(self):
+        if not self._pode("pedidos.create"):
+            self._avisar_sem_permissao("pedidos.create")
+            return
+        if not self.empresa_pronta():
+            QMessageBox.warning(self, "Atenção", "Selecione uma empresa antes de registrar pedidos.")
+            return
         dialog = PedidoDialog(materiais=self.materiais, parent=self)
         if dialog.exec():
             self.carregar_pedidos()
-            self.carregar_materiais()
-
+            self.carregar_materiais(empresa=self.empresa_param())
     def editar_pedido(self):
+        if not self._pode("pedidos.edit"):
+            self._avisar_sem_permissao("pedidos.edit")
+            return
         current_row = self.tabela.currentRow()
         if current_row < 0:
             QMessageBox.warning(self, "Atenção", "Selecione um pedido para editar")
@@ -254,9 +317,11 @@ class PedidosWidget(QWidget):
             dialog = PedidoDialog(pedido_data=pedido, materiais=self.materiais, parent=self)
             if dialog.exec():
                 self.carregar_pedidos()
-                self.carregar_materiais()
-
+                self.carregar_materiais(empresa=self.empresa_param())
     def aprovar_pedido(self):
+        if not self._pode("pedidos.approve"):
+            self._avisar_sem_permissao("pedidos.approve")
+            return
         current_row = self.tabela.currentRow()
         if current_row < 0:
             QMessageBox.warning(self, "Atenção", "Selecione um pedido para aprovar")
@@ -291,6 +356,9 @@ class PedidosWidget(QWidget):
 
     def concluir_pedido(self):
         """Conclui o pedido selecionado"""
+        if not self._pode("pedidos.complete"):
+            self._avisar_sem_permissao("pedidos.complete")
+            return
         current_row = self.tabela.currentRow()
         if current_row < 0:
             QMessageBox.warning(self, "Atenção", "Selecione um pedido para concluir")
@@ -338,6 +406,9 @@ class PedidosWidget(QWidget):
                 QMessageBox.critical(self, "Erro", f"Erro ao concluir pedido: {e}")
 
     def cancelar_pedido(self):
+        if not self._pode("pedidos.cancel"):
+            self._avisar_sem_permissao("pedidos.cancel")
+            return
         current_row = self.tabela.currentRow()
         if current_row < 0:
             QMessageBox.warning(self, "Atenção", "Selecione um pedido para cancelar")
@@ -371,6 +442,9 @@ class PedidosWidget(QWidget):
                 QMessageBox.critical(self, "Erro", f"Erro ao cancelar: {e}")
 
     def deletar_pedido(self):
+        if not self._pode("pedidos.delete"):
+            self._avisar_sem_permissao("pedidos.delete")
+            return
         current_row = self.tabela.currentRow()
         if current_row < 0:
             QMessageBox.warning(self, "Atenção", "Selecione um pedido para deletar")

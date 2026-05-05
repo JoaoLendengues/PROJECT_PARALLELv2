@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QColor
 from api_client import api_client
+from access_control import get_action_label, has_action_access
 from widgets.filter_utils import contains_text, is_all_option, same_text
 from widgets.table_utils import configure_data_table, number_item
 
@@ -12,6 +13,7 @@ from widgets.table_utils import configure_data_table, number_item
 class ColaboradoresWidget(QWidget):
     def __init__(self):
         super().__init__()
+        self.usuario = {}
         self.colaboradores = []
         self.colaboradores_cache = []  # Cache para filtros
         self._loaded = False
@@ -127,6 +129,25 @@ class ColaboradoresWidget(QWidget):
         # Carregar listas para os filtros (DEPOIS de criar os comboboxes)
         self.carregar_empresas()
         self.carregar_departamentos()
+        self.aplicar_permissoes()
+
+    def set_usuario(self, usuario):
+        self.usuario = usuario or {}
+        self.aplicar_permissoes()
+
+    def _pode(self, action_key):
+        return has_action_access(self.usuario, action_key)
+
+    def _avisar_sem_permissao(self, action_key):
+        QMessageBox.warning(self, "Acesso não permitido", f"Você não tem permissão para {get_action_label(action_key)}.")
+
+    def aplicar_permissoes(self):
+        if hasattr(self, "novo_btn"):
+            self.novo_btn.setVisible(self._pode("colaboradores.create"))
+        if hasattr(self, "editar_btn"):
+            self.editar_btn.setVisible(self._pode("colaboradores.edit"))
+        if hasattr(self, "deletar_btn"):
+            self.deletar_btn.setVisible(self._pode("colaboradores.delete"))
 
     def carregar_colaboradores(self):
         """Carrega a lista de colaboradores do backend"""
@@ -186,6 +207,9 @@ class ColaboradoresWidget(QWidget):
             self.tabela.setItem(row, 5, status_item)
 
     def novo_colaborador(self):
+        if not self._pode("colaboradores.create"):
+            self._avisar_sem_permissao("colaboradores.create")
+            return
         dialog = ColaboradorDialog(item_data=None, parent=self)
         if dialog.exec():
             self.pesquisa_edit.clear()
@@ -195,6 +219,9 @@ class ColaboradoresWidget(QWidget):
             self.carregar_colaboradores()
 
     def editar_colaborador(self):
+        if not self._pode("colaboradores.edit"):
+            self._avisar_sem_permissao("colaboradores.edit")
+            return
         row = self.tabela.currentRow()
         if row < 0:
             QMessageBox.warning(self, "Atenção", "Selecione um colaborador para editar")
@@ -209,6 +236,9 @@ class ColaboradoresWidget(QWidget):
                 self.carregar_colaboradores()
 
     def deletar_colaborador(self):
+        if not self._pode("colaboradores.delete"):
+            self._avisar_sem_permissao("colaboradores.delete")
+            return
         row = self.tabela.currentRow()
         if row < 0:
             QMessageBox.warning(self, "Atenção", "Selecione um colaborador para deletar")

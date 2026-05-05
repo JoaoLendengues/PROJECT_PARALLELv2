@@ -3,12 +3,14 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont, QCursor
 from datetime import datetime
+from access_control import has_screen_access
 from api_client import api_client
 
 
 class HomeWidget(QWidget):
     def __init__(self):
         super().__init__()
+        self.usuario = {}
         self.usuario_nome = None
         self.main_window = None
         self._loaded = False  # ✅ Flag para controle de carregamento
@@ -21,6 +23,11 @@ class HomeWidget(QWidget):
         """Define o nome do usuário para a saudação"""
         self.usuario_nome = nome
         self.update_saudacao()
+
+    def set_usuario_context(self, usuario):
+        """Define o contexto completo do usuário para a Home."""
+        self.usuario = usuario or {}
+        self.criar_cards_interativos()
 
     def set_main_window(self, main_window):
         """Define a referência para a janela principal (para navegação)"""
@@ -105,6 +112,12 @@ class HomeWidget(QWidget):
 
     def criar_cards_interativos(self):
         """Cria os cards interativos com efeito hover e clique"""
+        self._limpar_cards()
+        self.value_materiais = None
+        self.value_maquinas = None
+        self.value_manutencoes = None
+        self.value_pedidos = None
+        self.value_demandas = None
 
         cards_config = [
             {
@@ -115,7 +128,8 @@ class HomeWidget(QWidget):
                 "cor_hover": "#dbeafe",
                 "subtitulo": "Atualmente em estoque.",
                 "link": "Clique para gerenciar",
-                "acao": "show_materiais"
+                "acao": "show_materiais",
+                "screen_key": "materiais",
             },
             {
                 "nome": "maquinas",
@@ -125,7 +139,8 @@ class HomeWidget(QWidget):
                 "cor_hover": "#d1fae5",
                 "subtitulo": "Máquinas em operação.",
                 "link": "Clique para ver",
-                "acao": "show_maquinas"
+                "acao": "show_maquinas",
+                "screen_key": "maquinas",
             },
             {
                 "nome": "manutencoes",
@@ -135,7 +150,8 @@ class HomeWidget(QWidget):
                 "cor_hover": "#fed7aa",
                 "subtitulo": "Tarefas agendadas.",
                 "link": "Ações necessárias",
-                "acao": "show_manutencoes"
+                "acao": "show_manutencoes",
+                "screen_key": "manutencoes",
             },
             {
                 "nome": "pedidos",
@@ -145,7 +161,8 @@ class HomeWidget(QWidget):
                 "cor_hover": "#ede9fe",
                 "subtitulo": "Pedidos de compra.",
                 "link": "Aguardando aprovação",
-                "acao": "show_pedidos"
+                "acao": "show_pedidos",
+                "screen_key": "pedidos",
             },
             {
                 "nome": "demandas",
@@ -155,7 +172,8 @@ class HomeWidget(QWidget):
                 "cor_hover": "#fee2e2",
                 "subtitulo": "Chamados de TI pendentes.",
                 "link": "Ver demandas",
-                "acao": "show_demandas"
+                "acao": "show_demandas",
+                "screen_key": "demandas",
             },
             {
                 "nome": "internet",
@@ -166,20 +184,18 @@ class HomeWidget(QWidget):
                 "subtitulo": "Qualidade da conexao local.",
                 "link": "Atualizar",
                 "acao": "atualizar_status_internet",
-                "especial": True
+                "especial": True,
+                "screen_key": None,
             }
         ]
 
-        posicoes = [
-            (0, 0),  # Materiais
-            (0, 1),  # Máquinas
-            (1, 0),  # Manutenções
-            (1, 1),  # Pedidos
-            (2, 0),  # Demandas
-            (2, 1),  # Status da Internet
+        cards_visiveis = [
+            config for config in cards_config
+            if config.get("screen_key") is None or has_screen_access(self.usuario, config["screen_key"])
         ]
 
-        for config, pos in zip(cards_config, posicoes):
+        for index, config in enumerate(cards_visiveis):
+            row, column = divmod(index, 2)
             if config.get("especial") and config["nome"] == "internet":
                 card = self.criar_card_internet(config)
                 self.internet_card = card
@@ -187,7 +203,14 @@ class HomeWidget(QWidget):
                 card = self.criar_card(config)
                 setattr(self, f"value_{config['nome']}", card.valor_label)
 
-            self.cards_layout.addWidget(card, pos[0], pos[1])
+            self.cards_layout.addWidget(card, row, column)
+
+    def _limpar_cards(self):
+        while self.cards_layout.count():
+            item = self.cards_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
 
     def criar_card(self, config):
         """Cria um card individual com efeitos interativos"""
@@ -381,12 +404,16 @@ class HomeWidget(QWidget):
             dados = api_client.get_dashboard_resumo()
             resumo = dados.get("resumo", {})
 
-            self.value_materiais.setText(str(resumo.get("total_materiais", 0)))
-            self.value_maquinas.setText(str(resumo.get("maquinas_ativas", 0)))
-            self.value_manutencoes.setText(str(resumo.get("manutencoes_pendentes", 0)))
-            self.value_pedidos.setText(str(resumo.get("pedidos_pendentes", 0)))
+            if self.value_materiais is not None:
+                self.value_materiais.setText(str(resumo.get("total_materiais", 0)))
+            if self.value_maquinas is not None:
+                self.value_maquinas.setText(str(resumo.get("maquinas_ativas", 0)))
+            if self.value_manutencoes is not None:
+                self.value_manutencoes.setText(str(resumo.get("manutencoes_pendentes", 0)))
+            if self.value_pedidos is not None:
+                self.value_pedidos.setText(str(resumo.get("pedidos_pendentes", 0)))
 
-            if hasattr(self, 'value_demandas'):
+            if self.value_demandas is not None:
                 self.value_demandas.setText(str(resumo.get("demandas_abertas", 0)))
 
             print(f"✅ Dashboard atualizado: Materiais={resumo.get('total_materiais', 0)}")

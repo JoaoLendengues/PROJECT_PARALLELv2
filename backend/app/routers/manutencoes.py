@@ -14,12 +14,13 @@ def listar_manutencoes(
     db: Session = Depends(get_db),
     status: Optional[str] = Query(None, description='Filtrar por status'),
     maquina_id: Optional[int] = Query(None, description='Filtrar por máquina'),
+    empresa: Optional[str] = Query(None, description='Filtrar por empresa'),
     tipo: Optional[str] = Query(None, description='Filtrar por tipo'),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0)
 ):
     """Lista todas as manutenções com filtros opcionais"""
-    print(f'🔎 GET /api/manutencoes - status: {status}, maquina_id: {maquina_id}')
+    print(f'🔎 GET /api/manutencoes - status: {status}, maquina_id: {maquina_id}, empresa: {empresa}')
 
     query = db.query(models.Manutencao)
 
@@ -28,6 +29,11 @@ def listar_manutencoes(
 
     if maquina_id:
         query = query.filter(models.Manutencao.maquina_id == maquina_id)
+
+    if empresa:
+        query = query.join(models.Maquina, models.Manutencao.maquina_id == models.Maquina.id).filter(
+            models.Maquina.empresa == empresa
+        )
 
     if tipo:
         query = query.filter(models.Manutencao.tipo == tipo)

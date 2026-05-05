@@ -1,87 +1,41 @@
-from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTableWidget,
-                               QTableWidgetItem, QPushButton, QLabel, QComboBox,
-                               QHeaderView, QMessageBox, QWidget, QFrame)
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QFont, QColor
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QFont
+from PySide6.QtWidgets import (
+    QApplication,
+    QComboBox,
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
+
 from api_client import api_client
 from widgets.filter_utils import filter_value, is_all_option
-from widgets.toast_notification import notification_manager
 from widgets.table_utils import configure_data_table
+from widgets.toast_notification import notification_manager
 
 
 class NotificationCenter(QDialog):
-    """Central de Notificações - Design Moderno"""
+    """Central de notificacoes do desktop."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Central de Notificações")
+        self.notificacoes_originais = []
+        self.notificacoes_atuais = []
+
+        self.setObjectName("notificationCenterDialog")
+        self.setWindowTitle("Central de Notificacoes")
         self.setMinimumSize(1100, 700)
         self.setModal(False)
 
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #f8fafc;
-            }
-            QLabel {
-                color: #1e293b;
-            }
-            QComboBox {
-                background-color: white;
-                border: 1px solid #e2e8f0;
-                border-radius: 8px;
-                padding: 8px 12px;
-                min-width: 120px;
-                font-size: 13px;
-            }
-            QComboBox:hover {
-                border-color: #94a3b8;
-            }
-            QTableWidget {
-                background-color: white;
-                border: none;
-                border-radius: 12px;
-                outline: none;
-                gridline-color: transparent;
-            }
-            QTableWidget::item {
-                padding: 12px 8px;
-                border-bottom: 1px solid #f1f5f9;
-            }
-            QTableWidget::item:selected {
-                background-color: #e6f0ff;
-            }
-            QHeaderView::section {
-                background-color: #f8fafc;
-                color: #64748b;
-                padding: 12px 8px;
-                border: none;
-                font-weight: 600;
-                font-size: 12px;
-            }
-            QScrollBar:vertical {
-                background-color: #f1f5f9;
-                border-radius: 10px;
-                width: 8px;
-                margin: 0px;
-            }
-            QScrollBar::handle:vertical {
-                background-color: #cbd5e1;
-                border-radius: 10px;
-                min-height: 20px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background-color: #94a3b8;
-            }
-            /* ✅ Estilo para botões do QMessageBox */
-            QMessageBox QPushButton {
-                min-width: 80px;
-                padding: 6px 12px;
-                border-radius: 6px;
-                font-weight: 500;
-            }
-        """)
-
         self.init_ui()
+        self._apply_theme_styles()
         self.carregar_notificacoes()
 
     def init_ui(self):
@@ -89,242 +43,401 @@ class NotificationCenter(QDialog):
         layout.setSpacing(20)
         layout.setContentsMargins(24, 24, 24, 24)
 
-        # ========== CABEÇALHO ==========
         header_layout = QHBoxLayout()
 
-        titulo = QLabel("🔔 Central de Notificações")
-        titulo.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
-        titulo.setStyleSheet("color: #0f172a;")
-        header_layout.addWidget(titulo)
+        self.titulo = QLabel("Central de Notificacoes")
+        self.titulo.setObjectName("notificationTitle")
+        self.titulo.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
+        header_layout.addWidget(self.titulo)
 
         header_layout.addStretch()
 
-        self.badge_label = QLabel("0 não lidas")
-        self.badge_label.setStyleSheet("""
-            background-color: #e2e8f0;
-            color: #475569;
-            border-radius: 20px;
-            padding: 6px 16px;
-            font-size: 12px;
-            font-weight: 500;
-        """)
+        self.badge_label = QLabel("0 nao lidas")
+        self.badge_label.setObjectName("notificationBadge")
         header_layout.addWidget(self.badge_label)
 
         layout.addLayout(header_layout)
 
-        # ========== BARRA DE FILTROS ==========
-        filtros_card = QFrame()
-        filtros_card.setStyleSheet("""
-            QFrame {
-                background-color: white;
-                border-radius: 16px;
-                padding: 8px;
-            }
-        """)
-        filtros_layout = QHBoxLayout(filtros_card)
+        self.filtros_card = QFrame()
+        self.filtros_card.setObjectName("filterCard")
+        filtros_layout = QHBoxLayout(self.filtros_card)
         filtros_layout.setContentsMargins(16, 12, 16, 12)
         filtros_layout.setSpacing(16)
 
-        filtros_layout.addWidget(QLabel("📋 Status:"))
+        self.lbl_status = QLabel("Status:")
+        filtros_layout.addWidget(self.lbl_status)
+
         self.filtro_status = QComboBox()
-        self.filtro_status.addItems(["Todas", "Não lidas", "Lidas", "Ignoradas"])
+        self.filtro_status.addItems(["Todas", "Nao lidas", "Lidas", "Ignoradas"])
         self.filtro_status.currentTextChanged.connect(self.filtrar_notificacoes)
         filtros_layout.addWidget(self.filtro_status)
 
-        filtros_layout.addWidget(QLabel("🎯 Prioridade:"))
+        self.lbl_prioridade = QLabel("Prioridade:")
+        filtros_layout.addWidget(self.lbl_prioridade)
+
         self.filtro_prioridade = QComboBox()
-        self.filtro_prioridade.addItems(["Todas", "Alta", "Média", "Baixa"])
+        self.filtro_prioridade.addItems(["Todas", "Alta", "Media", "Baixa"])
         self.filtro_prioridade.currentTextChanged.connect(self.filtrar_notificacoes)
         filtros_layout.addWidget(self.filtro_prioridade)
 
         filtros_layout.addStretch()
+        layout.addWidget(self.filtros_card)
 
-        layout.addWidget(filtros_card)
-
-        # ========== TABELA ==========
         self.tabela = QTableWidget()
+        self.tabela.setObjectName("notificationTable")
         self.tabela.setColumnCount(4)
-        self.tabela.setHorizontalHeaderLabels(["Prioridade", "Título", "Mensagem", "Data"])
+        self.tabela.setHorizontalHeaderLabels(["Prioridade", "Titulo", "Mensagem", "Data"])
         self.tabela.verticalHeader().setVisible(False)
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
+        self.tabela.setSelectionMode(QTableWidget.SingleSelection)
         self.tabela.setShowGrid(False)
         self.tabela.setWordWrap(True)
-        self.tabela.setSelectionMode(QTableWidget.ExtendedSelection)
+        self.tabela.setFocusPolicy(Qt.ClickFocus)
+        self.tabela.itemDoubleClicked.connect(self._ao_duplo_clique_na_tabela)
         configure_data_table(self.tabela, stretch_columns=(2,))
-
         layout.addWidget(self.tabela)
 
-        # ========== RODAPÉ COM BOTÕES DE AÇÃO ==========
-        footer_card = QFrame()
-        footer_card.setStyleSheet("""
-            QFrame {
-                background-color: white;
-                border-radius: 16px;
-                padding: 8px;
-            }
-        """)
-        footer_layout = QHBoxLayout(footer_card)
+        self.footer_card = QFrame()
+        self.footer_card.setObjectName("footerCard")
+        footer_layout = QHBoxLayout(self.footer_card)
         footer_layout.setContentsMargins(16, 12, 16, 12)
         footer_layout.setSpacing(16)
 
-        # Informações
         self.lbl_info = QLabel("")
-        self.lbl_info.setStyleSheet("color: #64748b; font-size: 13px;")
+        self.lbl_info.setObjectName("notificationInfo")
         footer_layout.addWidget(self.lbl_info)
-
         footer_layout.addStretch()
 
-        # ✅ Botão Marcar como Lida
-        self.btn_marcar = QPushButton("✓ Marcar como lida")
-        self.btn_marcar.setStyleSheet("""
-            QPushButton {
-                background-color: #10b981;
-                color: white;
-                padding: 8px 16px;
-                border-radius: 8px;
-                font-weight: 500;
-            }
-            QPushButton:hover {
-                background-color: #059669;
-            }
-        """)
+        self.btn_marcar = QPushButton("Marcar como lida")
+        self.btn_marcar.setObjectName("successButton")
         self.btn_marcar.clicked.connect(self.marcar_selecionada_como_lida)
         footer_layout.addWidget(self.btn_marcar)
 
-        # ✅ Botão Marcar Todas
-        self.btn_marcar_todas = QPushButton("✓ Marcar todas como lidas")
-        self.btn_marcar_todas.setStyleSheet("""
-            QPushButton {
-                background-color: #10b981;
-                color: white;
-                padding: 8px 16px;
-                border-radius: 8px;
-                font-weight: 500;
-            }
-            QPushButton:hover {
-                background-color: #059669;
-            }
-        """)
+        self.btn_marcar_todas = QPushButton("Marcar todas como lidas")
+        self.btn_marcar_todas.setObjectName("successButton")
         self.btn_marcar_todas.clicked.connect(self.marcar_todas_lidas)
         footer_layout.addWidget(self.btn_marcar_todas)
 
-        # ✅ Botão Excluir
-        self.btn_excluir = QPushButton("🗑️ Excluir")
-        self.btn_excluir.setStyleSheet("""
-            QPushButton {
-                background-color: #ef4444;
-                color: white;
-                padding: 8px 16px;
-                border-radius: 8px;
-                font-weight: 500;
-            }
-            QPushButton:hover {
-                background-color: #dc2626;
-            }
-        """)
+        self.btn_excluir = QPushButton("Excluir")
+        self.btn_excluir.setObjectName("dangerButton")
         self.btn_excluir.clicked.connect(self.excluir_selecionada)
         footer_layout.addWidget(self.btn_excluir)
 
-        # ✅ Botão Atualizar (com cor azul)
-        self.btn_atualizar = QPushButton("🔄 Atualizar")
-        self.btn_atualizar.setStyleSheet("""
-            QPushButton {
-                background-color: #3b82f6;
-                color: white;
-                padding: 8px 16px;
-                border-radius: 8px;
-                font-weight: 500;
-            }
-            QPushButton:hover {
-                background-color: #2563eb;
-            }
-        """)
+        self.btn_atualizar = QPushButton("Atualizar")
+        self.btn_atualizar.setObjectName("primaryButton")
         self.btn_atualizar.clicked.connect(self.carregar_notificacoes)
         footer_layout.addWidget(self.btn_atualizar)
 
-        # ✅ Botão Fechar
         self.btn_fechar = QPushButton("Fechar")
-        self.btn_fechar.setStyleSheet("""
-            QPushButton {
-                background-color: #64748b;
-                color: white;
-                padding: 8px 16px;
-                border-radius: 8px;
-                font-weight: 500;
-            }
-            QPushButton:hover {
-                background-color: #475569;
-            }
-        """)
+        self.btn_fechar.setObjectName("secondaryButton")
         self.btn_fechar.clicked.connect(self.close)
         footer_layout.addWidget(self.btn_fechar)
 
-        layout.addWidget(footer_card)
+        layout.addWidget(self.footer_card)
+
+    def showEvent(self, event):
+        self._apply_theme_styles()
+        super().showEvent(event)
+
+    def _is_dark_theme(self):
+        app = QApplication.instance()
+        return str(app.property("accessibility_theme") or "Claro") == "Escuro"
+
+    def _apply_theme_styles(self):
+        dark = self._is_dark_theme()
+        colors = self._theme_colors(dark)
+
+        self.setStyleSheet(
+            f"""
+            QDialog#notificationCenterDialog {{
+                background-color: {colors['dialog_bg']};
+                color: {colors['text']};
+            }}
+
+            QLabel {{
+                color: {colors['text']};
+                background: transparent;
+            }}
+
+            QLabel#notificationTitle {{
+                color: {colors['title']};
+            }}
+
+            QLabel#notificationInfo {{
+                color: {colors['muted']};
+                font-size: 13px;
+            }}
+
+            QFrame#filterCard,
+            QFrame#footerCard {{
+                background-color: {colors['card_bg']};
+                border: 1px solid {colors['card_border']};
+                border-radius: 16px;
+            }}
+
+            QComboBox {{
+                background-color: {colors['input_bg']};
+                border: 1px solid {colors['input_border']};
+                border-radius: 8px;
+                padding: 8px 12px;
+                min-width: 120px;
+                color: {colors['text']};
+                font-size: 13px;
+            }}
+
+            QComboBox:hover {{
+                border-color: {colors['input_border_hover']};
+            }}
+
+            QComboBox QAbstractItemView {{
+                background-color: {colors['card_bg']};
+                color: {colors['text']};
+                border: 1px solid {colors['card_border']};
+                padding: 4px;
+            }}
+
+            QComboBox QAbstractItemView::item {{
+                padding: 8px 12px;
+                color: {colors['text']};
+            }}
+
+            QComboBox QAbstractItemView::item:selected {{
+                background-color: {colors['selection_bg']};
+                color: {colors['selection_text']};
+            }}
+
+            QTableWidget#notificationTable {{
+                background-color: {colors['table_bg']};
+                color: {colors['text']};
+                border: 1px solid {colors['card_border']};
+                border-radius: 12px;
+                outline: none;
+                gridline-color: transparent;
+                selection-background-color: {colors['selection_bg']};
+                selection-color: {colors['selection_text']};
+            }}
+
+            QTableWidget#notificationTable::item {{
+                padding: 12px 8px;
+                border-bottom: 1px solid {colors['row_border']};
+                color: {colors['text']};
+            }}
+
+            QTableWidget#notificationTable::item:selected {{
+                background-color: {colors['selection_bg']};
+                color: {colors['selection_text']};
+            }}
+
+            QHeaderView::section {{
+                background-color: {colors['header_bg']};
+                color: {colors['muted']};
+                padding: 12px 8px;
+                border: none;
+                font-weight: 600;
+                font-size: 12px;
+            }}
+
+            QScrollBar:vertical {{
+                background-color: {colors['scroll_bg']};
+                border-radius: 10px;
+                width: 8px;
+                margin: 0px;
+            }}
+
+            QScrollBar::handle:vertical {{
+                background-color: {colors['scroll_handle']};
+                border-radius: 10px;
+                min-height: 20px;
+            }}
+
+            QScrollBar::handle:vertical:hover {{
+                background-color: {colors['scroll_handle_hover']};
+            }}
+
+            QPushButton#successButton {{
+                background-color: #10b981;
+                color: #ffffff;
+                padding: 8px 16px;
+                border-radius: 8px;
+                font-weight: 600;
+                border: none;
+            }}
+
+            QPushButton#successButton:hover {{
+                background-color: #059669;
+            }}
+
+            QPushButton#dangerButton {{
+                background-color: #ef4444;
+                color: #ffffff;
+                padding: 8px 16px;
+                border-radius: 8px;
+                font-weight: 600;
+                border: none;
+            }}
+
+            QPushButton#dangerButton:hover {{
+                background-color: #dc2626;
+            }}
+
+            QPushButton#primaryButton {{
+                background-color: #2563eb;
+                color: #ffffff;
+                padding: 8px 16px;
+                border-radius: 8px;
+                font-weight: 600;
+                border: none;
+            }}
+
+            QPushButton#primaryButton:hover {{
+                background-color: #1d4ed8;
+            }}
+
+            QPushButton#secondaryButton {{
+                background-color: {colors['secondary_btn_bg']};
+                color: {colors['secondary_btn_text']};
+                padding: 8px 16px;
+                border-radius: 8px;
+                font-weight: 600;
+                border: 1px solid {colors['secondary_btn_border']};
+            }}
+
+            QPushButton#secondaryButton:hover {{
+                background-color: {colors['secondary_btn_hover']};
+            }}
+
+            QMessageBox QPushButton {{
+                min-width: 80px;
+                padding: 6px 12px;
+                border-radius: 6px;
+                font-weight: 500;
+            }}
+            """
+        )
+        self._apply_badge_style()
+
+    def _theme_colors(self, dark):
+        if dark:
+            return {
+                "dialog_bg": "#0f172a",
+                "card_bg": "#111827",
+                "card_border": "#334155",
+                "table_bg": "#111827",
+                "header_bg": "#1e293b",
+                "row_border": "#1e293b",
+                "text": "#e2e8f0",
+                "title": "#f8fafc",
+                "muted": "#94a3b8",
+                "input_bg": "#0f172a",
+                "input_border": "#475569",
+                "input_border_hover": "#60a5fa",
+                "selection_bg": "#1d4ed8",
+                "selection_text": "#f8fafc",
+                "scroll_bg": "#1e293b",
+                "scroll_handle": "#475569",
+                "scroll_handle_hover": "#64748b",
+                "secondary_btn_bg": "#172033",
+                "secondary_btn_text": "#e2e8f0",
+                "secondary_btn_border": "#475569",
+                "secondary_btn_hover": "#1e293b",
+                "badge_bg": "#1e293b",
+                "badge_text": "#e2e8f0",
+            }
+
+        return {
+            "dialog_bg": "#f8fafc",
+            "card_bg": "#ffffff",
+            "card_border": "#e2e8f0",
+            "table_bg": "#ffffff",
+            "header_bg": "#f8fafc",
+            "row_border": "#f1f5f9",
+            "text": "#1e293b",
+            "title": "#0f172a",
+            "muted": "#64748b",
+            "input_bg": "#ffffff",
+            "input_border": "#e2e8f0",
+            "input_border_hover": "#94a3b8",
+            "selection_bg": "#dbeafe",
+            "selection_text": "#1e293b",
+            "scroll_bg": "#f1f5f9",
+            "scroll_handle": "#cbd5e1",
+            "scroll_handle_hover": "#94a3b8",
+            "secondary_btn_bg": "#64748b",
+            "secondary_btn_text": "#ffffff",
+            "secondary_btn_border": "#64748b",
+            "secondary_btn_hover": "#475569",
+            "badge_bg": "#e2e8f0",
+            "badge_text": "#475569",
+        }
+
+    def _apply_badge_style(self):
+        colors = self._theme_colors(self._is_dark_theme())
+        nao_lidas = len([n for n in self.notificacoes_originais if n.get("status") == "nao_lida"])
+
+        if nao_lidas > 0:
+            self.badge_label.setStyleSheet(
+                """
+                QLabel#notificationBadge {
+                    background-color: #ef4444;
+                    color: #ffffff;
+                    border-radius: 20px;
+                    padding: 6px 16px;
+                    font-size: 12px;
+                    font-weight: 600;
+                }
+                """
+            )
+        else:
+            self.badge_label.setStyleSheet(
+                f"""
+                QLabel#notificationBadge {{
+                    background-color: {colors['badge_bg']};
+                    color: {colors['badge_text']};
+                    border-radius: 20px;
+                    padding: 6px 16px;
+                    font-size: 12px;
+                    font-weight: 600;
+                }}
+                """
+            )
 
     def carregar_notificacoes(self):
-        """Carrega as notificações do backend"""
+        """Carrega as notificacoes do backend."""
         try:
             notificacoes = api_client.listar_notificacoes(limit=100)
             notificacoes.sort(key=lambda x: x.get("criado_em", ""), reverse=True)
-
             self.notificacoes_originais = notificacoes
             self.filtrar_notificacoes()
             self.atualizar_badge()
-
             nao_lidas = len([n for n in notificacoes if n.get("status") == "nao_lida"])
-            print(f"📊 Total: {len(notificacoes)} | Não lidas: {nao_lidas}")
-
+            print(f"Notificacoes carregadas: total={len(notificacoes)} nao_lidas={nao_lidas}")
         except Exception as e:
-            print(f"❌ Erro ao carregar notificações: {e}")
+            print(f"Erro ao carregar notificacoes: {e}")
 
     def atualizar_badge(self):
-        """Atualiza o badge de notificações"""
         try:
-            if hasattr(self, 'notificacoes_originais'):
-                nao_lidas = len([n for n in self.notificacoes_originais if n.get("status") == "nao_lida"])
-                self.badge_label.setText(f"{nao_lidas} não lidas")
-
-                if nao_lidas > 0:
-                    self.badge_label.setStyleSheet("""
-                        background-color: #ef4444;
-                        color: white;
-                        border-radius: 20px;
-                        padding: 6px 16px;
-                        font-size: 12px;
-                        font-weight: 500;
-                    """)
-                else:
-                    self.badge_label.setStyleSheet("""
-                        background-color: #e2e8f0;
-                        color: #475569;
-                        border-radius: 20px;
-                        padding: 6px 16px;
-                        font-size: 12px;
-                        font-weight: 500;
-                    """)
+            nao_lidas = len([n for n in self.notificacoes_originais if n.get("status") == "nao_lida"])
+            self.badge_label.setText(f"{nao_lidas} nao lidas")
+            self._apply_badge_style()
 
             parent = self.parent()
-            if parent and hasattr(parent, 'notification_btn'):
+            if parent and hasattr(parent, "notification_btn"):
                 parent.notification_btn.atualizar_contador()
-        except:
+        except Exception:
             pass
 
     def filtrar_notificacoes(self):
-        """Filtra as notificações"""
         status_filtro = filter_value(self.filtro_status.currentText())
         prioridade_filtro = filter_value(self.filtro_prioridade.currentText())
-
-        if not hasattr(self, 'notificacoes_originais'):
-            return
 
         filtradas = []
         for notif in self.notificacoes_originais:
             if not is_all_option(status_filtro):
                 if status_filtro == "nao lidas" and notif.get("status") != "nao_lida":
                     continue
-                elif status_filtro == "lidas" and notif.get("status") != "lida":
+                if status_filtro == "lidas" and notif.get("status") != "lida":
                     continue
-                elif status_filtro == "ignoradas" and notif.get("status") != "ignorada":
+                if status_filtro == "ignoradas" and notif.get("status") != "ignorada":
                     continue
 
             if not is_all_option(prioridade_filtro) and notif.get("prioridade") != prioridade_filtro:
@@ -335,23 +448,27 @@ class NotificationCenter(QDialog):
         self.atualizar_tabela(filtradas)
 
     def atualizar_tabela(self, notificacoes):
-        """Atualiza a tabela com design moderno"""
         self.tabela.setRowCount(len(notificacoes))
+        dark = self._is_dark_theme()
 
         prioridade_cores = {
-            "alta": {"color": "#DC2626", "bg": "#FEE2E2", "label": "🔴 ALTA"},
-            "media": {"color": "#D97706", "bg": "#FEF3C7", "label": "🟠 MÉDIA"},
-            "baixa": {"color": "#2563EB", "bg": "#DBEAFE", "label": "🔵 BAIXA"}
+            "alta": {"color": "#fecaca" if dark else "#b91c1c", "bg": "#7f1d1d" if dark else "#fee2e2", "label": "ALTA"},
+            "media": {"color": "#fde68a" if dark else "#b45309", "bg": "#78350f" if dark else "#fef3c7", "label": "MEDIA"},
+            "baixa": {"color": "#bfdbfe" if dark else "#1d4ed8", "bg": "#1e3a8a" if dark else "#dbeafe", "label": "BAIXA"},
         }
+
+        titulo_nao_lido = QColor("#f8fafc" if dark else "#1e293b")
+        titulo_lido = QColor("#94a3b8" if dark else "#64748b")
+        data_color = QColor("#94a3b8" if dark else "#94a3b8")
 
         for row, notif in enumerate(notificacoes):
             prioridade = notif.get("prioridade", "baixa")
             status = notif.get("status", "nao_lida")
             cor = prioridade_cores.get(prioridade, prioridade_cores["baixa"])
 
-            # Prioridade
             prioridade_widget = QFrame()
-            prioridade_widget.setStyleSheet(f"""
+            prioridade_widget.setStyleSheet(
+                f"""
                 QFrame {{
                     background-color: {cor['bg']};
                     border-radius: 20px;
@@ -360,151 +477,134 @@ class NotificationCenter(QDialog):
                     color: {cor['color']};
                     font-weight: bold;
                     font-size: 11px;
+                    background: transparent;
                 }}
-            """)
+                """
+            )
             prioridade_layout = QHBoxLayout(prioridade_widget)
             prioridade_layout.setContentsMargins(8, 6, 8, 6)
             prioridade_layout.setAlignment(Qt.AlignCenter)
-            prioridade_label = QLabel(cor['label'])
+            prioridade_label = QLabel(cor["label"])
             prioridade_label.setAlignment(Qt.AlignCenter)
             prioridade_layout.addWidget(prioridade_label)
             self.tabela.setCellWidget(row, 0, prioridade_widget)
 
-            # Título
             titulo = notif.get("titulo", "")
             if status == "nao_lida":
-                titulo = f"● {titulo}"
+                titulo = f"* {titulo}"
             titulo_item = QTableWidgetItem(titulo)
+            titulo_item.setForeground(titulo_nao_lido if status == "nao_lida" else titulo_lido)
             if status == "nao_lida":
-                titulo_item.setForeground(QColor("#1e293b"))
                 font = QFont()
                 font.setBold(True)
                 titulo_item.setFont(font)
-            else:
-                titulo_item.setForeground(QColor("#64748b"))
             self.tabela.setItem(row, 1, titulo_item)
 
-            # Mensagem
             mensagem = notif.get("mensagem", "")
             mensagem_item = QTableWidgetItem(mensagem)
             mensagem_item.setToolTip(mensagem)
+            mensagem_item.setForeground(QColor("#e2e8f0" if dark else "#1e293b"))
             self.tabela.setItem(row, 2, mensagem_item)
 
-            # Data
             data = notif.get("criado_em", "")
             if data:
                 data = data[:16].replace("T", " ")
             data_item = QTableWidgetItem(data)
-            data_item.setForeground(QColor("#94a3b8"))
+            data_item.setForeground(data_color)
             self.tabela.setItem(row, 3, data_item)
 
         self.tabela.resizeRowsToContents()
+        self.tabela.clearSelection()
+        self.tabela.setCurrentCell(-1, -1)
+        self.tabela.clearFocus()
 
         self.notificacoes_atuais = notificacoes
-
         total = len(notificacoes)
         nao_lidas = len([n for n in notificacoes if n.get("status") == "nao_lida"])
-        self.lbl_info.setText(f"📊 {total} notificações • {nao_lidas} não lidas")
+        self.lbl_info.setText(f"{total} notificacoes • {nao_lidas} nao lidas")
 
     def obter_notificacao_selecionada(self):
-        """Retorna a notificação selecionada na tabela"""
         current_row = self.tabela.currentRow()
-        if current_row < 0 or not hasattr(self, 'notificacoes_atuais'):
+        if current_row < 0 or current_row >= len(self.notificacoes_atuais):
             return None
-
-        if current_row < len(self.notificacoes_atuais):
-            return self.notificacoes_atuais[current_row]
-        return None
+        return self.notificacoes_atuais[current_row]
 
     def marcar_selecionada_como_lida(self):
-        """Marca a notificação selecionada como lida"""
         notificacao = self.obter_notificacao_selecionada()
         if not notificacao:
-            notification_manager.warning("Selecione uma notificação!", self, 2000)
+            notification_manager.warning("Selecione uma notificacao!", self, 2000)
             return
 
         if notificacao.get("status") == "lida":
-            notification_manager.info("Esta notificação já está lida!", self, 2000)
+            notification_manager.info("Esta notificacao ja esta lida!", self, 2000)
             return
 
         try:
-            success = api_client.marcar_notificacao_lida(notificacao.get("id"))
-            if success:
-                notification_manager.success("Notificação marcada como lida!", self, 2000)
+            if api_client.marcar_notificacao_lida(notificacao.get("id")):
+                notification_manager.success("Notificacao marcada como lida!", self, 2000)
                 self.carregar_notificacoes()
             else:
-                notification_manager.error("Erro ao marcar notificação", self, 3000)
+                notification_manager.error("Erro ao marcar notificacao", self, 3000)
         except Exception as e:
-            print(f"❌ Erro: {e}")
+            print(f"Erro ao marcar notificacao: {e}")
 
     def marcar_todas_lidas(self):
-        """Marca todas as notificações como lidas"""
-        if not hasattr(self, 'notificacoes_originais'):
-            return
-
         nao_lidas = [n for n in self.notificacoes_originais if n.get("status") == "nao_lida"]
         if not nao_lidas:
-            notification_manager.info("Não há notificações não lidas!", self, 2000)
+            notification_manager.info("Nao ha notificacoes nao lidas!", self, 2000)
             return
 
         confirm = QMessageBox.question(
-            self, "Confirmar",
-            f"Deseja marcar {len(nao_lidas)} notificação(ões) como lida(s)?",
-            QMessageBox.Yes | QMessageBox.No
+            self,
+            "Confirmar",
+            f"Deseja marcar {len(nao_lidas)} notificacao(oes) como lida(s)?",
+            QMessageBox.Yes | QMessageBox.No,
         )
 
         if confirm == QMessageBox.Yes:
             try:
-                success = api_client.marcar_todas_notificacoes_lidas()
-                if success:
-                    notification_manager.success("Todas as notificações foram marcadas como lidas!", self, 3000)
+                if api_client.marcar_todas_notificacoes_lidas():
+                    notification_manager.success("Todas as notificacoes foram marcadas como lidas!", self, 3000)
                     self.carregar_notificacoes()
                 else:
-                    notification_manager.error("Erro ao marcar notificações", self, 3000)
+                    notification_manager.error("Erro ao marcar notificacoes", self, 3000)
             except Exception as e:
-                print(f"❌ Erro: {e}")
+                print(f"Erro ao marcar todas as notificacoes: {e}")
 
     def excluir_selecionada(self):
-        """Exclui a notificação selecionada"""
         notificacao = self.obter_notificacao_selecionada()
         if not notificacao:
-            notification_manager.warning("Selecione uma notificação!", self, 2000)
+            notification_manager.warning("Selecione uma notificacao!", self, 2000)
             return
 
         confirm = QMessageBox.question(
-            self, "Confirmar exclusão",
-            f"Deseja excluir esta notificação?",
-            QMessageBox.Yes | QMessageBox.No
+            self,
+            "Confirmar exclusao",
+            "Deseja excluir esta notificacao?",
+            QMessageBox.Yes | QMessageBox.No,
         )
 
         if confirm == QMessageBox.Yes:
             try:
-                success = api_client.deletar_notificacao(notificacao.get("id"))
-                if success:
-                    notification_manager.success("Notificação excluída!", self, 2000)
+                if api_client.deletar_notificacao(notificacao.get("id")):
+                    notification_manager.success("Notificacao excluida!", self, 2000)
                     self.carregar_notificacoes()
                 else:
-                    notification_manager.error("Erro ao excluir notificação", self, 3000)
+                    notification_manager.error("Erro ao excluir notificacao", self, 3000)
             except Exception as e:
-                print(f"❌ Erro: {e}")
+                print(f"Erro ao excluir notificacao: {e}")
 
     def executar_acao(self, notificacao):
-        """Executa a ação da notificação ao clicar duas vezes"""
         acao = notificacao.get("acao")
-
         self.close()
 
         parent = self.parent()
         if parent and acao and hasattr(parent, acao):
             getattr(parent, acao)()
-
             if notificacao.get("status") == "nao_lida":
                 api_client.marcar_notificacao_lida(notificacao.get("id"))
 
-    def mouseDoubleClickEvent(self, event):
-        """Ao clicar duas vezes na tabela, executar ação"""
-        current_row = self.tabela.currentRow()
-        if current_row >= 0 and hasattr(self, 'notificacoes_atuais'):
-            if current_row < len(self.notificacoes_atuais):
-                self.executar_acao(self.notificacoes_atuais[current_row])
-        super().mouseDoubleClickEvent(event)
+    def _ao_duplo_clique_na_tabela(self, item):
+        row = item.row()
+        if 0 <= row < len(self.notificacoes_atuais):
+            self.executar_acao(self.notificacoes_atuais[row])

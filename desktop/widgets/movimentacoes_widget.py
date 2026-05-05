@@ -6,6 +6,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QColor, QCursor
 from datetime import datetime
 from api_client import api_client
+from access_control import has_action_access
+from widgets.company_filter_utils import company_filter_ready, populate_company_filter, selected_company_value
 from widgets.toast_notification import notification_manager
 from widgets.filter_utils import is_all_option, same_filter_value, same_text
 from widgets.table_utils import configure_data_table, number_item
@@ -14,6 +16,7 @@ from widgets.table_utils import configure_data_table, number_item
 class MovimentacoesWidget(QWidget):
     def __init__(self):
         super().__init__()
+        self.usuario = {}
         self.movimentacoes = []
         self.movimentacoes_cache = []
         self.materiais = []
@@ -24,10 +27,8 @@ class MovimentacoesWidget(QWidget):
 
     def on_show(self):
         if not self._loaded:
-            self.carregar_colaboradores()
             self.carregar_empresas()
-            self.carregar_materiais()
-            self.carregar_movimentacoes()
+            self._mostrar_prompt_empresa()
             self._loaded = True
 
     def init_ui(self):
@@ -70,8 +71,7 @@ class MovimentacoesWidget(QWidget):
         filtros.addWidget(QLabel('Empresa:'))
         self.empresa_filter = QComboBox()
         self.empresa_filter.setMinimumWidth(150)
-        self.empresa_filter.addItem('Todas as empresas')
-        self.empresa_filter.currentIndexChanged.connect(self.filtrar_movimentacoes)
+        self.empresa_filter.currentIndexChanged.connect(self.ao_alterar_empresa)
         filtros.addWidget(self.empresa_filter)
 
         filtros.addSpacing(20)
@@ -86,6 +86,10 @@ class MovimentacoesWidget(QWidget):
         filtros.addStretch()
 
         layout.addLayout(filtros)
+
+        self.empresa_prompt = QLabel('Selecione uma empresa ou "Todas as empresas" para carregar as movimentações.')
+        self.empresa_prompt.setStyleSheet("color: #64748b; font-size: 13px;")
+        layout.addWidget(self.empresa_prompt)
 
         # Tabela de movimentações com estilo melhorado
         self.tabela = QTableWidget()
@@ -120,24 +124,56 @@ class MovimentacoesWidget(QWidget):
         acoes.addWidget(self.deletar_btn)
 
         layout.addLayout(acoes)
+        self.aplicar_permissoes()
+
+    def set_usuario(self, usuario):
+        self.usuario = usuario or {}
+        self.aplicar_permissoes()
+
+    def aplicar_permissoes(self):
+        pode_deletar = has_action_access(self.usuario, "movimentacoes.deletar")
+        if hasattr(self, "deletar_btn"):
+            self.deletar_btn.setVisible(pode_deletar)
+
+    def empresa_pronta(self):
+        return company_filter_ready(self.empresa_filter)
+
+    def empresa_param(self):
+        return selected_company_value(self.empresa_filter)
+
+    def _mostrar_prompt_empresa(self):
+        self.movimentacoes = []
+        self.movimentacoes_cache = []
+        self.tabela.setRowCount(0)
+        self.material_filter.blockSignals(True)
+        self.material_filter.clear()
+        self.material_filter.addItem("Todos os materiais")
+        self.material_filter.blockSignals(False)
+        self.empresa_prompt.setVisible(True)
+
+    def ao_alterar_empresa(self):
+        if not self.empresa_pronta():
+            self._mostrar_prompt_empresa()
+            return
+
+        empresa = self.empresa_param()
+        self.carregar_colaboradores(empresa=empresa)
+        self.carregar_materiais(empresa=empresa)
+        self.carregar_movimentacoes()
 
     def carregar_empresas(self):
         """Carrega a lista de empresas para filtro"""
         try:
             self.empresas = api_client.get_empresas()
-            self.empresa_filter.clear()
-            self.empresa_filter.addItem('Todas as empresas')
-            for emp in self.empresas:
-                if emp and emp.strip():
-                    self.empresa_filter.addItem(emp)
+            populate_company_filter(self.empresa_filter, self.empresas)
             print(f'✅ Empresas carregadas para filtro: {len(self.empresas)}')
         except Exception as e:
             print(f'❌ Erro ao carregar empresas: {e}')
 
-    def carregar_materiais(self):
+    def carregar_materiais(self, empresa=None):
         """Carrega a lista de materiais para o filtro"""
         try:
-            self.materiais = api_client.listar_materiais_para_movimentacao()
+            self.materiais = api_client.listar_materiais_para_movimentacao(empresa=empresa)
             self.material_filter.clear()
             self.material_filter.addItem("Todos os materiais")
             for mat in self.materiais:
@@ -145,19 +181,24 @@ class MovimentacoesWidget(QWidget):
         except Exception as e:
             print(f"Erro ao carregar materiais: {e}")
 
-    def carregar_colaboradores(self):
+    def carregar_colaboradores(self, empresa=None):
         """Carrega a lista de colaboradores"""
         try:
-            self.colaboradores = api_client.listar_colaboradores()
+            self.colaboradores = api_client.listar_colaboradores(empresa=empresa)
         except Exception as e:
             print(f"Erro ao carregar colaboradores: {e}")
 
     def carregar_movimentacoes(self):
         """Carrega a lista de movimentações do backend"""
+        if not self.empresa_pronta():
+            self._mostrar_prompt_empresa()
+            return
+
         try:
-            self.movimentacoes = api_client.listar_movimentacoes()
+            self.movimentacoes = api_client.listar_movimentacoes(empresa=self.empresa_param())
             self.movimentacoes_cache = self.movimentacoes.copy()
             self.atualizar_tabela(self.movimentacoes)
+            self.empresa_prompt.setVisible(False)
             print(f"✅ Movimentações carregadas: {len(self.movimentacoes)}")
         except Exception as e:
             print(f"❌ Erro ao carregar movimentações: {e}")
@@ -165,6 +206,10 @@ class MovimentacoesWidget(QWidget):
 
     def filtrar_movimentacoes(self):
         """Filtra as movimentações com base nos filtros"""
+        if not self.empresa_pronta():
+            self._mostrar_prompt_empresa()
+            return
+
         tipo = self.tipo_filter.currentText()
         empresa = self.empresa_filter.currentText()
         material_id = self.material_filter.currentData()
@@ -176,7 +221,7 @@ class MovimentacoesWidget(QWidget):
                 continue
 
             # Filtro por empresa
-            if not is_all_option(empresa) and not same_text(mov.get('empresa'), empresa):
+            if self.empresa_param() is None and not is_all_option(empresa) and not same_text(mov.get('empresa'), empresa):
                 continue
 
             # Filtro por material
@@ -221,11 +266,14 @@ class MovimentacoesWidget(QWidget):
 
 
     def nova_movimentacao(self):
+        if not self.empresa_pronta():
+            QMessageBox.warning(self, "Atenção", "Selecione uma empresa antes de registrar movimentações.")
+            return
         dialog = MovimentacaoDialog(materiais=self.materiais, colaboradores=self.colaboradores, parent=self)
         if dialog.exec():
             self.carregar_movimentacoes()
-            self.carregar_materiais()
-            self.carregar_colaboradores()
+            self.carregar_materiais(empresa=self.empresa_param())
+            self.carregar_colaboradores(empresa=self.empresa_param())
 
     def deletar_movimentacao(self):
         """Deleta a movimentação selecionada (apenas administradores)"""

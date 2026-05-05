@@ -8,6 +8,8 @@ from widgets.login_widget import LoginWidget
 from updater import UpdateChecker
 from widgets.toast_notification import notification_manager
 from app_paths import get_env_file_path, get_resource_path
+from api_client import api_client
+from accessibility_manager import apply_accessibility_config, initialize_accessibility
 
 load_dotenv(get_env_file_path())
 
@@ -34,8 +36,21 @@ def on_login_success(usuario):
     if _current_window:
         _current_window.close()
 
+    accessibility_config = None
+    try:
+        accessibility_config = api_client.get_configuracoes()
+        apply_accessibility_config(accessibility_config)
+    except Exception as e:
+        print(f"Erro ao aplicar configuracoes de acessibilidade: {e}")
+
     _current_window = MainWindow(usuario)
     _current_window.showMaximized()
+
+    if accessibility_config:
+        try:
+            apply_accessibility_config(accessibility_config)
+        except Exception as e:
+            print(f"Erro ao reaplicar configuracoes de acessibilidade: {e}")
 
     # Iniciar seviço de alertas
     try:
@@ -146,12 +161,15 @@ def main():
     """
     
     style_path = get_resource_path('styles', 'style.qss')
+    base_style = ""
     if style_path.exists():
         with open(style_path, 'r', encoding='utf-8') as f:
             base_style = f.read()
         _app.setStyleSheet(base_style + global_style)
     else:
         _app.setStyleSheet(global_style)
+
+    initialize_accessibility(_app, base_style, global_style)
     
     show_login()
     

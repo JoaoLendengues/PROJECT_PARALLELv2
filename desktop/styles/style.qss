@@ -52,7 +52,7 @@ QLabel[class="page-title"] {
     font-size: 15px;
     font-weight: 500;
     border-radius: 8px;
-    margin: 4px 12px;
+    margin: 0;
     height: 48px;
 }
 
@@ -80,7 +80,7 @@ QLabel[class="page-title"] {
     font-size: 15px;
     font-weight: 500;
     border-radius: 8px;
-    margin: 4px 12px;
+    margin: 0;
     height: 48px;
 }
 

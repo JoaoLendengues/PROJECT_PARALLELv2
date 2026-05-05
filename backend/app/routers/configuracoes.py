@@ -359,6 +359,10 @@ def get_configuracoes(
     
     # Valores padrão se não existirem
     defaults = {
+        "tema": "Claro",
+        "tamanho_fonte": "Padrão",
+        "escala_interface": "100%",
+        "navegacao_teclado": False,
         "alerta_estoque": 5,
         "alerta_estoque_critico": 2,
         "backup_automatico": True,

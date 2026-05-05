@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+﻿from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QPushButton, QFormLayout, QLineEdit,
                                QComboBox, QSpinBox, QCheckBox, QGroupBox,
                                QTabWidget, QMessageBox, QTableWidget,
@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 from PySide6.QtCore import Qt, QTimer, QTime
 from PySide6.QtGui import QFont, QColor, QCursor
 from api_client import api_client
+from accessibility_manager import apply_accessibility_config, build_accessibility_config
 from widgets.toast_notification import notification_manager
 from widgets.table_utils import configure_data_table, number_item
 import socket
@@ -16,6 +17,7 @@ from datetime import datetime
 import os
 import sys
 import subprocess
+import unicodedata
 
 
 class ParametrosWidget(QWidget):
@@ -26,6 +28,7 @@ class ParametrosWidget(QWidget):
         self.departamentos = []
         self.categorias = []
         self._loaded = False  # Ã¢Å“â€¦ Flag para carregamento sob demanda
+        self._loading_configuracoes = False
         self.departamentos_detalhados = []
         self.cargos_detalhados = []
         self.init_ui()
@@ -49,52 +52,51 @@ class ParametrosWidget(QWidget):
         layout.setSpacing(20)
         layout.setContentsMargins(24, 24, 24, 24)
 
-        # TÃƒÂ­tulo
-        titulo = QLabel("Ã¢Å¡â„¢Ã¯Â¸Â ParÃƒÂ¢metros do Sistema")
+        titulo = QLabel("Parametros do Sistema")
         titulo.setProperty("class", "page-title")
         layout.addWidget(titulo)
 
-        # Tabs
         tabs = QTabWidget()
         tabs.setObjectName("paramTabs")
 
-        # Abas
         tab_geral = self.create_tab_geral()
-        tabs.addTab(tab_geral, "Ã¢Å¡â„¢Ã¯Â¸Â ConfiguraÃƒÂ§ÃƒÂµes Gerais")
+        tabs.addTab(tab_geral, "Configuracoes Gerais")
+
+        tab_acessibilidade = self.create_tab_acessibilidade()
+        tabs.addTab(tab_acessibilidade, "Acessibilidade")
 
         tab_notificacoes = self.create_tab_notificacoes()
-        tabs.addTab(tab_notificacoes, "Ã°Å¸â€â€ NotificaÃƒÂ§ÃƒÂµes")
+        tabs.addTab(tab_notificacoes, "Notificacoes")
 
         tab_empresas = self.create_tab_empresas()
-        tabs.addTab(tab_empresas, "Ã°Å¸ÂÂ¢ Empresas")
+        tabs.addTab(tab_empresas, "Empresas")
 
         tab_departamentos = self.create_tab_departamentos()
-        tabs.addTab(tab_departamentos, "Ã°Å¸â€œÂ Departamentos")
+        tabs.addTab(tab_departamentos, "Departamentos")
 
         tab_categorias = self.create_tab_categorias()
-        tabs.addTab(tab_categorias, "Ã°Å¸â€œâ€š Categorias")
+        tabs.addTab(tab_categorias, "Categorias")
 
         tab_cargos = self.create_tab_cargos()
-        tabs.addTab(tab_cargos, 'Ã°Å¸â€œâ€¹ Cargos')
+        tabs.addTab(tab_cargos, "Cargos")
 
         tab_backup = self.create_tab_backup()
-        tabs.addTab(tab_backup, 'Ã°Å¸â€™Â¾ Backup')
+        tabs.addTab(tab_backup, "Backup")
 
         tab_servidor = self.create_tab_servidor()
-        tabs.addTab(tab_servidor, "Ã°Å¸â€“Â¥Ã¯Â¸Â Servidor")
+        tabs.addTab(tab_servidor, "Servidor")
 
         layout.addWidget(tabs)
 
-        # BotÃƒÂµes
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
 
-        self.btn_salvar = QPushButton("Ã°Å¸â€™Â¾ Salvar ConfiguraÃƒÂ§ÃƒÂµes")
+        self.btn_salvar = QPushButton("Salvar Configuracoes")
         self.btn_salvar.setObjectName("btnPrimary")
         self.btn_salvar.clicked.connect(self.salvar_configuracoes)
         btn_layout.addWidget(self.btn_salvar)
 
-        self.btn_cancelar = QPushButton("Ã¢ÂÅ’ Cancelar")
+        self.btn_cancelar = QPushButton("Cancelar")
         self.btn_cancelar.setObjectName("btnSecondary")
         self.btn_cancelar.clicked.connect(self.cancelar)
         btn_layout.addWidget(self.btn_cancelar)
@@ -102,30 +104,28 @@ class ParametrosWidget(QWidget):
         layout.addLayout(btn_layout)
 
     def create_tab_geral(self):
-        """Aba de ConfiguraÃƒÂ§ÃƒÂµes Gerais"""
+        """Aba de configuracoes gerais"""
         widget = QWidget()
         layout = QVBoxLayout(widget)
         layout.setSpacing(20)
 
-        # Grupo: ConfiguraÃƒÂ§ÃƒÂµes do Sistema
-        grupo_sistema = QGroupBox("ConfiguraÃƒÂ§ÃƒÂµes do Sistema")
+        grupo_sistema = QGroupBox("Configuracoes do Sistema")
         grupo_sistema.setObjectName("configGroup")
         form_sistema = QFormLayout(grupo_sistema)
         form_sistema.setContentsMargins(20, 20, 20, 20)
 
         self.nome_sistema = QLineEdit("Project Parallel")
         self.nome_sistema.setReadOnly(True)
-        self.nome_sistema.setObjectName("configInputOnly")
-        form_sistema.addRow("Ã°Å¸â€œÅ’ Nome do Sistema:", self.nome_sistema)
+        self.nome_sistema.setObjectName("configInputReadonly")
+        form_sistema.addRow("Nome do Sistema:", self.nome_sistema)
 
         self.empresa_padrao = QComboBox()
         self.empresa_padrao.setObjectName("configCombo")
-        form_sistema.addRow("Ã°Å¸ÂÂ¢ Empresa PadrÃƒÂ£o:", self.empresa_padrao)
+        form_sistema.addRow("Empresa Padrao:", self.empresa_padrao)
 
         layout.addWidget(grupo_sistema)
 
-        # Grupo: ConfiguraÃƒÂ§ÃƒÂµes de Estoque
-        grupo_estoque = QGroupBox("ConfiguraÃƒÂ§ÃƒÂµes de Estoque")
+        grupo_estoque = QGroupBox("Configuracoes de Estoque")
         grupo_estoque.setObjectName("configGroup")
         form_estoque = QFormLayout(grupo_estoque)
         form_estoque.setContentsMargins(20, 20, 20, 20)
@@ -135,45 +135,82 @@ class ParametrosWidget(QWidget):
         self.alerta_estoque.setRange(0, 100)
         self.alerta_estoque.setValue(5)
         self.alerta_estoque.setSuffix(" unidades")
-        form_estoque.addRow("Ã¢Å¡Â Ã¯Â¸Â Alerta de Estoque Baixo:", self.alerta_estoque)
+        form_estoque.addRow("Alerta de Estoque Baixo:", self.alerta_estoque)
 
         self.alerta_estoque_critico = QSpinBox()
         self.alerta_estoque_critico.setObjectName("configSpin")
         self.alerta_estoque_critico.setRange(0, 100)
         self.alerta_estoque_critico.setValue(2)
         self.alerta_estoque_critico.setSuffix(" unidades")
-        form_estoque.addRow("Ã°Å¸â€Â´ Alerta de Estoque CrÃƒÂ­tico:", self.alerta_estoque_critico)
+        form_estoque.addRow("Alerta de Estoque Critico:", self.alerta_estoque_critico)
 
         layout.addWidget(grupo_estoque)
 
-        # Grupo: ConfiguraÃƒÂ§ÃƒÂµes de Backup
-        grupo_backup = QGroupBox("ConfiguraÃƒÂ§ÃƒÂµes de Backup")
+        grupo_backup = QGroupBox("Configuracoes de Backup")
         grupo_backup.setObjectName("configGroup")
         form_backup = QFormLayout(grupo_backup)
         form_backup.setContentsMargins(20, 20, 20, 20)
 
-        self.backup_automatico = QCheckBox("Realizar backup automÃƒÂ¡tico")
+        self.backup_automatico = QCheckBox("Realizar backup automatico")
         self.backup_automatico.setObjectName("configCheckbox")
         self.backup_automatico.setChecked(True)
         form_backup.addRow("", self.backup_automatico)
 
         self.frequencia_backup = QComboBox()
         self.frequencia_backup.setObjectName("configCombo")
-        self.frequencia_backup.addItems(["DiÃƒÂ¡rio", "Semanal", "Mensal"])
-        form_backup.addRow("Ã°Å¸â€œâ€¦ FrequÃƒÂªncia:", self.frequencia_backup)
+        self.frequencia_backup.addItems(["Diario", "Semanal", "Mensal"])
+        form_backup.addRow("Frequencia:", self.frequencia_backup)
 
         self.horario_backup = QTimeEdit()
         self.horario_backup.setTime(QTime(2, 0))
-        form_backup.addRow("Ã¢ÂÂ° HorÃƒÂ¡rio:", self.horario_backup)
+        form_backup.addRow("Horario:", self.horario_backup)
 
         self.dias_retencao = QSpinBox()
         self.dias_retencao.setRange(7, 365)
         self.dias_retencao.setValue(30)
         self.dias_retencao.setSuffix(" dias")
-        form_backup.addRow("Ã°Å¸â€œÂ Reter backups por:", self.dias_retencao)
+        form_backup.addRow("Reter backups por:", self.dias_retencao)
 
         layout.addWidget(grupo_backup)
+        layout.addStretch()
+        return widget
 
+    def create_tab_acessibilidade(self):
+        """Aba de acessibilidade e interface"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setSpacing(20)
+
+        grupo_acessibilidade = QGroupBox("Acessibilidade e Interface")
+        grupo_acessibilidade.setObjectName("configGroup")
+        form_acessibilidade = QFormLayout(grupo_acessibilidade)
+        form_acessibilidade.setContentsMargins(20, 20, 20, 20)
+
+        self.tema_interface = QComboBox()
+        self.tema_interface.setObjectName("configCombo")
+        self.tema_interface.addItems(["Claro", "Escuro"])
+        form_acessibilidade.addRow("Tema:", self.tema_interface)
+
+        self.tamanho_fonte = QComboBox()
+        self.tamanho_fonte.setObjectName("configCombo")
+        self.tamanho_fonte.addItems(["Pequena", "Padrao", "Grande"])
+        form_acessibilidade.addRow("Tamanho da fonte:", self.tamanho_fonte)
+
+        self.escala_interface = QComboBox()
+        self.escala_interface.setObjectName("configCombo")
+        self.escala_interface.addItems(["100%", "110%", "125%", "150%"])
+        form_acessibilidade.addRow("Escala da interface:", self.escala_interface)
+
+        self.navegacao_teclado = QCheckBox("Destacar foco e priorizar navegacao por teclado")
+        self.navegacao_teclado.setObjectName("configCheckbox")
+        form_acessibilidade.addRow("", self.navegacao_teclado)
+
+        self.tema_interface.currentTextChanged.connect(self.previsualizar_acessibilidade)
+        self.tamanho_fonte.currentTextChanged.connect(self.previsualizar_acessibilidade)
+        self.escala_interface.currentTextChanged.connect(self.previsualizar_acessibilidade)
+        self.navegacao_teclado.toggled.connect(self.previsualizar_acessibilidade)
+
+        layout.addWidget(grupo_acessibilidade)
         layout.addStretch()
         return widget
 
@@ -183,26 +220,24 @@ class ParametrosWidget(QWidget):
         layout = QVBoxLayout(widget)
         layout.setSpacing(15)
 
-        # SeÃƒÂ§ÃƒÂ£o: Backup Manual
         grupo_manual = QGroupBox("Backup Manual")
         grupo_manual.setObjectName("configGroup")
         manual_layout = QVBoxLayout(grupo_manual)
         manual_layout.setContentsMargins(20, 20, 20, 20)
 
-        btn_executar_backup = QPushButton("Ã°Å¸â€â€ž Executar Backup Agora")
+        btn_executar_backup = QPushButton("Executar Backup Agora")
         btn_executar_backup.setObjectName("btnPrimary")
         btn_executar_backup.setMinimumHeight(40)
         btn_executar_backup.clicked.connect(self.executar_backup_manual)
         manual_layout.addWidget(btn_executar_backup)
 
-        lbl_info = QLabel("Ã¢Å¡Â Ã¯Â¸Â O backup serÃƒÂ¡ salvo na pasta 'backups' do servidor e compactado em formato .gz")
+        lbl_info = QLabel("O backup sera salvo na pasta 'backups' do servidor e compactado em formato .gz")
         lbl_info.setStyleSheet("color: #64748b; font-size: 11px; margin-top: 10px;")
         manual_layout.addWidget(lbl_info)
 
         layout.addWidget(grupo_manual)
 
-        # SeÃƒÂ§ÃƒÂ£o: Lista de Backups
-        grupo_lista = QGroupBox("Backups DisponÃƒÂ­veis")
+        grupo_lista = QGroupBox("Backups Disponiveis")
         grupo_lista.setObjectName("configGroup")
         lista_layout = QVBoxLayout(grupo_lista)
         lista_layout.setContentsMargins(20, 20, 20, 20)
@@ -226,14 +261,13 @@ class ParametrosWidget(QWidget):
 
         lista_layout.addWidget(self.tabela_backups)
 
-        # BotÃƒÂµes de aÃƒÂ§ÃƒÂ£o
         btn_layout = QHBoxLayout()
 
-        btn_atualizar_lista = QPushButton("Ã°Å¸â€â€ž Atualizar Lista")
+        btn_atualizar_lista = QPushButton("Atualizar Lista")
         btn_atualizar_lista.clicked.connect(self.carregar_lista_backups)
         btn_layout.addWidget(btn_atualizar_lista)
 
-        btn_restaurar = QPushButton("Ã°Å¸â€œÂ¥ Restaurar Backup")
+        btn_restaurar = QPushButton("Restaurar Backup")
         btn_restaurar.setObjectName("btnWarning")
         btn_restaurar.clicked.connect(self.restaurar_backup_selecionado)
         btn_layout.addWidget(btn_restaurar)
@@ -242,8 +276,6 @@ class ParametrosWidget(QWidget):
         lista_layout.addLayout(btn_layout)
 
         layout.addWidget(grupo_lista)
-
-        # Ã¢Å¡Â Ã¯Â¸Â NÃƒÆ’O carregar lista de backups aqui - serÃƒÂ¡ feito no on_show()
 
         return widget
 
@@ -327,13 +359,12 @@ class ParametrosWidget(QWidget):
         sys.exit(0)
 
     def create_tab_notificacoes(self):
-        """Aba de configuraÃƒÂ§ÃƒÂµes de notificaÃƒÂ§ÃƒÂµes"""
+        """Aba de configuracoes de notificacoes"""
         widget = QWidget()
         layout = QVBoxLayout(widget)
         layout.setSpacing(20)
 
-        # Grupo: NotificaÃƒÂ§ÃƒÂµes do Sistema
-        grupo_notificacoes = QGroupBox("ConfiguraÃƒÂ§ÃƒÂµes de NotificaÃƒÂ§ÃƒÂµes")
+        grupo_notificacoes = QGroupBox("Configuracoes de Notificacoes")
         grupo_notificacoes.setObjectName("configGroup")
         form_notificacoes = QFormLayout(grupo_notificacoes)
         form_notificacoes.setContentsMargins(20, 20, 20, 20)
@@ -341,43 +372,42 @@ class ParametrosWidget(QWidget):
         self.notif_estoque_baixo = QCheckBox("Notificar quando estoque estiver baixo")
         self.notif_estoque_baixo.setObjectName("configCheckbox")
         self.notif_estoque_baixo.setChecked(True)
-        form_notificacoes.addRow("Ã°Å¸â€œÂ¦", self.notif_estoque_baixo)
+        form_notificacoes.addRow("Estoque:", self.notif_estoque_baixo)
 
-        self.notif_estoque_critico = QCheckBox("Notificar quando estoque estiver crÃƒÂ­tico")
+        self.notif_estoque_critico = QCheckBox("Notificar quando estoque estiver critico")
         self.notif_estoque_critico.setObjectName("configCheckbox")
         self.notif_estoque_critico.setChecked(True)
-        form_notificacoes.addRow("Ã°Å¸â€Â´", self.notif_estoque_critico)
+        form_notificacoes.addRow("Critico:", self.notif_estoque_critico)
 
-        self.notif_manutencao = QCheckBox("Notificar sobre manutenÃƒÂ§ÃƒÂµes pendentes")
+        self.notif_manutencao = QCheckBox("Notificar sobre manutencoes pendentes")
         self.notif_manutencao.setObjectName("configCheckbox")
         self.notif_manutencao.setChecked(True)
-        form_notificacoes.addRow("Ã°Å¸â€Â§", self.notif_manutencao)
+        form_notificacoes.addRow("Manutencoes:", self.notif_manutencao)
 
-        self.notif_pedidos = QCheckBox("Notificar sobre pedidos pendentes de aprovaÃƒÂ§ÃƒÂ£o")
+        self.notif_pedidos = QCheckBox("Notificar sobre pedidos pendentes de aprovacao")
         self.notif_pedidos.setObjectName("configCheckbox")
         self.notif_pedidos.setChecked(True)
-        form_notificacoes.addRow("Ã°Å¸â€œâ€¹", self.notif_pedidos)
+        form_notificacoes.addRow("Pedidos:", self.notif_pedidos)
 
         self.notif_demandas = QCheckBox("Notificar sobre novas demandas de TI")
         self.notif_demandas.setObjectName("configCheckbox")
         self.notif_demandas.setChecked(True)
-        form_notificacoes.addRow("Ã°Å¸Å½Â«", self.notif_demandas)
+        form_notificacoes.addRow("Demandas:", self.notif_demandas)
 
-        self.notif_movimentacoes = QCheckBox("Notificar sobre movimentaÃƒÂ§ÃƒÂµes de alto valor")
+        self.notif_movimentacoes = QCheckBox("Notificar sobre movimentacoes de alto valor")
         self.notif_movimentacoes.setObjectName("configCheckbox")
         self.notif_movimentacoes.setChecked(False)
-        form_notificacoes.addRow("Ã°Å¸â€™Â°", self.notif_movimentacoes)
+        form_notificacoes.addRow("Movimentacoes:", self.notif_movimentacoes)
 
         self.valor_alto = QSpinBox()
         self.valor_alto.setRange(0, 100000)
         self.valor_alto.setValue(5000)
         self.valor_alto.setSuffix(" R$")
-        form_notificacoes.addRow("Valor mÃƒÂ­nimo para notificaÃƒÂ§ÃƒÂ£o:", self.valor_alto)
+        form_notificacoes.addRow("Valor minimo para notificacao:", self.valor_alto)
 
         layout.addWidget(grupo_notificacoes)
 
-        # Grupo: ConfiguraÃƒÂ§ÃƒÂµes de Alerta
-        grupo_alertas = QGroupBox("ConfiguraÃƒÂ§ÃƒÂµes de Alerta")
+        grupo_alertas = QGroupBox("Configuracoes de Alerta")
         grupo_alertas.setObjectName("configGroup")
         form_alertas = QFormLayout(grupo_alertas)
         form_alertas.setContentsMargins(20, 20, 20, 20)
@@ -389,11 +419,11 @@ class ParametrosWidget(QWidget):
 
         self.intervalo_verificacao = QComboBox()
         self.intervalo_verificacao.addItems(["1 minuto", "5 minutos", "15 minutos", "30 minutos", "1 hora"])
-        form_alertas.addRow("Ã¢ÂÂ±Ã¯Â¸Â Intervalo de verificaÃƒÂ§ÃƒÂ£o:", self.intervalo_verificacao)
+        form_alertas.addRow("Intervalo de verificacao:", self.intervalo_verificacao)
 
         self.tempo_notificacao = QComboBox()
         self.tempo_notificacao.addItems(["3 segundos", "5 segundos", "10 segundos", "30 segundos"])
-        form_alertas.addRow("Ã¢ÂÂ²Ã¯Â¸Â DuraÃƒÂ§ÃƒÂ£o da notificaÃƒÂ§ÃƒÂ£o:", self.tempo_notificacao)
+        form_alertas.addRow("Duracao da notificacao:", self.tempo_notificacao)
 
         layout.addWidget(grupo_alertas)
 
@@ -405,12 +435,11 @@ class ParametrosWidget(QWidget):
         self.modo_nao_perturbe = QCheckBox("Silenciar notificacoes visuais e sonoras nao criticas")
         self.modo_nao_perturbe.setObjectName("configCheckbox")
         self.modo_nao_perturbe.setChecked(False)
-        form_silencio.addRow("Ã°Å¸Å’â„¢", self.modo_nao_perturbe)
+        form_silencio.addRow("", self.modo_nao_perturbe)
 
         layout.addWidget(grupo_silencio)
 
-        # BotÃƒÂ£o para testar notificaÃƒÂ§ÃƒÂ£o
-        btn_testar = QPushButton("Ã°Å¸â€â€ Testar NotificaÃƒÂ§ÃƒÂ£o")
+        btn_testar = QPushButton("Testar Notificacao")
         btn_testar.clicked.connect(self.testar_notificacao)
         layout.addWidget(btn_testar)
 
@@ -583,7 +612,7 @@ class ParametrosWidget(QWidget):
         btn_remover.clicked.connect(self.remover_cargo)
         btn_layout.addWidget(btn_remover)
 
-        btn_refresh = QPushButton('Ã°Å¸â€â€ž Atualizar')
+        btn_refresh = QPushButton('Atualizar')
         btn_refresh.clicked.connect(self.carregar_tabela_cargos)
         btn_layout.addWidget(btn_refresh)
 
@@ -595,7 +624,7 @@ class ParametrosWidget(QWidget):
         return widget
 
     def create_tab_servidor(self):
-        """Aba de informaÃƒÂ§ÃƒÂµes do servidor"""
+        """Aba de informacoes do servidor"""
         widget = QWidget()
         layout = QVBoxLayout(widget)
         layout.setSpacing(15)
@@ -612,7 +641,7 @@ class ParametrosWidget(QWidget):
         """)
         info_layout = QVBoxLayout(info_frame)
 
-        titulo_servidor = QLabel("Ã°Å¸â€œÂ¡ InformaÃƒÂ§ÃƒÂµes do Servidor")
+        titulo_servidor = QLabel("Informacoes do Servidor")
         titulo_servidor.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
         info_layout.addWidget(titulo_servidor)
 
@@ -621,7 +650,7 @@ class ParametrosWidget(QWidget):
         self.status_api = QLabel("Status da API: Verificando...")
         info_layout.addWidget(self.status_api)
 
-        self.endereco_server = QLabel(f"EndereÃƒÂ§o Local: {self.get_ip_local()}")
+        self.endereco_server = QLabel(f"Endereco Local: {self.get_ip_local()}")
         info_layout.addWidget(self.endereco_server)
 
         self.porta_server = QLabel("Porta: 8000")
@@ -630,12 +659,12 @@ class ParametrosWidget(QWidget):
         self.status_banco = QLabel("Banco de Dados: Verificando...")
         info_layout.addWidget(self.status_banco)
 
-        self.api_versao = QLabel("VersÃƒÂ£o da API: Verificando...")
+        self.api_versao = QLabel("Versao da API: Verificando...")
         info_layout.addWidget(self.api_versao)
 
         layout.addWidget(info_frame)
 
-        btn_testar = QPushButton("Ã°Å¸â€â€ž Testar ConexÃƒÂ£o")
+        btn_testar = QPushButton("Testar Conexao")
         btn_testar.clicked.connect(self.carregar_info_servidor)
         layout.addWidget(btn_testar)
 
@@ -1389,29 +1418,29 @@ class ParametrosWidget(QWidget):
         try:
             response = requests.get(health_url, timeout=5)
             if response.status_code == 200:
-                self.status_api.setText("Ã¢Å“â€¦ Status da API: Online")
+                self.status_api.setText("Status da API: Online")
                 self.status_api.setStyleSheet("color: #2a9d8f;")
                 data = response.json()
-                self.api_versao.setText(f"Ã°Å¸â€œÂ¦ VersÃƒÂ£o da API: {data.get('status', 'Desconhecido')}")
+                self.api_versao.setText(f"Versao da API: {data.get('status', 'Desconhecido')}")
             else:
-                self.status_api.setText("Ã¢ÂÅ’ Status da API: Offline")
+                self.status_api.setText("Status da API: Offline")
                 self.status_api.setStyleSheet("color: #e76f51;")
-                self.api_versao.setText("Ã°Å¸â€œÂ¦ VersÃƒÂ£o da API: NÃƒÂ£o disponÃƒÂ­vel")
+                self.api_versao.setText("Versao da API: Nao disponivel")
         except:
-            self.status_api.setText("Ã¢ÂÅ’ Status da API: Offline")
+            self.status_api.setText("Status da API: Offline")
             self.status_api.setStyleSheet("color: #e76f51;")
-            self.api_versao.setText("Ã°Å¸â€œÂ¦ VersÃƒÂ£o da API: NÃƒÂ£o disponÃƒÂ­vel")
+            self.api_versao.setText("Versao da API: Nao disponivel")
 
         try:
             response = requests.get(health_url, timeout=5)
             if response.status_code == 200:
-                self.status_banco.setText("Ã¢Å“â€¦ Banco de Dados: Conectado")
+                self.status_banco.setText("Banco de Dados: Conectado")
                 self.status_banco.setStyleSheet("color: #2a9d8f;")
             else:
-                self.status_banco.setText("Ã¢ÂÅ’ Banco de Dados: Desconectado")
+                self.status_banco.setText("Banco de Dados: Desconectado")
                 self.status_banco.setStyleSheet("color: #e76f51;")
         except:
-            self.status_banco.setText("Ã¢ÂÅ’ Banco de Dados: Desconectado")
+            self.status_banco.setText("Banco de Dados: Desconectado")
             self.status_banco.setStyleSheet("color: #e76f51;")
 
     def testar_notificacao(self):
@@ -1422,17 +1451,57 @@ class ParametrosWidget(QWidget):
             5000
         )
 
+    def _normalize_text(self, value):
+        return unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode("ascii").strip().lower()
+
+    def _set_combo_value(self, combo, value):
+        alvo = self._normalize_text(value)
+        if not alvo:
+            return False
+
+        for index in range(combo.count()):
+            if self._normalize_text(combo.itemText(index)) == alvo:
+                combo.setCurrentIndex(index)
+                return True
+        return False
+
+    def _collect_accessibility_config(self):
+        return build_accessibility_config(
+            self.tema_interface.currentText(),
+            self.tamanho_fonte.currentText(),
+            self.escala_interface.currentText(),
+            self.navegacao_teclado.isChecked(),
+        )
+
+    def previsualizar_acessibilidade(self, *_args):
+        if self._loading_configuracoes:
+            return
+        apply_accessibility_config(self._collect_accessibility_config())
+
     def carregar_configuracoes(self):
-        """Carrega as configuraÃƒÂ§ÃƒÂµes salvas do backend"""
-        print("Carregando configuraÃƒÂ§ÃƒÂµes...")
+        """Carrega as configuracoes salvas do backend"""
+        print("Carregando configuracoes...")
         try:
+            self._loading_configuracoes = True
             config = api_client.get_configuracoes()
 
             if config:
                 if "empresa_padrao" in config:
-                    idx = self.empresa_padrao.findText(config["empresa_padrao"])
-                    if idx >= 0:
-                        self.empresa_padrao.setCurrentIndex(idx)
+                    self._set_combo_value(self.empresa_padrao, config["empresa_padrao"])
+
+                if "tema" in config:
+                    self._set_combo_value(self.tema_interface, config["tema"])
+
+                if "tamanho_fonte" in config:
+                    self._set_combo_value(self.tamanho_fonte, config["tamanho_fonte"])
+
+                if "escala_interface" in config:
+                    self._set_combo_value(self.escala_interface, config["escala_interface"])
+
+                if "navegacao_teclado" in config:
+                    self.navegacao_teclado.setChecked(
+                        config["navegacao_teclado"] == True or config["navegacao_teclado"] == "true"
+                    )
 
                 if "alerta_estoque" in config:
                     self.alerta_estoque.setValue(int(config["alerta_estoque"]))
@@ -1444,9 +1513,7 @@ class ParametrosWidget(QWidget):
                     self.backup_automatico.setChecked(config["backup_automatico"] == True or config["backup_automatico"] == "true")
 
                 if "frequencia_backup" in config:
-                    idx = self.frequencia_backup.findText(config["frequencia_backup"])
-                    if idx >= 0:
-                        self.frequencia_backup.setCurrentIndex(idx)
+                    self._set_combo_value(self.frequencia_backup, config["frequencia_backup"])
 
                 if "horario_backup" in config:
                     self.horario_backup.setTime(QTime.fromString(config["horario_backup"], "HH:mm"))
@@ -1479,30 +1546,34 @@ class ParametrosWidget(QWidget):
                     self.verificar_alertas_auto.setChecked(config["verificar_alertas_auto"] == True or config["verificar_alertas_auto"] == "true")
 
                 if "intervalo_verificacao" in config:
-                    idx = self.intervalo_verificacao.findText(config["intervalo_verificacao"])
-                    if idx >= 0:
-                        self.intervalo_verificacao.setCurrentIndex(idx)
+                    self._set_combo_value(self.intervalo_verificacao, config["intervalo_verificacao"])
 
                 if "tempo_notificacao" in config:
-                    idx = self.tempo_notificacao.findText(config["tempo_notificacao"])
-                    if idx >= 0:
-                        self.tempo_notificacao.setCurrentIndex(idx)
+                    self._set_combo_value(self.tempo_notificacao, config["tempo_notificacao"])
 
                 if "modo_nao_perturbe" in config:
                     self.modo_nao_perturbe.setChecked(config["modo_nao_perturbe"] == True or config["modo_nao_perturbe"] == "true")
 
-                print("Ã¢Å“â€¦ ConfiguraÃƒÂ§ÃƒÂµes carregadas com sucesso")
+                apply_accessibility_config(config)
+                print("Configuracoes carregadas com sucesso")
 
         except Exception as e:
-            print(f"Ã¢ÂÅ’ Erro ao carregar configuraÃƒÂ§ÃƒÂµes: {e}")
+            print(f"Erro ao carregar configuracoes: {e}")
+        finally:
+            self._loading_configuracoes = False
 
     def salvar_configuracoes(self):
-        """Salva as configuraÃƒÂ§ÃƒÂµes no backend"""
+        """Salva as configuracoes no backend"""
 
         QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
 
+        accessibility_config = self._collect_accessibility_config()
         config = {
             "empresa_padrao": self.empresa_padrao.currentText(),
+            "tema": accessibility_config["tema"],
+            "tamanho_fonte": accessibility_config["tamanho_fonte"],
+            "escala_interface": accessibility_config["escala_interface"],
+            "navegacao_teclado": accessibility_config["navegacao_teclado"],
             "alerta_estoque": self.alerta_estoque.value(),
             "alerta_estoque_critico": self.alerta_estoque_critico.value(),
             "backup_automatico": self.backup_automatico.isChecked(),
@@ -1528,19 +1599,20 @@ class ParametrosWidget(QWidget):
             QApplication.restoreOverrideCursor()
 
             if success:
-                notification_manager.success("ConfiguraÃƒÂ§ÃƒÂµes salvas com sucesso!", self.window(), 3000)
-                # Reconfigurar scheduler de backup apÃƒÂ³s salvar
+                apply_accessibility_config(accessibility_config)
+                notification_manager.success("Configuracoes salvas com sucesso!", self.window(), 3000)
                 api_client.reconfigurar_backup()
                 from core.notification_manager import notification_manager as core_notification_manager
                 core_notification_manager.carregar_configuracoes()
             else:
-                notification_manager.error("Erro ao salvar configuraÃƒÂ§ÃƒÂµes", self.window(), 3000)
+                notification_manager.error("Erro ao salvar configuracoes", self.window(), 3000)
         except Exception as e:
             QApplication.restoreOverrideCursor()
             notification_manager.error(f"Erro ao salvar: {e}", self.window(), 3000)
 
     def cancelar(self):
-        notification_manager.info("AlteraÃƒÂ§ÃƒÂµes canceladas.", self.window(), 2000)
+        self.carregar_configuracoes()
+        notification_manager.info("Alteracoes canceladas.", self.window(), 2000)
 
     def carregar_dados(self):
         self.carregar_configuracoes()

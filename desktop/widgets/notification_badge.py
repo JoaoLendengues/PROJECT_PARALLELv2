@@ -18,6 +18,7 @@ class NotificationBadge(QPushButton):
         self.setProperty('class', 'menu-button')
         self.setFixedHeight(48)
         self.setCursor(Qt.PointingHandCursor)
+        self.setFocusPolicy(Qt.NoFocus)
 
         # Estilo do badge
         self.setStyleSheet("""
@@ -59,6 +60,3 @@ class NotificationBadge(QPushButton):
     def force_update(self):
         """Força a atualização do contador"""
         self.atualizar_contador()
-
-
-         

@@ -5,6 +5,8 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QColor, QCursor
 from api_client import api_client
+from access_control import get_action_label, has_action_access
+from widgets.company_filter_utils import company_filter_ready, populate_company_filter, selected_company_value
 from widgets.toast_notification import notification_manager
 from widgets.filter_utils import contains_text, is_all_option, same_filter_value, same_text
 from widgets.table_utils import configure_data_table, number_item
@@ -13,6 +15,7 @@ from widgets.table_utils import configure_data_table, number_item
 class MateriaisWidget(QWidget):
     def __init__(self):
         super().__init__()
+        self.usuario = {}
         self.materiais = []
         self.dados_cache = []
         self.categorias = []
@@ -26,7 +29,7 @@ class MateriaisWidget(QWidget):
         if not self._loaded:
             self.carregar_categorias()
             self.carregar_empresas()
-            self.carregar_materiais()
+            self._mostrar_prompt_empresa()
             self._loaded = True
 
     def init_ui(self):
@@ -71,8 +74,7 @@ class MateriaisWidget(QWidget):
         self.empresa_filter = QComboBox()
         self.empresa_filter.setMinimumWidth(150)
         self.empresa_filter.setMaximumWidth(200)
-        self.empresa_filter.addItem("Todas as empresas")
-        self.empresa_filter.currentTextChanged.connect(self.filtrar_materiais)
+        self.empresa_filter.currentIndexChanged.connect(self.ao_alterar_empresa)
         filtros_layout.addWidget(self.empresa_filter)
 
         # Filtro Categoria
@@ -96,6 +98,10 @@ class MateriaisWidget(QWidget):
         filtros_layout.addStretch()
 
         layout.addLayout(filtros_layout)
+
+        self.empresa_prompt = QLabel('Selecione uma empresa ou "Todas as empresas" para carregar os materiais.')
+        self.empresa_prompt.setStyleSheet("color: #64748b; font-size: 13px;")
+        layout.addWidget(self.empresa_prompt)
 
         # Tabela de materiais
         self.tabela = QTableWidget()
@@ -135,6 +141,43 @@ class MateriaisWidget(QWidget):
         acoes.addWidget(self.deletar_btn)
 
         layout.addLayout(acoes)
+        self.aplicar_permissoes()
+
+    def set_usuario(self, usuario):
+        self.usuario = usuario or {}
+        self.aplicar_permissoes()
+
+    def _pode(self, action_key):
+        return has_action_access(self.usuario, action_key)
+
+    def _avisar_sem_permissao(self, action_key):
+        QMessageBox.warning(self, "Acesso não permitido", f"Você não tem permissão para {get_action_label(action_key)}.")
+
+    def aplicar_permissoes(self):
+        if hasattr(self, "novo_btn"):
+            self.novo_btn.setVisible(self._pode("materiais.create"))
+        if hasattr(self, "editar_btn"):
+            self.editar_btn.setVisible(self._pode("materiais.edit"))
+        if hasattr(self, "deletar_btn"):
+            self.deletar_btn.setVisible(self._pode("materiais.delete"))
+
+    def empresa_pronta(self):
+        return company_filter_ready(self.empresa_filter)
+
+    def empresa_param(self):
+        return selected_company_value(self.empresa_filter)
+
+    def _mostrar_prompt_empresa(self):
+        self.materiais = []
+        self.dados_cache = []
+        self.tabela.setRowCount(0)
+        self.empresa_prompt.setVisible(True)
+
+    def ao_alterar_empresa(self):
+        if not self.empresa_pronta():
+            self._mostrar_prompt_empresa()
+            return
+        self.carregar_materiais()
 
     def carregar_categorias(self):
         try:
@@ -150,25 +193,31 @@ class MateriaisWidget(QWidget):
         """Carrega a lista de empresas do backend"""
         try:
             self.empresas = api_client.get_empresas()
-            self.empresa_filter.clear()
-            self.empresa_filter.addItem('Todas as empresas')
-            for emp in self.empresas:
-                self.empresa_filter.addItem(emp)
+            populate_company_filter(self.empresa_filter, self.empresas)
         except Exception as e:
             print(f'Erro ao carregar empresas: {e}')
 
     def carregar_materiais(self):
         """Carrega a lista de materiais do backend"""
+        if not self.empresa_pronta():
+            self._mostrar_prompt_empresa()
+            return
+
         try:
-            self.materiais = api_client.listar_materiais()
+            self.materiais = api_client.listar_materiais(empresa=self.empresa_param())
             self.dados_cache = self.materiais.copy() # Cache para filtros
             self.atualizar_tabela(self.materiais)
+            self.empresa_prompt.setVisible(False)
             print(f"✅ Materiais carregados: {len(self.materiais)}")
         except Exception as e:
             print(f"❌ Erro ao carregar materiais: {e}")
             QMessageBox.warning(self, "Erro", f"Erro ao carregar materiais: {e}")
 
     def filtrar_materiais(self):
+        if not self.empresa_pronta():
+            self._mostrar_prompt_empresa()
+            return
+
         search_text = self.pesquisa_edit.text()
         empresa = self.empresa_filter.currentText()
         categoria = self.categoria_filter.currentText()
@@ -181,7 +230,7 @@ class MateriaisWidget(QWidget):
                 continue
 
             # Filtro por empresa
-            if not is_all_option(empresa) and not same_text(material.get('empresa'), empresa):
+            if self.empresa_param() is None and not is_all_option(empresa) and not same_text(material.get('empresa'), empresa):
                 continue
 
             # Filtro por categoria
@@ -218,6 +267,9 @@ class MateriaisWidget(QWidget):
             self.tabela.setItem(row, 6, status_item)
 
     def novo_material(self):
+        if not self._pode("materiais.create"):
+            self._avisar_sem_permissao("materiais.create")
+            return
         dialog = MaterialDialog(item_data=None, parent=self)
         if dialog.exec():
             self.carregar_materiais()
@@ -225,6 +277,9 @@ class MateriaisWidget(QWidget):
             self.carregar_empresas()
 
     def editar_material(self):
+        if not self._pode("materiais.edit"):
+            self._avisar_sem_permissao("materiais.edit")
+            return
         current_row = self.tabela.currentRow()
         if current_row < 0:
             QMessageBox.warning(self, "Atenção", "Selecione um material para editar")
@@ -241,6 +296,9 @@ class MateriaisWidget(QWidget):
                 self.carregar_empresas()
 
     def deletar_material(self):
+        if not self._pode("materiais.delete"):
+            self._avisar_sem_permissao("materiais.delete")
+            return
         current_row = self.tabela.currentRow()
         if current_row < 0:
             QMessageBox.warning(self, "Atenção", "Selecione um material para deletar")

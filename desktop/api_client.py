@@ -351,9 +351,9 @@ class APIClient:
         except:
             return None
 
-    def listar_materiais_para_movimentacao(self):
+    def listar_materiais_para_movimentacao(self, empresa=None):
         """Lista materiais para combo box"""
-        return self.listar_materiais(status="ativo")
+        return self.listar_materiais(status="ativo", empresa=empresa)
 
     def listar_colaboradores_para_movimentacao(self):
         """Lista colaboradores para combo box"""
@@ -376,13 +376,15 @@ class APIClient:
     # Manutenções
     # =====================================================
 
-    def listar_manutencoes(self, status=None, maquina_id=None, limit=100):
+    def listar_manutencoes(self, status=None, maquina_id=None, empresa=None, limit=100):
         """Lista manutenções com filtros"""
         params = {"limit": limit}
         if status:
             params["status"] = status
         if maquina_id:
             params["maquina_id"] = maquina_id
+        if empresa:
+            params["empresa"] = empresa
 
         try:
             response = requests.get(
@@ -453,9 +455,9 @@ class APIClient:
         except:
             return False
 
-    def listar_maquinas_para_manutencao(self):
+    def listar_maquinas_para_manutencao(self, empresa=None):
         """Lista máquinas para combo box"""
-        return self.listar_maquinas()
+        return self.listar_maquinas(empresa=empresa)
 
     # =====================================================
     # Pedidos
@@ -564,9 +566,9 @@ class APIClient:
         except:
             return False
 
-    def listar_materiais_para_pedido(self):
+    def listar_materiais_para_pedido(self, empresa=None):
         """Lista materiais para combo box"""
-        return self.listar_materiais(status="ativo")
+        return self.listar_materiais(status="ativo", empresa=empresa)
 
     # =====================================================
     # Colaboradores

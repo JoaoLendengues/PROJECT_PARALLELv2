@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 from PySide6.QtCore import Qt, QDate, QThread, Signal
 from PySide6.QtGui import QFont, QColor
 from api_client import api_client
+from access_control import get_action_label, has_action_access
 from widgets.filter_utils import filter_value, is_all_option
 from widgets.table_utils import configure_data_table
 import openpyxl
@@ -115,6 +116,7 @@ CALENDAR_STYLE = """
 class RelatoriosWidget(QWidget):
     def __init__(self):
         super().__init__()
+        self.usuario = {}
         self._loaded_tabs = {
             'movimentacoes': False,
             'estoque': False,
@@ -123,6 +125,16 @@ class RelatoriosWidget(QWidget):
         }  # ✅ Controle de carregamento por aba
         self.init_ui()
         # ⚠️ NÃO carregar dados aqui - será feito no on_show() ou quando cada aba for ativada
+
+    def set_usuario(self, usuario):
+        self.usuario = usuario or {}
+        self.aplicar_permissoes()
+
+    def _pode(self, action_key):
+        return has_action_access(self.usuario, action_key)
+
+    def _avisar_sem_permissao(self, action_key):
+        QMessageBox.warning(self, "Acesso não permitido", f"Você não tem permissão para {get_action_label(action_key)}.")
 
     def on_show(self):
         """✅ Chamado quando a aba principal do relatório é selecionada"""
@@ -159,6 +171,23 @@ class RelatoriosWidget(QWidget):
         self.tabs.addTab(self.tab_demandas, "🎫 Demandas")
 
         layout.addWidget(self.tabs)
+        self.aplicar_permissoes()
+
+    def aplicar_permissoes(self):
+        pode_exportar = self._pode("relatorios.export")
+        for attr_name in (
+            "btn_exportar_excel",
+            "btn_exportar_pdf",
+            "btn_exportar_excel_estoque",
+            "btn_exportar_pdf_estoque",
+            "btn_exportar_excel_pedidos",
+            "btn_exportar_pdf_pedidos",
+            "btn_exportar_excel_demandas",
+            "btn_exportar_pdf_demandas",
+        ):
+            btn = getattr(self, attr_name, None)
+            if btn is not None:
+                btn.setVisible(pode_exportar)
 
     def on_tab_changed(self, index):
         """✅ Carrega dados da aba quando ela é selecionada pela primeira vez"""
@@ -809,6 +838,10 @@ class RelatoriosWidget(QWidget):
 
     def exportar_excel(self, tipo):
         """Exporta dados para Excel"""
+        if not self._pode("relatorios.export"):
+            self._avisar_sem_permissao("relatorios.export")
+            return
+
         try:
             file_path, _ = QFileDialog.getSaveFileName(
                 self, "Salvar Excel", f"relatorio_{tipo}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
@@ -881,6 +914,10 @@ class RelatoriosWidget(QWidget):
 
     def exportar_pdf(self, tipo):
         """Exporta dados para PDF"""
+        if not self._pode("relatorios.export"):
+            self._avisar_sem_permissao("relatorios.export")
+            return
+
         try:
             file_path, _ = QFileDialog.getSaveFileName(
                 self, "Salvar PDF", f"relatorio_{tipo}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",

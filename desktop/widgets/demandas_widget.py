@@ -5,6 +5,8 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QFont, QColor
 from api_client import api_client
+from access_control import get_action_label, has_action_access
+from widgets.company_filter_utils import company_filter_ready, populate_company_filter, selected_company_value
 from widgets.filter_utils import is_all_option, same_filter_value
 from widgets.table_utils import configure_data_table, number_item
 
@@ -12,13 +14,16 @@ from widgets.table_utils import configure_data_table, number_item
 class DemandasWidget(QWidget):
     def __init__(self):
         super().__init__()
+        self.usuario = {}
         self.demandas = []
+        self.empresas = []
         self._loaded = False
         self.init_ui()
 
     def on_show(self):
         if not self._loaded:
-            self.carregar_demandas()
+            self.carregar_empresas()
+            self._mostrar_prompt_empresa()
             self._loaded = True
 
     def init_ui(self):
@@ -56,6 +61,12 @@ class DemandasWidget(QWidget):
         filtros.addWidget(QLabel("Status:"))
         filtros.addWidget(self.status_filter)
 
+        self.empresa_filter = QComboBox()
+        self.empresa_filter.setMinimumWidth(150)
+        self.empresa_filter.currentIndexChanged.connect(self.ao_alterar_empresa)
+        filtros.addWidget(QLabel("Empresa:"))
+        filtros.addWidget(self.empresa_filter)
+
         self.prioridade_filter = QComboBox()
         self.prioridade_filter.addItems(["Todas", "Alta", "Média", "Baixa"])
         self.prioridade_filter.currentTextChanged.connect(self.filtrar_demandas)
@@ -65,6 +76,10 @@ class DemandasWidget(QWidget):
         filtros.addStretch()
 
         layout.addLayout(filtros)
+
+        self.empresa_prompt = QLabel('Selecione uma empresa ou "Todas as empresas" para carregar as demandas.')
+        self.empresa_prompt.setStyleSheet("color: #64748b; font-size: 13px;")
+        layout.addWidget(self.empresa_prompt)
 
         # Tabela com estilo melhorado
         self.tabela = QTableWidget()
@@ -115,17 +130,73 @@ class DemandasWidget(QWidget):
         acoes.addWidget(self.deletar_btn)
 
         layout.addLayout(acoes)
+        self.aplicar_permissoes()
+
+    def set_usuario(self, usuario):
+        self.usuario = usuario or {}
+        self.aplicar_permissoes()
+
+    def _pode(self, action_key):
+        return has_action_access(self.usuario, action_key)
+
+    def _avisar_sem_permissao(self, action_key):
+        QMessageBox.warning(self, "Acesso não permitido", f"Você não tem permissão para {get_action_label(action_key)}.")
+
+    def aplicar_permissoes(self):
+        if hasattr(self, "novo_btn"):
+            self.novo_btn.setVisible(self._pode("demandas.create"))
+        if hasattr(self, "editar_btn"):
+            self.editar_btn.setVisible(self._pode("demandas.edit"))
+        if hasattr(self, "concluir_btn"):
+            self.concluir_btn.setVisible(self._pode("demandas.complete"))
+        if hasattr(self, "cancelar_btn"):
+            self.cancelar_btn.setVisible(self._pode("demandas.cancel"))
+        if hasattr(self, "deletar_btn"):
+            self.deletar_btn.setVisible(self._pode("demandas.delete"))
+
+    def empresa_pronta(self):
+        return company_filter_ready(self.empresa_filter)
+
+    def empresa_param(self):
+        return selected_company_value(self.empresa_filter)
+
+    def carregar_empresas(self):
+        try:
+            self.empresas = api_client.get_empresas()
+            populate_company_filter(self.empresa_filter, self.empresas)
+        except Exception as e:
+            print(f"❌ Erro ao carregar empresas: {e}")
+
+    def _mostrar_prompt_empresa(self):
+        self.demandas = []
+        self.tabela.setRowCount(0)
+        self.empresa_prompt.setVisible(True)
+
+    def ao_alterar_empresa(self):
+        if not self.empresa_pronta():
+            self._mostrar_prompt_empresa()
+            return
+        self.carregar_demandas()
 
     def carregar_demandas(self):
+        if not self.empresa_pronta():
+            self._mostrar_prompt_empresa()
+            return
+
         try:
-            self.demandas = api_client.listar_demandas()
+            self.demandas = api_client.listar_demandas(empresa=self.empresa_param())
             self.atualizar_tabela(self.demandas)
+            self.empresa_prompt.setVisible(False)
             print(f"✅ Demandas carregadas: {len(self.demandas)}")
         except Exception as e:
             print(f"❌ Erro ao carregar demandas: {e}")
             QMessageBox.warning(self, "Erro", f"Erro ao carregar demandas: {e}")
 
     def filtrar_demandas(self):
+        if not self.empresa_pronta():
+            self._mostrar_prompt_empresa()
+            return
+
         status = self.status_filter.currentText()
         prioridade = self.prioridade_filter.currentText()
 
@@ -179,6 +250,9 @@ class DemandasWidget(QWidget):
             self.tabela.setItem(row, 7, QTableWidgetItem(d.get("responsavel", "-")))
 
     def nova_demanda(self):
+        if not self._pode("demandas.create"):
+            self._avisar_sem_permissao("demandas.create")
+            return
         dialog = DemandaDialog(parent=self)
         if dialog.exec():
             self.carregar_demandas()
@@ -197,6 +271,9 @@ class DemandasWidget(QWidget):
             dialog.exec()
 
     def editar_demanda(self):
+        if not self._pode("demandas.edit"):
+            self._avisar_sem_permissao("demandas.edit")
+            return
         row = self.tabela.currentRow()
         if row < 0:
             QMessageBox.warning(self, "Atenção", "Selecione uma demanda para editar")
@@ -211,6 +288,9 @@ class DemandasWidget(QWidget):
                 self.carregar_demandas()
 
     def concluir_demanda(self):
+        if not self._pode("demandas.complete"):
+            self._avisar_sem_permissao("demandas.complete")
+            return
         row = self.tabela.currentRow()
         if row < 0:
             QMessageBox.warning(self, "Atenção", "Selecione uma demanda para concluir")
@@ -237,6 +317,9 @@ class DemandasWidget(QWidget):
                 QMessageBox.critical(self, "Erro", f"Erro ao concluir: {e}")
 
     def cancelar_demanda(self):
+        if not self._pode("demandas.cancel"):
+            self._avisar_sem_permissao("demandas.cancel")
+            return
         row = self.tabela.currentRow()
         if row < 0:
             QMessageBox.warning(self, "Atenção", "Selecione uma demanda para cancelar")
@@ -263,6 +346,9 @@ class DemandasWidget(QWidget):
                 QMessageBox.critical(self, "Erro", f"Erro ao cancelar: {e}")
 
     def deletar_demanda(self):
+        if not self._pode("demandas.delete"):
+            self._avisar_sem_permissao("demandas.delete")
+            return
         row = self.tabela.currentRow()
         if row < 0:
             QMessageBox.warning(self, "Atenção", "Selecione uma demanda para deletar")

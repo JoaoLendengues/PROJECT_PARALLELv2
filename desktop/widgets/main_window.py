@@ -16,7 +16,9 @@ from widgets.parametros_widget import ParametrosWidget
 from widgets.colaboradores_widget import ColaboradoresWidget
 from widgets.demandas_widget import DemandasWidget
 from widgets.relatorios_widget import RelatoriosWidget
+from widgets.access_denied_widget import AccessDeniedWidget
 from widgets.notification_badge import NotificationBadge
+from access_control import get_role_label, get_screen_label, has_screen_access, normalize_access_level
 from api_client import api_client
 from core.notification_manager import notification_manager as core_mn
 from version import get_version
@@ -49,6 +51,8 @@ class MainWindow(QMainWindow):
     def __init__(self, usuario):
         super().__init__()
         self.usuario = usuario
+        self.nivel_acesso = normalize_access_level(usuario.get("nivel_acesso"))
+        self.update_widget = None
         self.setWindowTitle(f"Project Parallel - Sistema de Controle de Estoque - {usuario['nome']}")
 
         # Definir tamanho mínimo
@@ -84,13 +88,12 @@ class MainWindow(QMainWindow):
         self.load_background_data()
 
         # Selecionar home por padrão
-        self.content_stack.setCurrentWidget(self.home_widget)
-        self.home_widget.on_show()  # Carregar dados da home
+        self.show_home()
 
-    def set_active_menu(self, button_index):
+    def set_active_menu(self, screen_key=None):
         """Marca o menu como ativo visualmente"""
-        for i, btn in enumerate(self.menu_buttons):
-            if i == button_index:
+        for key, btn in self.menu_buttons.items():
+            if screen_key and key == screen_key:
                 btn.setProperty("active", True)
             else:
                 btn.setProperty("active", False)
@@ -114,38 +117,52 @@ class MainWindow(QMainWindow):
         logo.setProperty('class', 'logo')
         layout.addWidget(logo)
 
+        menu_container = QWidget()
+        menu_layout = QVBoxLayout(menu_container)
+        menu_layout.setContentsMargins(12, 12, 12, 0)
+        menu_layout.setSpacing(6)
+
         # Botões do menu
         menus = [
-            ("🏠 Home", self.show_home),
-            ("📦 Materiais", self.show_materiais),
-            ("🖥️ Máquinas", self.show_maquinas),
-            ("📊 Movimentações", self.show_movimentacoes),
-            ("🔧 Manutenções", self.show_manutencoes),
-            ("📋 Pedidos", self.show_pedidos),
-            ("👥 Colaboradores", self.show_colaboradores),
-            ("🎫 Demandas", self.show_demandas),
-            ("📈 Relatórios", self.show_relatorios),
-            ("👥 Usuários", self.show_usuarios),
-            ("⚙️ Parâmetros", self.show_parametros),
-            ("🔄 Atualizações", self.show_updates)
+            ("home", "🏠 Home", self.show_home),
+            ("materiais", "📦 Materiais", self.show_materiais),
+            ("maquinas", "🖥️ Máquinas", self.show_maquinas),
+            ("movimentacoes", "📊 Movimentações", self.show_movimentacoes),
+            ("manutencoes", "🔧 Manutenções", self.show_manutencoes),
+            ("pedidos", "📋 Pedidos", self.show_pedidos),
+            ("colaboradores", "👥 Colaboradores", self.show_colaboradores),
+            ("demandas", "🎫 Demandas", self.show_demandas),
+            ("relatorios", "📈 Relatórios", self.show_relatorios),
+            ("usuarios", "👥 Usuários", self.show_usuarios),
+            ("parametros", "⚙️ Parâmetros", self.show_parametros),
+            ("updates", "🔄 Atualizações", self.show_updates),
         ]
 
-        self.menu_buttons = []
-        for idx, (text, callback) in enumerate(menus):
+        self.menu_buttons = {}
+        for screen_key, text, callback in menus:
+            if not has_screen_access(self.usuario, screen_key):
+                continue
             btn = QPushButton(text)
             btn.setProperty("class", "menu-button")
             btn.setProperty("active", False)
-            btn.clicked.connect(lambda checked, i=idx, cb=callback: [cb(), self.set_active_menu(i)])
+            btn.clicked.connect(lambda checked=False, cb=callback: cb())
             btn.setFixedHeight(48)
-            layout.addWidget(btn)
-            self.menu_buttons.append(btn)
+            btn.setFocusPolicy(Qt.NoFocus)
+            menu_layout.addWidget(btn)
+            self.menu_buttons[screen_key] = btn
 
+        layout.addWidget(menu_container)
         layout.addStretch()
+
+        bottom_container = QWidget()
+        bottom_layout = QVBoxLayout(bottom_container)
+        bottom_layout.setContentsMargins(12, 0, 12, 12)
+        bottom_layout.setSpacing(6)
 
         # botão de Notificações
         self.notification_btn = NotificationBadge()
         self.notification_btn.clicked.connect(self.show_notification_center)
-        layout.addWidget(self.notification_btn)
+        bottom_layout.addWidget(self.notification_btn)
 
         # Atualizar contador inicial
         self.notification_btn.atualizar_contador()
@@ -154,21 +171,25 @@ class MainWindow(QMainWindow):
         btn_trocar_usuario = QPushButton("🔄 Trocar Usuário")
         btn_trocar_usuario.setProperty("class", "menu-button-bottom")
         btn_trocar_usuario.setFixedHeight(48)
+        btn_trocar_usuario.setFocusPolicy(Qt.NoFocus)
         btn_trocar_usuario.clicked.connect(self.trocar_usuario)
-        layout.addWidget(btn_trocar_usuario)
+        bottom_layout.addWidget(btn_trocar_usuario)
 
         # Botão Sair
         btn_sair = QPushButton("🚪 Sair")
         btn_sair.setProperty("class", "menu-button-bottom")
         btn_sair.setFixedHeight(48)
+        btn_sair.setFocusPolicy(Qt.NoFocus)
         btn_sair.clicked.connect(self.sair)
-        layout.addWidget(btn_sair)
+        bottom_layout.addWidget(btn_sair)
 
         # Rodapé
         footer = QLabel(f'v{get_version()}')
         footer.setAlignment(Qt.AlignCenter)
         footer.setProperty('class', 'footer')
-        layout.addWidget(footer)
+        bottom_layout.addWidget(footer)
+
+        layout.addWidget(bottom_container)
 
         return sidebar
 
@@ -176,6 +197,7 @@ class MainWindow(QMainWindow):
         """✅ Inicializa os widgets (sem carregar dados pesados ainda)"""
         self.home_widget = HomeWidget()
         self.home_widget.set_usuario(self.usuario['nome'])
+        self.home_widget.set_usuario_context(self.usuario)
         self.home_widget.set_main_window(self)
         self.materiais_widget = MateriaisWidget()
         self.maquinas_widget = MaquinasWidget()
@@ -187,6 +209,19 @@ class MainWindow(QMainWindow):
         self.relatorios_widget = RelatoriosWidget()
         self.usuarios_widget = UsuariosWidget()
         self.parametros_widget = ParametrosWidget()
+        self.access_denied_widget = AccessDeniedWidget(on_back_home=self.show_home)
+        for widget in (
+            self.materiais_widget,
+            self.maquinas_widget,
+            self.movimentacoes_widget,
+            self.manutencoes_widget,
+            self.pedidos_widget,
+            self.colaboradores_widget,
+            self.demandas_widget,
+            self.relatorios_widget,
+        ):
+            if hasattr(widget, "set_usuario"):
+                widget.set_usuario(self.usuario)
 
         self.content_stack.addWidget(self.home_widget)
         self.content_stack.addWidget(self.materiais_widget)
@@ -199,6 +234,7 @@ class MainWindow(QMainWindow):
         self.content_stack.addWidget(self.relatorios_widget)
         self.content_stack.addWidget(self.usuarios_widget)
         self.content_stack.addWidget(self.parametros_widget)
+        self.content_stack.addWidget(self.access_denied_widget)
 
     def load_background_data(self):
         """✅ Carrega dados estáticos em segundo plano"""
@@ -222,9 +258,26 @@ class MainWindow(QMainWindow):
     # MÉTODOS DE NAVEGAÇÃO - COM CARREGAMENTO SOB DEMANDA
     # =====================================================
 
+    def _show_screen(self, screen_key, widget, on_show=None):
+        if not has_screen_access(self.usuario, screen_key):
+            self.show_access_denied(screen_key)
+            return False
+
+        self.content_stack.setCurrentWidget(widget)
+        if callable(on_show):
+            on_show()
+        self.set_active_menu(screen_key)
+        return True
+
+    def show_access_denied(self, screen_key):
+        screen_label = get_screen_label(screen_key)
+        role_label = get_role_label(self.nivel_acesso)
+        self.access_denied_widget.configure(screen_label, role_label)
+        self.content_stack.setCurrentWidget(self.access_denied_widget)
+        self.set_active_menu()
+
     def show_home(self):
-        self.content_stack.setCurrentWidget(self.home_widget)
-        self.home_widget.on_show()
+        self._show_screen("home", self.home_widget, self.home_widget.on_show)
 
     def refresh_home_dashboard(self):
         """Atualiza os cards da home sem depender de navegacao manual."""
@@ -233,56 +286,56 @@ class MainWindow(QMainWindow):
 
     def show_notification_center(self):
         """Abre a Central de Notificações"""
+        if not has_screen_access(self.usuario, "notificacoes"):
+            self.show_access_denied("notificacoes")
+            return
+
         from widgets.notification_center import NotificationCenter
         self.notification_center = NotificationCenter(self)
         self.notification_center.show()
 
     def show_materiais(self):
-        self.content_stack.setCurrentWidget(self.materiais_widget)
-        self.materiais_widget.on_show()
+        self._show_screen("materiais", self.materiais_widget, self.materiais_widget.on_show)
 
     def show_maquinas(self):
-        self.content_stack.setCurrentWidget(self.maquinas_widget)
-        self.maquinas_widget.on_show()
+        self._show_screen("maquinas", self.maquinas_widget, self.maquinas_widget.on_show)
 
     def show_movimentacoes(self):
-        self.content_stack.setCurrentWidget(self.movimentacoes_widget)
-        self.movimentacoes_widget.on_show()
+        self._show_screen("movimentacoes", self.movimentacoes_widget, self.movimentacoes_widget.on_show)
 
     def show_manutencoes(self):
-        self.content_stack.setCurrentWidget(self.manutencoes_widget)
-        self.manutencoes_widget.on_show()
+        self._show_screen("manutencoes", self.manutencoes_widget, self.manutencoes_widget.on_show)
 
     def show_pedidos(self):
-        self.content_stack.setCurrentWidget(self.pedidos_widget)
-        self.pedidos_widget.on_show()
+        self._show_screen("pedidos", self.pedidos_widget, self.pedidos_widget.on_show)
 
     def show_colaboradores(self):
-        self.content_stack.setCurrentWidget(self.colaboradores_widget)
-        self.colaboradores_widget.on_show()
+        self._show_screen("colaboradores", self.colaboradores_widget, self.colaboradores_widget.on_show)
 
     def show_demandas(self):
-        self.content_stack.setCurrentWidget(self.demandas_widget)
-        self.demandas_widget.on_show()
+        self._show_screen("demandas", self.demandas_widget, self.demandas_widget.on_show)
 
     def show_relatorios(self):
-        self.content_stack.setCurrentWidget(self.relatorios_widget)
-        self.relatorios_widget.on_show()
+        self._show_screen("relatorios", self.relatorios_widget, self.relatorios_widget.on_show)
 
     def show_usuarios(self):
-        self.content_stack.setCurrentWidget(self.usuarios_widget)
-        self.usuarios_widget.on_show()
+        self._show_screen("usuarios", self.usuarios_widget, self.usuarios_widget.on_show)
 
     def show_parametros(self):
-        self.content_stack.setCurrentWidget(self.parametros_widget)
-        self.parametros_widget.on_show()
+        self._show_screen("parametros", self.parametros_widget, self.parametros_widget.on_show)
 
     def show_updates(self):
         """Exibe a tela de atualizações"""
-        from widgets.update_widget import UpdateWidget
-        self.update_widget = UpdateWidget(self)
-        self.content_stack.addWidget(self.update_widget)
-        self.content_stack.setCurrentWidget(self.update_widget)
+        if not has_screen_access(self.usuario, "updates"):
+            self.show_access_denied("updates")
+            return
+
+        if self.update_widget is None:
+            from widgets.update_widget import UpdateWidget
+            self.update_widget = UpdateWidget(self)
+            self.content_stack.addWidget(self.update_widget)
+
+        self._show_screen("updates", self.update_widget)
 
     def trocar_usuario(self):
         """Troca o usuário atual (volta para tela de login)"""
@@ -320,4 +373,3 @@ class MainWindow(QMainWindow):
             # Fechar aplicação
             self.close()
             QApplication.quit()
-
