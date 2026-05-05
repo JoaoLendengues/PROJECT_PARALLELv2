@@ -145,6 +145,7 @@ class MainWindow(QMainWindow):
             btn = QPushButton(text)
             btn.setProperty("class", "menu-button")
             btn.setProperty("active", False)
+            btn.setProperty("keyboardNavigationTarget", True)
             btn.clicked.connect(lambda checked=False, cb=callback: cb())
             btn.setFixedHeight(48)
             btn.setFocusPolicy(Qt.NoFocus)
@@ -170,6 +171,7 @@ class MainWindow(QMainWindow):
         # Botão Trocar Usuário
         btn_trocar_usuario = QPushButton("🔄 Trocar Usuário")
         btn_trocar_usuario.setProperty("class", "menu-button-bottom")
+        btn_trocar_usuario.setProperty("keyboardNavigationTarget", True)
         btn_trocar_usuario.setFixedHeight(48)
         btn_trocar_usuario.setFocusPolicy(Qt.NoFocus)
         btn_trocar_usuario.clicked.connect(self.trocar_usuario)
@@ -178,6 +180,7 @@ class MainWindow(QMainWindow):
         # Botão Sair
         btn_sair = QPushButton("🚪 Sair")
         btn_sair.setProperty("class", "menu-button-bottom")
+        btn_sair.setProperty("keyboardNavigationTarget", True)
         btn_sair.setFixedHeight(48)
         btn_sair.setFocusPolicy(Qt.NoFocus)
         btn_sair.clicked.connect(self.sair)

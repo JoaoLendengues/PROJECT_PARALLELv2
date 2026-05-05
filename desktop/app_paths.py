@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import sys
 
 
@@ -30,3 +31,18 @@ def get_env_file_path() -> Path:
     if install_env.exists():
         return install_env
     return get_resource_path(".env")
+
+
+def get_user_config_dir() -> Path:
+    """Retorna a pasta de configuracoes do usuario para dados persistentes locais."""
+    base_dir = (
+        os.getenv("LOCALAPPDATA")
+        or os.getenv("APPDATA")
+        or str(get_install_dir())
+    )
+    return Path(base_dir) / "ProjectParallel"
+
+
+def get_accessibility_config_path() -> Path:
+    """Retorna o arquivo local usado para persistir a acessibilidade entre sessoes."""
+    return get_user_config_dir() / "accessibility.json"

@@ -9,7 +9,11 @@ from updater import UpdateChecker
 from widgets.toast_notification import notification_manager
 from app_paths import get_env_file_path, get_resource_path
 from api_client import api_client
-from accessibility_manager import apply_accessibility_config, initialize_accessibility
+from accessibility_manager import (
+    apply_accessibility_config,
+    initialize_accessibility,
+    save_local_accessibility_config,
+)
 
 load_dotenv(get_env_file_path())
 
@@ -40,6 +44,7 @@ def on_login_success(usuario):
     try:
         accessibility_config = api_client.get_configuracoes()
         apply_accessibility_config(accessibility_config)
+        save_local_accessibility_config(accessibility_config)
     except Exception as e:
         print(f"Erro ao aplicar configuracoes de acessibilidade: {e}")
 

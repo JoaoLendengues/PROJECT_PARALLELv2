@@ -8,7 +8,13 @@
 from PySide6.QtCore import Qt, QTimer, QTime
 from PySide6.QtGui import QFont, QColor, QCursor
 from api_client import api_client
-from accessibility_manager import apply_accessibility_config, build_accessibility_config
+from accessibility_manager import (
+    DEFAULT_ACCESSIBILITY_CONFIG,
+    apply_accessibility_config,
+    build_accessibility_config,
+    get_accessibility_options,
+    save_local_accessibility_config,
+)
 from widgets.toast_notification import notification_manager
 from widgets.table_utils import configure_data_table, number_item
 import socket
@@ -180,6 +186,7 @@ class ParametrosWidget(QWidget):
         widget = QWidget()
         layout = QVBoxLayout(widget)
         layout.setSpacing(20)
+        options = get_accessibility_options()
 
         grupo_acessibilidade = QGroupBox("Acessibilidade e Interface")
         grupo_acessibilidade.setObjectName("configGroup")
@@ -188,17 +195,17 @@ class ParametrosWidget(QWidget):
 
         self.tema_interface = QComboBox()
         self.tema_interface.setObjectName("configCombo")
-        self.tema_interface.addItems(["Claro", "Escuro"])
+        self.tema_interface.addItems(options["tema"])
         form_acessibilidade.addRow("Tema:", self.tema_interface)
 
         self.tamanho_fonte = QComboBox()
         self.tamanho_fonte.setObjectName("configCombo")
-        self.tamanho_fonte.addItems(["Pequena", "Padrao", "Grande"])
+        self.tamanho_fonte.addItems(options["tamanho_fonte"])
         form_acessibilidade.addRow("Tamanho da fonte:", self.tamanho_fonte)
 
         self.escala_interface = QComboBox()
         self.escala_interface.setObjectName("configCombo")
-        self.escala_interface.addItems(["100%", "110%", "125%", "150%"])
+        self.escala_interface.addItems(options["escala_interface"])
         form_acessibilidade.addRow("Escala da interface:", self.escala_interface)
 
         self.navegacao_teclado = QCheckBox("Destacar foco e priorizar navegacao por teclado")
@@ -210,9 +217,88 @@ class ParametrosWidget(QWidget):
         self.escala_interface.currentTextChanged.connect(self.previsualizar_acessibilidade)
         self.navegacao_teclado.toggled.connect(self.previsualizar_acessibilidade)
 
+        dica = QLabel(
+            "As alteracoes sao aplicadas em tempo real. Use 90% e 100% para telas compactas, e 150% ou 175% para monitores maiores. Salve para manter apos reiniciar o sistema."
+        )
+        dica.setWordWrap(True)
+        dica.setStyleSheet("color: #64748b;")
+
+        botoes_layout = QHBoxLayout()
+        botoes_layout.addStretch()
+        btn_restaurar = QPushButton("Restaurar padrao")
+        btn_restaurar.setObjectName("btnSecondary")
+        btn_restaurar.clicked.connect(self.restaurar_acessibilidade_padrao)
+        botoes_layout.addWidget(btn_restaurar)
+
         layout.addWidget(grupo_acessibilidade)
+        layout.addWidget(dica)
+        layout.addWidget(self._create_accessibility_preview_group())
+        layout.addLayout(botoes_layout)
         layout.addStretch()
         return widget
+
+    def _create_accessibility_preview_group(self):
+        grupo_preview = QGroupBox("Pre-visualizacao")
+        grupo_preview.setObjectName("configGroup")
+        layout = QVBoxLayout(grupo_preview)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
+
+        titulo = QLabel("Visualizacao das configuracoes")
+        titulo.setStyleSheet("font-size: 18px; font-weight: 600; margin-bottom: 0px;")
+        layout.addWidget(titulo)
+
+        descricao = QLabel(
+            "Use esta area para validar contraste, leitura e foco antes de salvar."
+        )
+        descricao.setWordWrap(True)
+        layout.addWidget(descricao)
+
+        linha_campos = QHBoxLayout()
+        linha_campos.setSpacing(12)
+
+        self.preview_busca = QLineEdit()
+        self.preview_busca.setPlaceholderText("Campo de exemplo")
+        linha_campos.addWidget(self.preview_busca)
+
+        self.preview_combo = QComboBox()
+        self.preview_combo.addItems(["Opcao A", "Opcao B", "Opcao C"])
+        linha_campos.addWidget(self.preview_combo)
+
+        layout.addLayout(linha_campos)
+
+        self.preview_checkbox = QCheckBox("Exibir indicador de foco no teclado")
+        self.preview_checkbox.setObjectName("configCheckbox")
+        layout.addWidget(self.preview_checkbox)
+
+        linha_botoes = QHBoxLayout()
+        linha_botoes.setSpacing(12)
+
+        self.preview_btn_primary = QPushButton("Acao principal")
+        self.preview_btn_primary.setObjectName("btnPrimary")
+        linha_botoes.addWidget(self.preview_btn_primary)
+
+        self.preview_btn_secondary = QPushButton("Acao secundaria")
+        self.preview_btn_secondary.setObjectName("btnSecondary")
+        linha_botoes.addWidget(self.preview_btn_secondary)
+
+        linha_botoes.addStretch()
+        layout.addLayout(linha_botoes)
+
+        return grupo_preview
+
+    def restaurar_acessibilidade_padrao(self):
+        self._loading_configuracoes = True
+        try:
+            self._set_combo_value(self.tema_interface, DEFAULT_ACCESSIBILITY_CONFIG["tema"])
+            self._set_combo_value(self.tamanho_fonte, DEFAULT_ACCESSIBILITY_CONFIG["tamanho_fonte"])
+            self._set_combo_value(self.escala_interface, DEFAULT_ACCESSIBILITY_CONFIG["escala_interface"])
+            self.navegacao_teclado.setChecked(DEFAULT_ACCESSIBILITY_CONFIG["navegacao_teclado"])
+        finally:
+            self._loading_configuracoes = False
+
+        self.previsualizar_acessibilidade()
+        notification_manager.info("Acessibilidade restaurada para o padrao.", self.window(), 2500)
 
     def create_tab_backup(self):
         """Aba de gerenciamento de backup"""
@@ -1600,6 +1686,7 @@ class ParametrosWidget(QWidget):
 
             if success:
                 apply_accessibility_config(accessibility_config)
+                save_local_accessibility_config(accessibility_config)
                 notification_manager.success("Configuracoes salvas com sucesso!", self.window(), 3000)
                 api_client.reconfigurar_backup()
                 from core.notification_manager import notification_manager as core_notification_manager

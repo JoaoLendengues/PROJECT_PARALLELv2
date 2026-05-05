@@ -16,6 +16,7 @@ class NotificationBadge(QPushButton):
         """Configura a inteface do botão"""
         self.setText('🔔 Notificações')
         self.setProperty('class', 'menu-button')
+        self.setProperty("keyboardNavigationTarget", True)
         self.setFixedHeight(48)
         self.setCursor(Qt.PointingHandCursor)
         self.setFocusPolicy(Qt.NoFocus)

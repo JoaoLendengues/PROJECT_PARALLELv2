@@ -1,7 +1,8 @@
+import json
 import re
 import unicodedata
 
-from PySide6.QtCore import QEvent, QObject
+from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import (
     QApplication,
@@ -22,6 +23,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app_paths import get_accessibility_config_path
+
+
+THEME_OPTIONS = ("Claro", "Escuro")
+FONT_SIZE_OPTIONS = ("Muito pequena", "Pequena", "Padrao", "Grande", "Muito grande")
+INTERFACE_SCALE_OPTIONS = ("90%", "100%", "110%", "125%", "150%", "175%")
 
 DEFAULT_ACCESSIBILITY_CONFIG = {
     "tema": "Claro",
@@ -31,16 +38,20 @@ DEFAULT_ACCESSIBILITY_CONFIG = {
 }
 
 _FONT_SIZE_MAP = {
+    "Muito pequena": 11,
     "Pequena": 12,
     "Padrao": 14,
     "Grande": 16,
+    "Muito grande": 18,
 }
 
 _SCALE_FACTOR_MAP = {
+    "90%": 0.9,
     "100%": 1.0,
     "110%": 1.1,
     "125%": 1.25,
     "150%": 1.5,
+    "175%": 1.75,
 }
 
 _NEUTRAL_LIGHT_COLORS = {
@@ -97,6 +108,35 @@ def _to_bool(value):
     return str(value).strip().lower() in {"1", "true", "sim", "yes", "on"}
 
 
+def load_local_accessibility_config():
+    path = get_accessibility_config_path()
+    if not path.exists():
+        return DEFAULT_ACCESSIBILITY_CONFIG.copy()
+
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return DEFAULT_ACCESSIBILITY_CONFIG.copy()
+
+    return normalize_accessibility_config(data)
+
+
+def save_local_accessibility_config(config=None):
+    normalized = normalize_accessibility_config(config)
+    path = get_accessibility_config_path()
+
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(normalized, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except Exception:
+        return False
+
+    return True
+
+
 def normalize_accessibility_config(config=None):
     source = DEFAULT_ACCESSIBILITY_CONFIG.copy()
     if config:
@@ -105,8 +145,12 @@ def normalize_accessibility_config(config=None):
     tema = "Escuro" if _normalize_key(source.get("tema")) == "escuro" else "Claro"
 
     tamanho_key = _normalize_key(source.get("tamanho_fonte"))
-    if tamanho_key == "pequena":
+    if tamanho_key in {"muito pequena", "muitopequena"}:
+        tamanho_fonte = "Muito pequena"
+    elif tamanho_key == "pequena":
         tamanho_fonte = "Pequena"
+    elif tamanho_key in {"muito grande", "muitogrande"}:
+        tamanho_fonte = "Muito grande"
     elif tamanho_key == "grande":
         tamanho_fonte = "Grande"
     else:
@@ -135,11 +179,20 @@ def build_accessibility_config(tema, tamanho_fonte, escala_interface, navegacao_
     )
 
 
+def get_accessibility_options():
+    return {
+        "tema": list(THEME_OPTIONS),
+        "tamanho_fonte": list(FONT_SIZE_OPTIONS),
+        "escala_interface": list(INTERFACE_SCALE_OPTIONS),
+    }
+
+
 def initialize_accessibility(app, base_style="", global_style=""):
-    global _app, _base_style, _global_style, _accessibility_event_filter
+    global _app, _base_style, _global_style, _accessibility_event_filter, _current_config
     _app = app
     _base_style = base_style or ""
     _global_style = global_style or ""
+    _current_config = load_local_accessibility_config()
     if _accessibility_event_filter is None:
         _accessibility_event_filter = _AccessibilityEventFilter(app)
         _app.installEventFilter(_accessibility_event_filter)
@@ -205,6 +258,7 @@ def _apply_widget_overrides(config):
     for widget in _app.allWidgets():
         _cache_widget_defaults(widget)
         _apply_scaled_widget_font(widget, scale)
+        _apply_keyboard_navigation_preferences(widget, config)
         _apply_widget_stylesheet(widget, config)
 
 
@@ -214,6 +268,7 @@ def _apply_accessibility_to_widget_tree(root_widget, config):
     for widget in widgets:
         _cache_widget_defaults(widget)
         _apply_scaled_widget_font(widget, scale)
+        _apply_keyboard_navigation_preferences(widget, config)
         _apply_widget_stylesheet(widget, config)
 
 
@@ -226,6 +281,15 @@ def _cache_widget_defaults(widget):
         widget.setProperty("_accessibility_base_font_pixel", font.pixelSize())
     if widget.property("_accessibility_base_font_point") is None:
         widget.setProperty("_accessibility_base_font_point", font.pointSize())
+
+
+def _apply_keyboard_navigation_preferences(widget, config):
+    if not widget.property("keyboardNavigationTarget"):
+        return
+
+    focus_policy = Qt.StrongFocus if config["navegacao_teclado"] else Qt.NoFocus
+    if widget.focusPolicy() != focus_policy:
+        widget.setFocusPolicy(focus_policy)
 
 
 def _apply_scaled_widget_font(widget, scale):
@@ -1260,203 +1324,12 @@ def _build_focus_override(theme, keyboard_navigation_enabled):
         QDateEdit:focus,
         QTimeEdit:focus,
         QTextEdit:focus,
+        QCheckBox:focus,
+        QCheckBox#configCheckbox:focus,
         QTableWidget:focus,
-        QListWidget:focus {{
+        QListWidget:focus,
+        QTabBar::tab:focus {{
             border: 3px solid {focus_color};
             outline: none;
         }}
-    """
-
-
-def _build_theme_override(theme):
-    if theme != "Escuro":
-        return ""
-
-    return """
-        QMainWindow,
-        QWidget,
-        QDialog,
-        QScrollArea,
-        QScrollArea > QWidget > QWidget {
-            background-color: #0f172a;
-            color: #e2e8f0;
-        }
-
-        QLabel,
-        QFormLayout QLabel,
-        QCheckBox,
-        .footer {
-            color: #e2e8f0;
-        }
-
-        QGroupBox,
-        QGroupBox#configGroup {
-            background-color: #111827;
-            color: #e2e8f0;
-            border-color: #334155;
-        }
-
-        QLabel[class="page-title"] {
-            color: #f8fafc;
-            border-bottom: 2px solid #60a5fa;
-        }
-
-        .sidebar {
-            background-color: #0b1623;
-        }
-
-        .logo {
-            background-color: #09111b;
-            color: #f8fafc;
-            border-bottom: 1px solid #1e293b;
-        }
-
-        .menu-button,
-        .menu-button-bottom {
-            color: #cbd5e1;
-            background-color: transparent;
-        }
-
-        .menu-button:hover,
-        .menu-button-bottom:hover {
-            background-color: #1e293b;
-            color: #f8fafc;
-        }
-
-        .menu-button[active="true"] {
-            background-color: #1d4ed8;
-            color: #f8fafc;
-            border-left: 3px solid #93c5fd;
-        }
-
-        .dashboard-card,
-        QFrame#infoCard,
-        QTabWidget::pane,
-        QMessageBox,
-        QStatusBar,
-        QMenu {
-            background-color: #111827;
-            color: #e2e8f0;
-            border-color: #334155;
-        }
-
-        QGroupBox::title,
-        QGroupBox#configGroup::title {
-            color: #7dd3fc;
-            background-color: #111827;
-        }
-
-        QListWidget {
-            background-color: #111827;
-            color: #e2e8f0;
-            border-color: #334155;
-        }
-
-        QLineEdit,
-        QDateEdit,
-        QTimeEdit,
-        QSpinBox,
-        QTextEdit,
-        QComboBox,
-        QLineEdit#configInput,
-        QLineEdit#configInputOnly,
-        QLineEdit#configInputReadonly,
-        QSpinBox#configSpin,
-        QComboBox#configCombo,
-        QDialog QComboBox,
-        QDialog QLineEdit,
-        QDialog QSpinBox,
-        QDialog QDateEdit,
-        QDialog QTextEdit {
-            background-color: #0f172a;
-            color: #e2e8f0;
-            border: 1px solid #475569;
-            selection-background-color: #1d4ed8;
-            selection-color: #f8fafc;
-        }
-
-        QComboBox QAbstractItemView {
-            background-color: #111827;
-            color: #e2e8f0;
-            border: 1px solid #334155;
-        }
-
-        QDateEdit QCalendarWidget,
-        QDateEdit QCalendarWidget QWidget#qt_calendar_navigationbar {
-            background-color: #111827;
-            color: #e2e8f0;
-        }
-
-        QTableWidget {
-            background-color: #111827;
-            color: #e2e8f0;
-            alternate-background-color: #172033;
-            gridline-color: #334155;
-            selection-background-color: #1d4ed8;
-            selection-color: #f8fafc;
-        }
-
-        QHeaderView::section,
-        QTableCornerButton::section,
-        QTabBar::tab {
-            background-color: #1e293b;
-            color: #e2e8f0;
-            border-color: #334155;
-        }
-
-        QTabBar::tab:selected {
-            background-color: #0f172a;
-            color: #f8fafc;
-            border-bottom: 2px solid #60a5fa;
-        }
-
-        QTabBar::tab:hover:!selected {
-            background-color: #172033;
-            color: #f8fafc;
-        }
-
-        QPushButton,
-        QPushButton#btnPrimary {
-            background-color: #2563eb;
-            color: #f8fafc;
-            border: 1px solid #3b82f6;
-        }
-
-        QPushButton:hover,
-        QPushButton#btnPrimary:hover {
-            background-color: #1d4ed8;
-        }
-
-        QPushButton#btnSecondary {
-            background-color: #172033;
-            color: #e2e8f0;
-            border: 1px solid #475569;
-        }
-
-        QPushButton#btnSecondary:hover {
-            background-color: #1e293b;
-            color: #f8fafc;
-        }
-
-        QComboBox QAbstractItemView::item:selected,
-        QListWidget::item:selected {
-            background-color: #1d4ed8;
-            color: #f8fafc;
-        }
-
-        QCheckBox#configCheckbox::indicator {
-            background-color: #0f172a;
-            border-color: #475569;
-        }
-
-        QCheckBox#configCheckbox::indicator:checked {
-            background-color: #2563eb;
-            border-color: #3b82f6;
-        }
-
-        QToolTip {
-            background-color: #111827;
-            color: #f8fafc;
-            border: 1px solid #334155;
-        }
     """
