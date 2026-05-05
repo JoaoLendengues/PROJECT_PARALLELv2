@@ -84,6 +84,34 @@ class APIClient:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
+    def buscar_usuario_preview(self, codigo):
+        """Busca o nome do usuario a partir do codigo digitado na tela de login."""
+        codigo_limpo = str(codigo or "").strip()
+        if not codigo_limpo:
+            return {"success": False, "error": "Codigo vazio"}
+
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/auth/usuario-preview/{codigo_limpo}",
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+
+            if response.status_code == 200:
+                return {"success": True, "usuario": response.json()}
+
+            if response.status_code == 404:
+                return {"success": False, "error": "Codigo nao encontrado"}
+
+            try:
+                error_data = response.json()
+                error_msg = error_data.get("detail", "Erro ao identificar usuario")
+            except:
+                error_msg = response.text if response.text else "Erro ao identificar usuario"
+            return {"success": False, "error": error_msg}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
     def confirmar_senha_atual(self, senha):
         """Confirma a senha do usuario autenticado para acoes sensiveis."""
         try:

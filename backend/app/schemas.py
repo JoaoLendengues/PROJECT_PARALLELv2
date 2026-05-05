@@ -214,6 +214,10 @@ class LoginRequest(BaseModel):
     codigo: str
     senha: str
 
+class LoginUserPreviewResponse(BaseModel):
+    codigo: str
+    nome: str
+
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str

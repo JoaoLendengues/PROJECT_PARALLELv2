@@ -1,103 +1,427 @@
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                               QFrame, QGridLayout)
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QFont, QCursor
 from datetime import datetime
-from access_control import has_screen_access
+
+from PySide6.QtCore import QEvent, Qt, QTimer
+from PySide6.QtGui import QColor, QCursor, QFont, QLinearGradient, QPainter, QPainterPath, QPen, QRadialGradient
+from PySide6.QtWidgets import (
+    QApplication,
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
+
+from access_control import get_role_label, has_screen_access
 from api_client import api_client
 
 
+class ClickableCard(QFrame):
+    def __init__(self, callback=None, parent=None):
+        super().__init__(parent)
+        self._callback = callback
+        self.setCursor(QCursor(Qt.PointingHandCursor))
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton and callable(self._callback):
+            self._callback()
+        super().mousePressEvent(event)
+
+
+class MetricWaveDecoration(QWidget):
+    def __init__(self, accent="#3b82f6", wide=False, parent=None):
+        super().__init__(parent)
+        self.accent = accent
+        self.card_background = "#111827"
+        self.wide = wide
+        self.dark_mode = True
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.setFixedSize(178 if wide else 126, 82 if wide else 68)
+
+    def set_visuals(self, accent, card_background, dark_mode):
+        self.accent = accent or self.accent
+        self.card_background = card_background or self.card_background
+        self.dark_mode = bool(dark_mode)
+        self.update()
+
+    def paintEvent(self, event):
+        del event
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        rect = self.rect().adjusted(1, 3, -1, -2)
+        width = rect.width()
+        height = rect.height()
+        color = QColor(self.accent)
+
+        fill_gradient = QLinearGradient(rect.left(), rect.top(), rect.right(), rect.bottom())
+        top_fill = QColor(color)
+        bottom_fill = QColor(color)
+        top_fill.setAlpha(12 if self.dark_mode else 18)
+        bottom_fill.setAlpha(72 if self.dark_mode else 42)
+        fill_gradient.setColorAt(0.0, top_fill)
+        fill_gradient.setColorAt(0.55, bottom_fill)
+        fill_gradient.setColorAt(1.0, QColor(color.red(), color.green(), color.blue(), 0))
+
+        primary = QPainterPath()
+        primary.moveTo(rect.left() - width * 0.14, rect.bottom() - height * 0.18)
+        if self.wide:
+            primary.cubicTo(
+                rect.left() + width * 0.10,
+                rect.bottom() - height * 0.04,
+                rect.left() + width * 0.30,
+                rect.top() + height * 0.72,
+                rect.left() + width * 0.52,
+                rect.top() + height * 0.62,
+            )
+            primary.cubicTo(
+                rect.left() + width * 0.68,
+                rect.top() + height * 0.56,
+                rect.left() + width * 0.82,
+                rect.top() + height * 0.20,
+                rect.right() + width * 0.06,
+                rect.top() + height * 0.40,
+            )
+        else:
+            primary.cubicTo(
+                rect.left() + width * 0.12,
+                rect.bottom() - height * 0.04,
+                rect.left() + width * 0.34,
+                rect.top() + height * 0.82,
+                rect.left() + width * 0.54,
+                rect.top() + height * 0.64,
+            )
+            primary.cubicTo(
+                rect.left() + width * 0.74,
+                rect.top() + height * 0.48,
+                rect.left() + width * 0.88,
+                rect.top() + height * 0.10,
+                rect.right() + width * 0.08,
+                rect.top() + height * 0.28,
+            )
+
+        area = QPainterPath(primary)
+        area.lineTo(rect.right() + 2, rect.bottom() + 2)
+        area.lineTo(rect.left() - 2, rect.bottom() + 2)
+        area.closeSubpath()
+
+        painter.fillPath(area, fill_gradient)
+
+        main_pen = QPen(QColor(color.red(), color.green(), color.blue(), 168 if self.dark_mode else 122))
+        main_pen.setWidthF(2.2 if self.wide else 1.9)
+        painter.setPen(main_pen)
+        painter.drawPath(primary)
+
+        secondary = QPainterPath()
+        secondary.moveTo(rect.left() - width * 0.10, rect.bottom() - height * 0.02)
+        secondary.cubicTo(
+            rect.left() + width * 0.20,
+            rect.bottom() - height * 0.12,
+            rect.left() + width * 0.44,
+            rect.top() + height * 0.76,
+            rect.left() + width * 0.68,
+            rect.top() + height * 0.70,
+        )
+        secondary.cubicTo(
+            rect.left() + width * 0.84,
+            rect.top() + height * 0.66,
+            rect.left() + width * 0.94,
+            rect.top() + height * 0.34,
+            rect.right() + width * 0.08,
+            rect.top() + height * 0.52,
+        )
+
+        soft_pen = QPen(QColor(color.red(), color.green(), color.blue(), 74 if self.dark_mode else 52))
+        soft_pen.setWidthF(1.2)
+        painter.setPen(soft_pen)
+        painter.drawPath(secondary)
+
+        dot_color = QColor(color)
+        dot_color.setAlpha(210 if self.dark_mode else 180)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(dot_color)
+        dot_x = rect.right() - width * 0.12
+        dot_y = rect.top() + height * (0.28 if self.wide else 0.22)
+        painter.drawEllipse(int(dot_x), int(dot_y), 6, 6)
+
+
+class NetworkPulseDecoration(QWidget):
+    def __init__(self, accent="#22c55e", parent=None):
+        super().__init__(parent)
+        self.accent = accent
+        self.dark_mode = True
+        self.card_background = "#111827"
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.setFixedSize(134, 134)
+
+    def set_visuals(self, accent, card_background, dark_mode):
+        self.accent = accent or self.accent
+        self.card_background = card_background or self.card_background
+        self.dark_mode = bool(dark_mode)
+        self.update()
+
+    def paintEvent(self, event):
+        del event
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        rect = self.rect().adjusted(4, 4, -4, -4)
+        center = rect.center()
+        accent = QColor(self.accent)
+
+        for radius, alpha in ((52, 48), (38, 68), (24, 92)):
+            pen = QPen(QColor(accent.red(), accent.green(), accent.blue(), alpha if self.dark_mode else alpha - 10))
+            pen.setWidthF(1.1)
+            painter.setPen(pen)
+            painter.setBrush(Qt.NoBrush)
+            painter.drawEllipse(center, radius, radius)
+
+        halo = QRadialGradient(center, 24)
+        glow = QColor(accent)
+        glow.setAlpha(120 if self.dark_mode else 96)
+        halo.setColorAt(0.0, glow)
+        halo.setColorAt(0.55, QColor(accent.red(), accent.green(), accent.blue(), 40))
+        halo.setColorAt(1.0, QColor(accent.red(), accent.green(), accent.blue(), 0))
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(halo)
+        painter.drawEllipse(center, 24, 24)
+
+        core = QRadialGradient(center, 11)
+        core.setColorAt(0.0, QColor(255, 255, 255, 235))
+        core.setColorAt(0.38, QColor(accent.red(), accent.green(), accent.blue(), 230))
+        core.setColorAt(1.0, QColor(accent.red(), accent.green(), accent.blue(), 88))
+        painter.setBrush(core)
+        painter.drawEllipse(center, 11, 11)
+
+
 class HomeWidget(QWidget):
+    CARD_CONFIGS = (
+        {
+            "name": "internet",
+            "screen": None,
+            "eyebrow": "REDE LOCAL",
+            "title": "Status da Rede Local",
+            "accent": "#22c55e",
+            "cta": "Atualizar painel",
+            "action": "atualizar_status_internet",
+            "featured": True,
+        },
+        {
+            "name": "materiais",
+            "screen": "materiais",
+            "eyebrow": "ESTOQUE",
+            "title": "Materiais em Estoque",
+            "accent": "#3b82f6",
+            "cta": "Abrir materiais",
+            "action": "show_materiais",
+        },
+        {
+            "name": "maquinas",
+            "screen": "maquinas",
+            "eyebrow": "OPERACAO",
+            "title": "Maquinas Ativas",
+            "accent": "#10b981",
+            "cta": "Abrir maquinas",
+            "action": "show_maquinas",
+        },
+        {
+            "name": "manutencoes",
+            "screen": "manutencoes",
+            "eyebrow": "SUPORTE",
+            "title": "Manutencoes Pendentes",
+            "accent": "#f59e0b",
+            "cta": "Abrir manutencoes",
+            "action": "show_manutencoes",
+        },
+        {
+            "name": "pedidos",
+            "screen": "pedidos",
+            "eyebrow": "COMPRAS",
+            "title": "Pedidos Pendentes",
+            "accent": "#8b5cf6",
+            "cta": "Abrir pedidos",
+            "action": "show_pedidos",
+        },
+        {
+            "name": "demandas",
+            "screen": "demandas",
+            "eyebrow": "ATENDIMENTO",
+            "title": "Demandas Abertas",
+            "accent": "#ef4444",
+            "cta": "Abrir demandas",
+            "action": "show_demandas",
+            "wide": True,
+        },
+    )
+
     def __init__(self):
         super().__init__()
-        self.usuario = {}
         self.usuario_nome = None
+        self.usuario_context = {}
         self.main_window = None
-        self._loaded = False  # ✅ Flag para controle de carregamento
+        self.metric_cards = {}
+        self.internet_card_data = {}
+        self.last_internet_refresh = None
+        self._applying_theme_styles = False
+
         self.init_ui()
 
-        # Timer para atualizar status da internet a cada 30 segundos (já começa após carregar)
-        self.timer_internet = None
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_datetime)
+        self.timer.start(1000)
+
+        self.timer_internet = QTimer(self)
+        self.timer_internet.timeout.connect(self.atualizar_status_internet)
+        self.timer_internet.start(30000)
+
+        self.update_datetime()
 
     def set_usuario(self, nome):
-        """Define o nome do usuário para a saudação"""
         self.usuario_nome = nome
         self.update_saudacao()
 
     def set_usuario_context(self, usuario):
-        """Define o contexto completo do usuário para a Home."""
-        self.usuario = usuario or {}
-        self.criar_cards_interativos()
+        self.usuario_context = usuario or {}
+        self.role_value_label.setText(get_role_label(self.usuario_context.get("nivel_acesso")))
+        self._rebuild_cards()
 
     def set_main_window(self, main_window):
-        """Define a referência para a janela principal (para navegação)"""
         self.main_window = main_window
 
-    def on_show(self):
-        """✅ Chamado quando a aba é selecionada - carrega dados sob demanda"""
-        self.carregar_dados()
-        if not self._loaded:
-            self._loaded = True
-
-            # Iniciar timer de internet APÓS o primeiro carregamento
-            if not self.timer_internet:
-                self.timer_internet = QTimer()
-                self.timer_internet.timeout.connect(lambda: self.atualizar_status_internet(silent=True))
-                self.timer_internet.start(30000)  # 30 segundos
-
     def init_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 24, 24, 24)
-        layout.setSpacing(24)
+        self.setObjectName("homeRoot")
 
-        # Saudação
+        root_layout = QVBoxLayout(self)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
+
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setObjectName("homeScrollArea")
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+
+        self.content = QWidget()
+        self.content.setObjectName("homeContent")
+        self.scroll_area.setWidget(self.content)
+        root_layout.addWidget(self.scroll_area)
+
+        content_layout = QVBoxLayout(self.content)
+        content_layout.setContentsMargins(28, 28, 28, 28)
+        content_layout.setSpacing(22)
+
+        self.header_frame = QFrame()
+        self.header_frame.setObjectName("homeHeaderFrame")
+        header_layout = QHBoxLayout(self.header_frame)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(16)
+
+        header_text_layout = QVBoxLayout()
+        header_text_layout.setContentsMargins(0, 0, 0, 0)
+        header_text_layout.setSpacing(8)
+
         self.saudacao_label = QLabel()
-        self.saudacao_label.setFont(QFont("Segoe UI", 28, QFont.Weight.Bold))
-        self.saudacao_label.setStyleSheet("color: #1e293b; margin-bottom: 10px;")
-        layout.addWidget(self.saudacao_label)
+        self.saudacao_label.setObjectName("homeGreeting")
+        self.saudacao_label.setFont(QFont("Segoe UI", 25, QFont.Weight.Bold))
+        header_text_layout.addWidget(self.saudacao_label)
 
-        # Data e hora
         self.data_hora_label = QLabel()
-        self.data_hora_label.setFont(QFont("Segoe UI", 13))
-        self.data_hora_label.setStyleSheet("color: #64748b; margin-bottom: 30px;")
-        layout.addWidget(self.data_hora_label)
+        self.data_hora_label.setObjectName("homeTimestamp")
+        header_text_layout.addWidget(self.data_hora_label)
 
-        # Timer para data/hora (sempre rodando)
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.update_datetime)
-        self.timer.start(1000)
-        self.update_datetime()
+        self.context_label = QLabel(
+            "Painel principal com acompanhamento de estoque, operacao, compras, suporte e rede local."
+        )
+        self.context_label.setObjectName("homeContext")
+        self.context_label.setWordWrap(True)
+        header_text_layout.addWidget(self.context_label)
 
-        # Cards
+        header_layout.addLayout(header_text_layout, 1)
+
+        self.role_chip = QFrame()
+        self.role_chip.setObjectName("homeRoleChip")
+        role_layout = QVBoxLayout(self.role_chip)
+        role_layout.setContentsMargins(16, 12, 16, 12)
+        role_layout.setSpacing(4)
+
+        role_label = QLabel("Perfil atual")
+        role_label.setObjectName("homeRoleLabel")
+        role_layout.addWidget(role_label)
+
+        self.role_value_label = QLabel("Usuario")
+        self.role_value_label.setObjectName("homeRoleValue")
+        role_layout.addWidget(self.role_value_label)
+
+        header_layout.addWidget(self.role_chip, 0, Qt.AlignTop)
+        content_layout.addWidget(self.header_frame)
+
         self.cards_layout = QGridLayout()
-        self.cards_layout.setSpacing(20)
-        layout.addLayout(self.cards_layout)
+        self.cards_layout.setContentsMargins(0, 0, 0, 0)
+        self.cards_layout.setHorizontalSpacing(18)
+        self.cards_layout.setVerticalSpacing(18)
+        self.cards_layout.setColumnStretch(0, 1)
+        self.cards_layout.setColumnStretch(1, 1)
+        content_layout.addLayout(self.cards_layout)
+        content_layout.addStretch()
 
-        # Criar cards interativos (UI apenas, sem dados)
-        self.criar_cards_interativos()
+        self._apply_theme_styles()
+        self._rebuild_cards()
 
-        # ⚠️ NÃO carregar dados aqui - será feito no on_show()
+    def on_show(self):
+        self._apply_theme_styles()
+        self.update_datetime()
+        self.carregar_dados()
 
-        layout.addStretch()
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._apply_theme_styles()
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if self._applying_theme_styles:
+            return
+        if event.type() in (QEvent.StyleChange, QEvent.PaletteChange, QEvent.ApplicationPaletteChange):
+            QTimer.singleShot(0, self._apply_theme_styles)
 
     def update_datetime(self):
         now = datetime.now()
-        dias_semana = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo']
-        meses = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
-                 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+        dias_semana = [
+            "Segunda-feira",
+            "Terca-feira",
+            "Quarta-feira",
+            "Quinta-feira",
+            "Sexta-feira",
+            "Sabado",
+            "Domingo",
+        ]
+        meses = [
+            "janeiro",
+            "fevereiro",
+            "marco",
+            "abril",
+            "maio",
+            "junho",
+            "julho",
+            "agosto",
+            "setembro",
+            "outubro",
+            "novembro",
+            "dezembro",
+        ]
 
         dia_semana = dias_semana[now.weekday()]
         dia = now.day
         mes = meses[now.month - 1]
         ano = now.year
-        hora = now.strftime('%H:%M')
+        hora = now.strftime("%H:%M")
 
-        self.data_hora_label.setText(f'{dia_semana}, {dia} de {mes} de {ano} - {hora}')
+        self.data_hora_label.setText(f"{dia_semana}, {dia} de {mes} de {ano} - {hora}")
         self.update_saudacao()
 
     def update_saudacao(self):
-        now = datetime.now()
-        hora = now.hour
+        hora = datetime.now().hour
         if hora < 12:
             saudacao = "Bom dia"
         elif hora < 18:
@@ -110,316 +434,700 @@ class HomeWidget(QWidget):
         else:
             self.saudacao_label.setText(f"{saudacao}!")
 
-    def criar_cards_interativos(self):
-        """Cria os cards interativos com efeito hover e clique"""
-        self._limpar_cards()
-        self.value_materiais = None
-        self.value_maquinas = None
-        self.value_manutencoes = None
-        self.value_pedidos = None
-        self.value_demandas = None
-
-        cards_config = [
-            {
-                "nome": "materiais",
-                "icono": "📦",
-                "titulo": "Materiais em Estoque",
-                "cor_icone": "#3b82f6",
-                "cor_hover": "#dbeafe",
-                "subtitulo": "Atualmente em estoque.",
-                "link": "Clique para gerenciar",
-                "acao": "show_materiais",
-                "screen_key": "materiais",
-            },
-            {
-                "nome": "maquinas",
-                "icono": "🖥️",
-                "titulo": "Máquinas Ativas",
-                "cor_icone": "#10b981",
-                "cor_hover": "#d1fae5",
-                "subtitulo": "Máquinas em operação.",
-                "link": "Clique para ver",
-                "acao": "show_maquinas",
-                "screen_key": "maquinas",
-            },
-            {
-                "nome": "manutencoes",
-                "icono": "🔧",
-                "titulo": "Manutenções Pendentes",
-                "cor_icone": "#f59e0b",
-                "cor_hover": "#fed7aa",
-                "subtitulo": "Tarefas agendadas.",
-                "link": "Ações necessárias",
-                "acao": "show_manutencoes",
-                "screen_key": "manutencoes",
-            },
-            {
-                "nome": "pedidos",
-                "icono": "📋",
-                "titulo": "Pedidos Pendentes",
-                "cor_icone": "#8b5cf6",
-                "cor_hover": "#ede9fe",
-                "subtitulo": "Pedidos de compra.",
-                "link": "Aguardando aprovação",
-                "acao": "show_pedidos",
-                "screen_key": "pedidos",
-            },
-            {
-                "nome": "demandas",
-                "icono": "🎫",
-                "titulo": "Demandas Abertas",
-                "cor_icone": "#ef4444",
-                "cor_hover": "#fee2e2",
-                "subtitulo": "Chamados de TI pendentes.",
-                "link": "Ver demandas",
-                "acao": "show_demandas",
-                "screen_key": "demandas",
-            },
-            {
-                "nome": "internet",
-                "icono": "🌐",
-                "titulo": "Status da Rede Local",
-                "cor_icone": "#06b6d4",
-                "cor_hover": "#cffafe",
-                "subtitulo": "Qualidade da conexao local.",
-                "link": "Atualizar",
-                "acao": "atualizar_status_internet",
-                "especial": True,
-                "screen_key": None,
-            }
-        ]
-
-        cards_visiveis = [
-            config for config in cards_config
-            if config.get("screen_key") is None or has_screen_access(self.usuario, config["screen_key"])
-        ]
-
-        for index, config in enumerate(cards_visiveis):
-            row, column = divmod(index, 2)
-            if config.get("especial") and config["nome"] == "internet":
-                card = self.criar_card_internet(config)
-                self.internet_card = card
-            else:
-                card = self.criar_card(config)
-                setattr(self, f"value_{config['nome']}", card.valor_label)
-
-            self.cards_layout.addWidget(card, row, column)
-
-    def _limpar_cards(self):
-        while self.cards_layout.count():
-            item = self.cards_layout.takeAt(0)
-            widget = item.widget()
-            if widget is not None:
-                widget.deleteLater()
-
-    def criar_card(self, config):
-        """Cria um card individual com efeitos interativos"""
-
-        card = QFrame()
-        card.setProperty("class", "dashboard-card")
-        card.setMinimumHeight(160)
-        card.setMaximumHeight(190)
-        card.setCursor(QCursor(Qt.PointingHandCursor))
-
-        card.setStyleSheet(f"""
-            QFrame {{
-                background-color: white;
-                border-radius: 16px;
-                border: 1px solid #e2e8f0;
-            }}
-            QFrame:hover {{
-                background-color: {config['cor_hover']};
-                border: 1px solid {config['cor_icone']};
-            }}
-            QFrame > QLabel {{
-                border: none;
-                outline: none;
-            }}
-        """)
-
-        layout = QVBoxLayout(card)
-        layout.setContentsMargins(16, 14, 16, 14)
-        layout.setSpacing(6)
-
-        # Ícone
-        icon_label = QLabel(config['icono'])
-        icon_label.setFont(QFont("Segoe UI", 24))
-        icon_label.setStyleSheet(f"color: {config['cor_icone']}; background: transparent; border: none; outline: none;")
-        layout.addWidget(icon_label)
-
-        # Título
-        title_label = QLabel(config['titulo'])
-        title_label.setStyleSheet("color: #64748b; font-size: 13px; font-weight: 500; background: transparent; border: none; outline: none;")
-        layout.addWidget(title_label)
-
-        # Valor
-        valor_label = QLabel("0")
-        valor_label.setStyleSheet(f"color: {config['cor_icone']}; font-size: 28px; font-weight: bold; background: transparent; border: none; outline: none;")
-        layout.addWidget(valor_label)
-
-        # Subtítulo
-        subtitle_label = QLabel(config['subtitulo'])
-        subtitle_label.setStyleSheet("color: #94a3b8; font-size: 11px; background: transparent; border: none; outline: none;")
-        subtitle_label.setWordWrap(True)
-        layout.addWidget(subtitle_label)
-
-        layout.addStretch()
-
-        # Link
-        link_label = QLabel(config['link'])
-        link_label.setStyleSheet(f"color: {config['cor_icone']}; font-size: 11px; font-weight: 500; background: transparent; border: none; outline: none;")
-        layout.addWidget(link_label)
-
-        card.valor_label = valor_label
-
-        acao = config['acao']
-        card.mousePressEvent = lambda event, a=acao: self.executar_acao(a)
-
-        return card
-
-    def criar_card_internet(self, config):
-        """Cria o card especial para status da internet (padronizado)"""
-
-        card = QFrame()
-        card.setProperty("class", "dashboard-card")
-        card.setMinimumHeight(160)
-        card.setMaximumHeight(190)
-        card.setCursor(QCursor(Qt.PointingHandCursor))
-
-        card.setStyleSheet(f"""
-            QFrame {{
-                background-color: white;
-                border-radius: 16px;
-                border: 1px solid #e2e8f0;
-            }}
-            QFrame:hover {{
-                background-color: {config['cor_hover']};
-                border: 1px solid {config['cor_icone']};
-            }}
-            QFrame > QLabel {{
-                border: none;
-                outline: none;
-            }}
-        """)
-
-        layout = QVBoxLayout(card)
-        layout.setContentsMargins(16, 14, 16, 14)
-        layout.setSpacing(6)
-
-        # Ícone (dinâmico - muda conforme o status)
-        self.internet_icon = QLabel(config['icono'])
-        self.internet_icon.setFont(QFont("Segoe UI", 24))
-        self.internet_icon.setStyleSheet(f"color: {config['cor_icone']}; background: transparent; border: none;")
-        layout.addWidget(self.internet_icon)
-
-        # Título
-        title_label = QLabel(config['titulo'])
-        title_label.setStyleSheet("color: #64748b; font-size: 13px; font-weight: 500; background: transparent; border: none;")
-        layout.addWidget(title_label)
-
-        # VALOR PRINCIPAL (ex: "Excelente", "Ruim", "Offline") - como os outros cards
-        self.internet_valor = QLabel("Verificando...")
-        self.internet_valor.setStyleSheet("font-size: 20px; font-weight: bold; background: transparent; border: none;")
-        layout.addWidget(self.internet_valor)
-
-        # Subtítulo (ex: "Latência: 45 ms")
-        self.internet_subtitulo = QLabel("Medindo conexão...")
-        self.internet_subtitulo.setStyleSheet("color: #94a3b8; font-size: 11px; background: transparent; border: none;")
-        self.internet_subtitulo.setWordWrap(True)
-        layout.addWidget(self.internet_subtitulo)
-
-        layout.addStretch()
-
-        # Link
-        link_label = QLabel(config['link'])
-        link_label.setStyleSheet(f"color: {config['cor_icone']}; font-size: 11px; font-weight: 500; background: transparent; border: none;")
-        layout.addWidget(link_label)
-
-        card.valor_label = None
-
-        acao = config['acao']
-        card.mousePressEvent = lambda event, a=acao: self.executar_acao(a)
-
-        return card
-
     def executar_acao(self, acao):
-        """Executa a ação correspondente ao card clicado"""
         if acao == "atualizar_status_internet":
-            self.atualizar_status_internet()
+            self.atualizar_status_internet(show_feedback=True)
             return
 
         if self.main_window and hasattr(self.main_window, acao):
             getattr(self.main_window, acao)()
 
-    def atualizar_status_internet(self, silent=False):
-        """Atualiza o status da internet no card (padronizado)"""
-        from widgets.toast_notification import notification_manager
-
-        try:
-            status = api_client.get_status_internet()
-
-            if status.get("status") == "online":
-                qualidade = status.get("qualidade", "regular")
-                latencia = status.get("latencia_ms", 0)
-                cor = status.get("cor", "#06b6d4")
-
-                textos_qualidade = {
-                    "excelente": "🟢 Excelente",
-                    "bom": "📶 Bom",
-                    "regular": "⚠️ Regular",
-                    "ruim": "🔴 Ruim"
-                }
-
-                texto_qualidade = textos_qualidade.get(qualidade, "🟡 Desconhecido")
-
-                self.internet_valor.setText(texto_qualidade)
-                self.internet_valor.setStyleSheet(f"color: {cor}; font-size: 20px; font-weight: bold; background: transparent; border: none;")
-                servidor = status.get("servidor", "Rede local")
-                self.internet_subtitulo.setText(f"Latencia local: {latencia} ms\n{servidor}")
-                self.internet_icon.setText(status.get("icone", "🌐"))
-                self.internet_icon.setStyleSheet(f"color: {cor}; background: transparent; border: none;")
-
-                if not silent:
-                    notification_manager.success(f"Rede local: {qualidade.upper()} ({latencia} ms)", self.window(), 3000)
-
-            else:
-                self.internet_valor.setText("🔴 Offline")
-                self.internet_valor.setStyleSheet("color: #ef4444; font-size: 20px; font-weight: bold; background: transparent; border: none;")
-                self.internet_subtitulo.setText(status.get("servidor", "Sem conexao com a rede local"))
-                self.internet_icon.setText("❌")
-                if not silent:
-                    notification_manager.error("Sem conexao com a rede local", self.window(), 4000)
-
-        except Exception as e:
-            print(f"❌ Erro ao atualizar status da internet: {e}")
-            self.internet_valor.setText("❌ Erro")
-            self.internet_valor.setStyleSheet("color: #ef4444; font-size: 20px; font-weight: bold; background: transparent; border: none;")
-            self.internet_subtitulo.setText("Falha na medição")
-
     def carregar_dados(self):
-        """Carrega os dados do dashboard da API"""
-        print("Carregando dados do dashboard...")
-
         try:
             dados = api_client.get_dashboard_resumo()
             resumo = dados.get("resumo", {})
+        except Exception as exc:
+            print(f"Erro ao carregar dashboard: {exc}")
+            resumo = {}
 
-            if self.value_materiais is not None:
-                self.value_materiais.setText(str(resumo.get("total_materiais", 0)))
-            if self.value_maquinas is not None:
-                self.value_maquinas.setText(str(resumo.get("maquinas_ativas", 0)))
-            if self.value_manutencoes is not None:
-                self.value_manutencoes.setText(str(resumo.get("manutencoes_pendentes", 0)))
-            if self.value_pedidos is not None:
-                self.value_pedidos.setText(str(resumo.get("pedidos_pendentes", 0)))
+        for config in self.CARD_CONFIGS:
+            if config["name"] == "internet":
+                continue
+            if config["name"] not in self.metric_cards:
+                continue
+            self._apply_metric_data(config["name"], resumo)
 
-            if self.value_demandas is not None:
-                self.value_demandas.setText(str(resumo.get("demandas_abertas", 0)))
+        self.atualizar_status_internet()
 
-            print(f"✅ Dashboard atualizado: Materiais={resumo.get('total_materiais', 0)}")
+    def atualizar_status_internet(self, show_feedback=False):
+        try:
+            status = api_client.get_status_internet()
+        except Exception as exc:
+            print(f"Erro ao atualizar status da rede local: {exc}")
+            status = {"status": "erro", "qualidade": "erro", "latencia_ms": None, "servidor": "Falha na medicao"}
 
-        except Exception as e:
-            print(f"❌ Erro ao carregar dashboard: {e}")
+        self.last_internet_refresh = datetime.now()
+        if not self.internet_card_data:
+            return
 
-        # Atualizar status da internet ao carregar a tela
-        self.atualizar_status_internet(silent=True)
+        palette = self._theme_palette()
+        quality = str(status.get("qualidade", "erro")).lower()
+        online = status.get("status") == "online"
+        accent = status.get("cor") or "#22c55e"
+        server = status.get("servidor") or "Rede local"
+
+        if online:
+            quality_map = {
+                "excelente": ("Excelente", "Conexao local muito estavel.", "good", "OK"),
+                "bom": ("Boa", "Resposta consistente para uso diario.", "info", "ON"),
+                "regular": ("Regular", "Existe oscilacao leve na resposta.", "warn", "AT"),
+                "ruim": ("Instavel", "A rede esta respondendo com lentidao.", "critical", "BX"),
+            }
+            value_text, detail_text, tone, orb_text = quality_map.get(
+                quality, ("Online", "Conexao local disponivel.", "good", "ON")
+            )
+            latency = status.get("latencia_ms")
+            latency_text = f"Latencia local: {latency} ms" if latency is not None else "Latencia local indisponivel"
+            badge_text = "Online"
+        elif status.get("status") == "offline":
+            value_text = "Offline"
+            detail_text = "A base local nao respondeu dentro do tempo esperado."
+            tone = "critical"
+            orb_text = "OFF"
+            latency_text = "Sem resposta da rede local"
+            badge_text = "Sem conexao"
+            accent = "#ef4444"
+        else:
+            value_text = "Erro"
+            detail_text = "Nao foi possivel validar a conectividade neste momento."
+            tone = "critical"
+            orb_text = "ERR"
+            latency_text = "Falha ao medir a latencia"
+            badge_text = "Falha"
+            accent = "#ef4444"
+
+        updated_at = self.last_internet_refresh.strftime("%H:%M")
+        self.internet_card_data["status"].setText(value_text)
+        self.internet_card_data["latency"].setText(latency_text)
+        self.internet_card_data["server"].setText(server)
+        self.internet_card_data["detail"].setText(detail_text)
+        self.internet_card_data["updated"].setText(f"Atualizado as {updated_at}")
+        self.internet_card_data["orb"].setText(orb_text)
+        self.internet_card_data["current_accent"] = accent
+
+        badge_bg, badge_fg = self._tone_colors(tone, palette)
+        self.internet_card_data["badge"].setText(badge_text)
+        self.internet_card_data["badge"].setStyleSheet(self._build_badge_style(badge_bg, badge_fg))
+        self.internet_card_data["status"].setStyleSheet(
+            f"color: {accent}; font-size: 34px; font-weight: 800; background: transparent;"
+        )
+        self.internet_card_data["orb"].setStyleSheet(
+            self._build_orb_style(accent, palette["card_bg"], palette["text_primary"])
+        )
+        self.internet_card_data["pulse"].set_visuals(accent, palette["card_bg"], self._is_dark_theme())
+        self.internet_card_data["accent"].setStyleSheet(
+            f"background-color: {accent}; border-top-left-radius: 22px; border-top-right-radius: 22px;"
+        )
+        self.internet_card_data["pill"].setStyleSheet(self._build_pill_style(accent, palette))
+        self.internet_card_data["cta"].setStyleSheet(
+            f"color: {accent}; font-size: 13px; font-weight: 600; background: transparent;"
+        )
+
+        if show_feedback:
+            from widgets.toast_notification import notification_manager
+
+            if online:
+                notification_manager.success(
+                    f"Rede local atualizada: {value_text.lower()}",
+                    self.window(),
+                    2500,
+                )
+            else:
+                notification_manager.error(
+                    "Nao foi possivel confirmar a conectividade local.",
+                    self.window(),
+                    3000,
+                )
+
+    def _rebuild_cards(self):
+        self._clear_layout(self.cards_layout)
+        self.metric_cards = {}
+        self.internet_card_data = {}
+
+        visible_configs = []
+        for config in self.CARD_CONFIGS:
+            screen_key = config.get("screen")
+            if screen_key and not has_screen_access(self.usuario_context, screen_key):
+                continue
+            visible_configs.append(config)
+
+        row = 0
+
+        featured = next((config for config in visible_configs if config.get("featured")), None)
+        if featured:
+            card = self._create_featured_network_card(featured)
+            self.cards_layout.addWidget(card, row, 0, 1, 2)
+            row += 1
+
+        general_configs = [config for config in visible_configs if not config.get("featured") and not config.get("wide")]
+        wide_configs = [config for config in visible_configs if config.get("wide")]
+
+        for index, config in enumerate(general_configs):
+            card = self._create_metric_card(config)
+            self.cards_layout.addWidget(card, row + (index // 2), index % 2)
+
+        if general_configs:
+            row += (len(general_configs) + 1) // 2
+
+        for config in wide_configs:
+            card = self._create_metric_card(config, wide=True)
+            self.cards_layout.addWidget(card, row, 0, 1, 2)
+            row += 1
+
+        self._apply_theme_styles()
+
+    def _create_metric_card(self, config, wide=False):
+        card = ClickableCard(lambda action=config["action"]: self.executar_acao(action))
+        card.setObjectName("homeCard")
+        card.setMinimumHeight(188 if not wide else 198)
+
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(0, 0, 0, 0)
+        card_layout.setSpacing(0)
+
+        accent = QFrame()
+        accent.setFixedHeight(4)
+        accent.setObjectName("homeAccentBar")
+        card_layout.addWidget(accent)
+
+        body = QWidget()
+        body_layout = QVBoxLayout(body)
+        body_layout.setContentsMargins(20, 18, 20, 18)
+        body_layout.setSpacing(10)
+
+        top_row = QHBoxLayout()
+        top_row.setContentsMargins(0, 0, 0, 0)
+        top_row.setSpacing(10)
+
+        pill = QLabel(config["eyebrow"])
+        pill.setObjectName("homeCardPill")
+        pill.setAlignment(Qt.AlignCenter)
+        top_row.addWidget(pill, 0, Qt.AlignLeft)
+
+        top_row.addStretch()
+
+        badge = QLabel("Carregando")
+        badge.setObjectName("homeCardBadge")
+        badge.setAlignment(Qt.AlignCenter)
+        top_row.addWidget(badge, 0, Qt.AlignRight)
+        body_layout.addLayout(top_row)
+
+        title = QLabel(config["title"])
+        title.setObjectName("homeCardTitle")
+        title.setWordWrap(True)
+        body_layout.addWidget(title)
+
+        value = QLabel("--")
+        value.setObjectName("homeCardValue")
+        body_layout.addWidget(value)
+
+        description = QLabel("Atualizando indicadores...")
+        description.setObjectName("homeCardDescription")
+        description.setWordWrap(True)
+        body_layout.addWidget(description)
+
+        body_layout.addStretch()
+
+        footer_row = QHBoxLayout()
+        footer_row.setContentsMargins(0, 0, 0, 0)
+        footer_row.setSpacing(12)
+
+        cta = QLabel(f"{config['cta']}  >")
+        cta.setObjectName("homeCardCta")
+        footer_row.addWidget(cta, 0, Qt.AlignLeft | Qt.AlignBottom)
+        footer_row.addStretch()
+
+        decoration = MetricWaveDecoration(config["accent"], wide=wide)
+        footer_row.addWidget(decoration, 0, Qt.AlignRight | Qt.AlignBottom)
+        body_layout.addLayout(footer_row)
+
+        card_layout.addWidget(body)
+
+        self.metric_cards[config["name"]] = {
+            "config": config,
+            "card": card,
+            "accent": accent,
+            "pill": pill,
+            "badge": badge,
+            "title": title,
+            "value": value,
+            "description": description,
+            "cta": cta,
+            "decoration": decoration,
+        }
+        return card
+
+    def _create_featured_network_card(self, config):
+        card = ClickableCard(lambda action=config["action"]: self.executar_acao(action))
+        card.setObjectName("homeFeaturedCard")
+        card.setMinimumHeight(228)
+
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(0, 0, 0, 0)
+        card_layout.setSpacing(0)
+
+        accent = QFrame()
+        accent.setFixedHeight(4)
+        accent.setObjectName("homeAccentBar")
+        card_layout.addWidget(accent)
+
+        body = QWidget()
+        body_layout = QHBoxLayout(body)
+        body_layout.setContentsMargins(24, 22, 24, 22)
+        body_layout.setSpacing(22)
+
+        left_col = QVBoxLayout()
+        left_col.setContentsMargins(0, 0, 0, 0)
+        left_col.setSpacing(10)
+
+        header_row = QHBoxLayout()
+        header_row.setContentsMargins(0, 0, 0, 0)
+        header_row.setSpacing(10)
+
+        pill = QLabel(config["eyebrow"])
+        pill.setObjectName("homeCardPill")
+        pill.setAlignment(Qt.AlignCenter)
+        header_row.addWidget(pill, 0, Qt.AlignLeft)
+
+        badge = QLabel("Verificando")
+        badge.setObjectName("homeCardBadge")
+        badge.setAlignment(Qt.AlignCenter)
+        header_row.addWidget(badge, 0, Qt.AlignLeft)
+        header_row.addStretch()
+        left_col.addLayout(header_row)
+
+        title = QLabel(config["title"])
+        title.setObjectName("homeFeaturedTitle")
+        left_col.addWidget(title)
+
+        status = QLabel("Verificando...")
+        status.setObjectName("homeFeaturedValue")
+        left_col.addWidget(status)
+
+        latency = QLabel("Medindo latencia local...")
+        latency.setObjectName("homeFeaturedMeta")
+        left_col.addWidget(latency)
+
+        server = QLabel("Preparando leitura do host monitorado.")
+        server.setObjectName("homeFeaturedDetail")
+        server.setWordWrap(True)
+        left_col.addWidget(server)
+
+        detail = QLabel("Aguardando a primeira leitura do painel.")
+        detail.setObjectName("homeFeaturedMeta")
+        detail.setWordWrap(True)
+        left_col.addWidget(detail)
+
+        updated = QLabel("Atualizado agora")
+        updated.setObjectName("homeFeaturedUpdated")
+        left_col.addWidget(updated)
+        left_col.addStretch()
+
+        cta = QLabel(f"{config['cta']}  >")
+        cta.setObjectName("homeCardCta")
+        left_col.addWidget(cta)
+
+        right_col = QVBoxLayout()
+        right_col.setContentsMargins(0, 0, 0, 0)
+        right_col.setSpacing(12)
+
+        pulse_container = QWidget()
+        pulse_layout = QGridLayout(pulse_container)
+        pulse_layout.setContentsMargins(0, 0, 0, 0)
+        pulse_layout.setSpacing(0)
+
+        pulse = NetworkPulseDecoration(config["accent"])
+        pulse_layout.addWidget(pulse, 0, 0, Qt.AlignCenter)
+
+        orb = QLabel("OK")
+        orb.setObjectName("homeNetworkOrb")
+        orb.setAlignment(Qt.AlignCenter)
+        orb.setAttribute(Qt.WA_TransparentForMouseEvents)
+        pulse_layout.addWidget(orb, 0, 0, Qt.AlignCenter)
+
+        right_col.addWidget(pulse_container, 0, Qt.AlignRight)
+        right_col.addStretch()
+
+        body_layout.addLayout(left_col, 1)
+        body_layout.addLayout(right_col)
+        card_layout.addWidget(body)
+
+        self.internet_card_data = {
+            "card": card,
+            "accent": accent,
+            "pill": pill,
+            "badge": badge,
+            "title": title,
+            "status": status,
+            "latency": latency,
+            "server": server,
+            "detail": detail,
+            "updated": updated,
+            "cta": cta,
+            "orb": orb,
+            "pulse": pulse,
+        }
+        return card
+
+    def _apply_metric_data(self, card_name, resumo):
+        card = self.metric_cards.get(card_name)
+        if not card:
+            return
+
+        values = {
+            "materiais": int(resumo.get("total_materiais", 0) or 0),
+            "maquinas": int(resumo.get("maquinas_ativas", 0) or 0),
+            "manutencoes": int(resumo.get("manutencoes_pendentes", 0) or 0),
+            "pedidos": int(resumo.get("pedidos_pendentes", 0) or 0),
+            "demandas": int(resumo.get("demandas_abertas", 0) or 0),
+        }
+        value = values.get(card_name, 0)
+        badge_text, tone, description = self._resolve_metric_status(card_name, value, resumo)
+
+        card["value"].setText(self._format_number(value))
+        card["description"].setText(description)
+        card["badge"].setText(badge_text)
+
+        palette = self._theme_palette()
+        accent = card["config"]["accent"]
+        badge_bg, badge_fg = self._tone_colors(tone, palette)
+        card["accent"].setStyleSheet(
+            f"background-color: {accent}; border-top-left-radius: 22px; border-top-right-radius: 22px;"
+        )
+        card["pill"].setStyleSheet(self._build_pill_style(accent, palette))
+        card["badge"].setStyleSheet(self._build_badge_style(badge_bg, badge_fg))
+        card["cta"].setStyleSheet(
+            f"color: {accent}; font-size: 13px; font-weight: 600; background: transparent;"
+        )
+        card["decoration"].set_visuals(accent, palette["card_bg"], self._is_dark_theme())
+
+    def _resolve_metric_status(self, card_name, value, resumo):
+        if card_name == "materiais":
+            itens_baixo = int(resumo.get("itens_baixo_estoque", 0) or 0)
+            if value <= 0:
+                return "Sem estoque", "critical", "Nenhum material ativo localizado para a empresa atual."
+            if itens_baixo > 0:
+                return (
+                    f"{itens_baixo} em alerta",
+                    "warn",
+                    f"{value} materiais ativos monitorados, com atencao para itens em nivel baixo.",
+                )
+            return "Estavel", "good", f"{value} materiais ativos disponiveis para operacao."
+
+        if card_name == "maquinas":
+            if value <= 0:
+                return "Sem operacao", "critical", "Nao ha maquinas ativas no momento."
+            if value == 1:
+                return "Em operacao", "good", "1 maquina ativa e liberada para uso."
+            return "Em operacao", "good", f"{value} maquinas ativas em acompanhamento."
+
+        if card_name == "manutencoes":
+            if value <= 0:
+                return "Em dia", "good", "Nao existem manutencoes pendentes nesta leitura."
+            if value == 1:
+                return "Atencao", "warn", "1 manutencao pendente aguardando tratativa."
+            return "Atencao", "warn", f"{value} manutencoes pendentes aguardando tratativa."
+
+        if card_name == "pedidos":
+            if value <= 0:
+                return "Sem fila", "good", "Nenhum pedido aguardando aprovacao no momento."
+            if value == 1:
+                return "Aguardando", "info", "1 pedido pendente na fila de aprovacao."
+            return "Aguardando", "info", f"{value} pedidos pendentes na fila de aprovacao."
+
+        if card_name == "demandas":
+            if value <= 0:
+                return "Sem fila", "good", "Nenhuma demanda aberta para a equipe neste momento."
+            if value <= 3:
+                return "Fila aberta", "warn", f"{value} demandas abertas aguardando atendimento."
+            return "Prioridade", "critical", f"{value} demandas abertas pedindo atencao mais rapida."
+
+        return "Atualizado", "info", "Indicador atualizado."
+
+    def _apply_theme_styles(self):
+        if self._applying_theme_styles:
+            return
+
+        self._applying_theme_styles = True
+        palette = self._theme_palette()
+        try:
+            self.setStyleSheet(
+                f"""
+                QWidget#homeRoot {{
+                    background-color: {palette['page_bg']};
+                }}
+                QScrollArea#homeScrollArea {{
+                    border: none;
+                    background: transparent;
+                }}
+                QScrollArea#homeScrollArea > QWidget > QWidget {{
+                    background: transparent;
+                }}
+                QScrollArea#homeScrollArea QScrollBar:vertical {{
+                    border: none;
+                    background: {palette['scroll_track']};
+                    width: 10px;
+                    margin: 8px 2px 8px 0;
+                    border-radius: 5px;
+                }}
+                QScrollArea#homeScrollArea QScrollBar::handle:vertical {{
+                    background: {palette['scroll_handle']};
+                    border-radius: 5px;
+                    min-height: 34px;
+                }}
+                QScrollArea#homeScrollArea QScrollBar::handle:vertical:hover {{
+                    background: {palette['scroll_handle_hover']};
+                }}
+                QScrollArea#homeScrollArea QScrollBar::add-line:vertical,
+                QScrollArea#homeScrollArea QScrollBar::sub-line:vertical {{
+                    height: 0px;
+                }}
+                QFrame#homeHeaderFrame {{
+                    background: transparent;
+                    border: none;
+                }}
+                QLabel#homeGreeting {{
+                    color: {palette['text_primary']};
+                    font-size: 30px;
+                    font-weight: 800;
+                    background: transparent;
+                }}
+                QLabel#homeTimestamp {{
+                    color: {palette['text_secondary']};
+                    font-size: 13px;
+                    font-weight: 500;
+                    background: transparent;
+                }}
+                QLabel#homeContext {{
+                    color: {palette['text_muted']};
+                    font-size: 13px;
+                    line-height: 1.4;
+                    background: transparent;
+                }}
+                QFrame#homeRoleChip {{
+                    background-color: {palette['panel_bg']};
+                    border: 1px solid {palette['border']};
+                    border-radius: 18px;
+                }}
+                QLabel#homeRoleLabel {{
+                    color: {palette['text_muted']};
+                    font-size: 12px;
+                    font-weight: 600;
+                    background: transparent;
+                }}
+                QLabel#homeRoleValue {{
+                    color: {palette['text_primary']};
+                    font-size: 17px;
+                    font-weight: 700;
+                    background: transparent;
+                }}
+                QFrame#homeCard,
+                QFrame#homeFeaturedCard {{
+                    background-color: {palette['card_bg']};
+                    border: 1px solid {palette['border']};
+                    border-radius: 22px;
+                }}
+                QFrame#homeCard:hover,
+                QFrame#homeFeaturedCard:hover {{
+                    background-color: {palette['card_hover']};
+                    border: 1px solid {palette['border_hover']};
+                }}
+                QLabel#homeCardTitle {{
+                    color: {palette['text_primary']};
+                    font-size: 18px;
+                    font-weight: 700;
+                    background: transparent;
+                }}
+                QLabel#homeCardValue {{
+                    color: {palette['text_primary']};
+                    font-size: 36px;
+                    font-weight: 800;
+                    background: transparent;
+                }}
+                QLabel#homeCardDescription {{
+                    color: {palette['text_secondary']};
+                    font-size: 13px;
+                    line-height: 1.45;
+                    background: transparent;
+                }}
+                QLabel#homeFeaturedTitle {{
+                    color: {palette['text_primary']};
+                    font-size: 19px;
+                    font-weight: 700;
+                    background: transparent;
+                }}
+                QLabel#homeFeaturedValue {{
+                    color: {palette['text_primary']};
+                    font-size: 34px;
+                    font-weight: 800;
+                    background: transparent;
+                }}
+                QLabel#homeFeaturedMeta {{
+                    color: {palette['text_secondary']};
+                    font-size: 13px;
+                    background: transparent;
+                }}
+                QLabel#homeFeaturedDetail {{
+                    color: {palette['text_muted']};
+                    font-size: 13px;
+                    line-height: 1.45;
+                    background: transparent;
+                }}
+                QLabel#homeFeaturedUpdated {{
+                    color: {palette['text_muted']};
+                    font-size: 12px;
+                    font-weight: 600;
+                    background: transparent;
+                }}
+                QLabel#homeNetworkOrb {{
+                    background: transparent;
+                }}
+                """
+            )
+
+            for card_name, card_data in self.metric_cards.items():
+                accent = card_data["config"]["accent"]
+                card_data["accent"].setStyleSheet(
+                    f"background-color: {accent}; border-top-left-radius: 22px; border-top-right-radius: 22px;"
+                )
+                card_data["pill"].setStyleSheet(self._build_pill_style(accent, palette))
+                card_data["cta"].setStyleSheet(
+                    f"color: {accent}; font-size: 13px; font-weight: 600; background: transparent;"
+                )
+                card_data["decoration"].set_visuals(accent, palette["card_bg"], self._is_dark_theme())
+
+            if self.internet_card_data:
+                accent = self.internet_card_data.get("current_accent", "#22c55e")
+                self.internet_card_data["accent"].setStyleSheet(
+                    f"background-color: {accent}; border-top-left-radius: 22px; border-top-right-radius: 22px;"
+                )
+                self.internet_card_data["pill"].setStyleSheet(self._build_pill_style(accent, palette))
+                self.internet_card_data["cta"].setStyleSheet(
+                    f"color: {accent}; font-size: 13px; font-weight: 600; background: transparent;"
+                )
+                self.internet_card_data["pulse"].set_visuals(accent, palette["card_bg"], self._is_dark_theme())
+        finally:
+            self._applying_theme_styles = False
+
+    def _theme_palette(self):
+        app = QApplication.instance()
+        theme = "Claro"
+        if app is not None:
+            theme = app.property("accessibility_theme") or "Claro"
+
+        if theme == "Escuro":
+            return {
+                "page_bg": "#0f172a",
+                "panel_bg": "#121c30",
+                "card_bg": "#111827",
+                "card_hover": "#152238",
+                "border": "#263447",
+                "border_hover": "#3b4e68",
+                "text_primary": "#f8fafc",
+                "text_secondary": "#cbd5e1",
+                "text_muted": "#8fa3ba",
+                "scroll_track": "#172235",
+                "scroll_handle": "#42546b",
+                "scroll_handle_hover": "#5c718c",
+            }
+
+        return {
+            "page_bg": "#f3f7fb",
+            "panel_bg": "#ffffff",
+            "card_bg": "#ffffff",
+            "card_hover": "#f8fbff",
+            "border": "#dbe5f0",
+            "border_hover": "#c4d3e5",
+            "text_primary": "#0f172a",
+            "text_secondary": "#334155",
+            "text_muted": "#64748b",
+            "scroll_track": "#e5edf6",
+            "scroll_handle": "#b7c4d3",
+            "scroll_handle_hover": "#90a3b8",
+        }
+
+    def _is_dark_theme(self):
+        app = QApplication.instance()
+        if app is None:
+            return False
+        return (app.property("accessibility_theme") or "Claro") == "Escuro"
+
+    def _build_pill_style(self, accent, palette):
+        return (
+            "background-color: "
+            f"{self._hex_to_rgba(accent, 0.16)};"
+            f"color: {accent};"
+            "border: none;"
+            "border-radius: 10px;"
+            "padding: 6px 10px;"
+            "font-size: 11px;"
+            "font-weight: 700;"
+            "letter-spacing: 0;"
+        )
+
+    def _build_badge_style(self, background, foreground):
+        return (
+            f"background-color: {background};"
+            f"color: {foreground};"
+            "border: none;"
+            "border-radius: 10px;"
+            "padding: 6px 10px;"
+            "font-size: 11px;"
+            "font-weight: 700;"
+            "letter-spacing: 0;"
+        )
+
+    def _build_orb_style(self, accent, card_background, text_color):
+        return (
+            "background-color: transparent;"
+            f"color: {accent if accent else text_color};"
+            "border: none;"
+            "font-size: 13px;"
+            "font-weight: 800;"
+            "letter-spacing: 0;"
+            "padding: 0px;"
+        )
+
+    def _tone_colors(self, tone, palette):
+        tones = {
+            "good": ("rgba(34, 197, 94, 0.16)", "#22c55e"),
+            "info": ("rgba(59, 130, 246, 0.16)", "#3b82f6"),
+            "warn": ("rgba(245, 158, 11, 0.18)", "#f59e0b"),
+            "critical": ("rgba(239, 68, 68, 0.18)", "#ef4444"),
+        }
+        return tones.get(tone, ("rgba(148, 163, 184, 0.18)", palette["text_secondary"]))
+
+    def _clear_layout(self, layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            child_layout = item.layout()
+            if widget is not None:
+                widget.deleteLater()
+            elif child_layout is not None:
+                self._clear_layout(child_layout)
+
+    def _format_number(self, value):
+        try:
+            return f"{int(value):,}".replace(",", ".")
+        except Exception:
+            return str(value)
+
+    def _hex_to_rgba(self, hex_color, alpha):
+        color = str(hex_color or "#000000").lstrip("#")
+        if len(color) != 6:
+            return "rgba(0, 0, 0, 0.12)"
+        red = int(color[0:2], 16)
+        green = int(color[2:4], 16)
+        blue = int(color[4:6], 16)
+        return f"rgba({red}, {green}, {blue}, {alpha:.2f})"

@@ -3,7 +3,7 @@ import re
 import unicodedata
 
 from PySide6.QtCore import QEvent, QObject, Qt
-from PySide6.QtGui import QColor, QFont, QPalette
+from PySide6.QtGui import QColor, QFont, QGuiApplication, QPalette
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -26,14 +26,15 @@ from PySide6.QtWidgets import (
 from app_paths import get_accessibility_config_path
 
 
+AUTO_SCALE_OPTION = "Automatica"
 THEME_OPTIONS = ("Claro", "Escuro")
 FONT_SIZE_OPTIONS = ("Muito pequena", "Pequena", "Padrao", "Grande", "Muito grande")
-INTERFACE_SCALE_OPTIONS = ("90%", "100%", "110%", "125%", "150%", "175%")
+INTERFACE_SCALE_OPTIONS = (AUTO_SCALE_OPTION, "90%", "100%", "110%", "125%", "150%", "175%")
 
 DEFAULT_ACCESSIBILITY_CONFIG = {
     "tema": "Claro",
     "tamanho_fonte": "Padrao",
-    "escala_interface": "100%",
+    "escala_interface": AUTO_SCALE_OPTION,
     "navegacao_teclado": False,
 }
 
@@ -156,9 +157,13 @@ def normalize_accessibility_config(config=None):
     else:
         tamanho_fonte = "Padrao"
 
-    escala_interface = str(source.get("escala_interface", DEFAULT_ACCESSIBILITY_CONFIG["escala_interface"])).strip()
-    if escala_interface not in _SCALE_FACTOR_MAP:
-        escala_interface = DEFAULT_ACCESSIBILITY_CONFIG["escala_interface"]
+    escala_key = _normalize_key(source.get("escala_interface", DEFAULT_ACCESSIBILITY_CONFIG["escala_interface"]))
+    if escala_key in {"automatica", "automatico", "auto"}:
+        escala_interface = AUTO_SCALE_OPTION
+    else:
+        escala_interface = str(source.get("escala_interface", DEFAULT_ACCESSIBILITY_CONFIG["escala_interface"])).strip()
+        if escala_interface not in _SCALE_FACTOR_MAP:
+            escala_interface = DEFAULT_ACCESSIBILITY_CONFIG["escala_interface"]
 
     return {
         "tema": tema,
@@ -184,6 +189,20 @@ def get_accessibility_options():
         "tema": list(THEME_OPTIONS),
         "tamanho_fonte": list(FONT_SIZE_OPTIONS),
         "escala_interface": list(INTERFACE_SCALE_OPTIONS),
+    }
+
+
+def get_screen_resolution_context(config=None):
+    normalized = normalize_accessibility_config(config or _current_config)
+    metrics = _get_screen_metrics()
+    applied_scale = _resolve_interface_scale_key(normalized)
+    return {
+        "width": metrics["width"],
+        "height": metrics["height"],
+        "dpi": metrics["dpi"],
+        "device_pixel_ratio": metrics["device_pixel_ratio"],
+        "scale_mode": normalized["escala_interface"],
+        "scale_aplicada": applied_scale,
     }
 
 
@@ -218,11 +237,13 @@ def apply_accessibility_config(config=None):
     _apply_palette(normalized["tema"])
 
     stylesheet = _build_stylesheet(normalized)
+    resolved_scale = _resolve_interface_scale_key(normalized)
     _app.setStyleSheet("")
     _app.setStyleSheet(stylesheet)
     _app.setProperty("accessibility_theme", normalized["tema"])
     _app.setProperty("accessibility_font_size", normalized["tamanho_fonte"])
     _app.setProperty("accessibility_scale", normalized["escala_interface"])
+    _app.setProperty("accessibility_scale_applied", resolved_scale)
     _app.setProperty("keyboard_navigation_enabled", normalized["navegacao_teclado"])
 
     _apply_widget_overrides(normalized)
@@ -258,6 +279,7 @@ def _apply_widget_overrides(config):
     for widget in _app.allWidgets():
         _cache_widget_defaults(widget)
         _apply_scaled_widget_font(widget, scale)
+        _apply_scaled_widget_dimensions(widget, config)
         _apply_keyboard_navigation_preferences(widget, config)
         _apply_widget_stylesheet(widget, config)
 
@@ -268,6 +290,7 @@ def _apply_accessibility_to_widget_tree(root_widget, config):
     for widget in widgets:
         _cache_widget_defaults(widget)
         _apply_scaled_widget_font(widget, scale)
+        _apply_scaled_widget_dimensions(widget, config)
         _apply_keyboard_navigation_preferences(widget, config)
         _apply_widget_stylesheet(widget, config)
 
@@ -281,6 +304,55 @@ def _cache_widget_defaults(widget):
         widget.setProperty("_accessibility_base_font_pixel", font.pixelSize())
     if widget.property("_accessibility_base_font_point") is None:
         widget.setProperty("_accessibility_base_font_point", font.pointSize())
+    if widget.property("_accessibility_base_min_width") is None:
+        widget.setProperty("_accessibility_base_min_width", widget.minimumWidth())
+    if widget.property("_accessibility_base_min_height") is None:
+        widget.setProperty("_accessibility_base_min_height", widget.minimumHeight())
+    if widget.property("_accessibility_base_max_width") is None:
+        widget.setProperty("_accessibility_base_max_width", widget.maximumWidth())
+    if widget.property("_accessibility_base_max_height") is None:
+        widget.setProperty("_accessibility_base_max_height", widget.maximumHeight())
+
+
+def _apply_scaled_widget_dimensions(widget, config):
+    scale = _get_interface_scale_factor(config)
+    qt_max = 16777215
+
+    base_min_width = widget.property("_accessibility_base_min_width")
+    base_min_height = widget.property("_accessibility_base_min_height")
+    base_max_width = widget.property("_accessibility_base_max_width")
+    base_max_height = widget.property("_accessibility_base_max_height")
+
+    fixed_width = (
+        isinstance(base_min_width, int)
+        and isinstance(base_max_width, int)
+        and base_min_width > 0
+        and base_min_width == base_max_width
+        and base_max_width < qt_max
+    )
+    fixed_height = (
+        isinstance(base_min_height, int)
+        and isinstance(base_max_height, int)
+        and base_min_height > 0
+        and base_min_height == base_max_height
+        and base_max_height < qt_max
+    )
+
+    if fixed_width:
+        widget.setFixedWidth(max(1, round(base_min_width * scale)))
+    else:
+        if isinstance(base_min_width, int) and base_min_width > 0:
+            widget.setMinimumWidth(max(0, round(base_min_width * scale)))
+        if isinstance(base_max_width, int) and 0 < base_max_width < qt_max:
+            widget.setMaximumWidth(max(1, round(base_max_width * scale)))
+
+    if fixed_height:
+        widget.setFixedHeight(max(1, round(base_min_height * scale)))
+    else:
+        if isinstance(base_min_height, int) and base_min_height > 0:
+            widget.setMinimumHeight(max(0, round(base_min_height * scale)))
+        if isinstance(base_max_height, int) and 0 < base_max_height < qt_max:
+            widget.setMaximumHeight(max(1, round(base_max_height * scale)))
 
 
 def _apply_keyboard_navigation_preferences(widget, config):
@@ -308,9 +380,65 @@ def _apply_scaled_widget_font(widget, scale):
 
 
 def _get_font_zoom(config):
-    interface_scale = _SCALE_FACTOR_MAP[config["escala_interface"]]
+    interface_scale = _get_interface_scale_factor(config)
     font_scale = _FONT_SIZE_MAP[config["tamanho_fonte"]] / _FONT_SIZE_MAP["Padrao"]
     return interface_scale * font_scale
+
+
+def _get_interface_scale_factor(config):
+    scale_key = _resolve_interface_scale_key(config)
+    return _SCALE_FACTOR_MAP[scale_key]
+
+
+def _resolve_interface_scale_key(config):
+    scale_mode = str((config or {}).get("escala_interface") or DEFAULT_ACCESSIBILITY_CONFIG["escala_interface"]).strip()
+    if scale_mode == AUTO_SCALE_OPTION:
+        metrics = _get_screen_metrics()
+        return _get_recommended_scale_from_metrics(metrics["width"], metrics["height"])
+    if scale_mode in _SCALE_FACTOR_MAP:
+        return scale_mode
+    return _get_recommended_scale_from_metrics(1920, 1080)
+
+
+def _get_recommended_scale_from_metrics(width, height):
+    width = max(1, int(width or 0))
+    height = max(1, int(height or 0))
+    ratio = min(width / 1920, height / 1080)
+
+    if ratio <= 0.88:
+        return "90%"
+    if ratio <= 1.0:
+        return "100%"
+    if ratio <= 1.12:
+        return "110%"
+    if ratio <= 1.32:
+        return "125%"
+    if ratio <= 1.62:
+        return "150%"
+    return "175%"
+
+
+def _get_screen_metrics():
+    screen = None
+    if _app is not None and _app.activeWindow() is not None:
+        window = _app.activeWindow()
+        handle = window.windowHandle()
+        if handle is not None:
+            screen = handle.screen()
+
+    if screen is None:
+        screen = QGuiApplication.primaryScreen()
+
+    if screen is None:
+        return {"width": 1920, "height": 1080, "dpi": 96.0, "device_pixel_ratio": 1.0}
+
+    geometry = screen.availableGeometry()
+    return {
+        "width": geometry.width(),
+        "height": geometry.height(),
+        "dpi": round(screen.logicalDotsPerInch(), 2),
+        "device_pixel_ratio": round(screen.devicePixelRatio(), 2),
+    }
 
 
 def _apply_widget_stylesheet(widget, config):
@@ -333,8 +461,9 @@ def _build_widget_override(widget, config, base_stylesheet):
 
     theme = config["tema"]
     font_px = _get_scaled_widget_font_px(widget, base_stylesheet, config)
-    button_height = max(36, round(36 * _SCALE_FACTOR_MAP[config["escala_interface"]]))
-    input_height = max(38, round(38 * _SCALE_FACTOR_MAP[config["escala_interface"]]))
+    interface_scale = _get_interface_scale_factor(config)
+    button_height = max(36, round(36 * interface_scale))
+    input_height = max(38, round(38 * interface_scale))
 
     if isinstance(widget, QLabel):
         return _build_label_override(widget, theme, font_px, base_stylesheet)
@@ -667,7 +796,7 @@ def _repolish_widget_tree(root_widget):
 
 
 def _build_stylesheet(config):
-    scale = _SCALE_FACTOR_MAP[config["escala_interface"]]
+    scale = _get_interface_scale_factor(config)
     base_font = _FONT_SIZE_MAP[config["tamanho_fonte"]]
     title_font = max(22, round(24 * scale))
     body_font = max(12, round(base_font * scale))
@@ -855,6 +984,33 @@ def _build_dark_stylesheet(
         .sidebar {{
             background-color: #0b1623;
             border-right: none;
+        }}
+
+        QScrollArea#sidebarScrollArea {{
+            background-color: transparent;
+            border: none;
+        }}
+
+        QScrollArea#sidebarScrollArea > QWidget > QWidget {{
+            background-color: transparent;
+        }}
+
+        QScrollArea#sidebarScrollArea QScrollBar:vertical {{
+            border: none;
+            background-color: #111827;
+            width: 10px;
+            margin: 8px 4px 8px 0;
+            border-radius: 5px;
+        }}
+
+        QScrollArea#sidebarScrollArea QScrollBar::handle:vertical {{
+            background-color: #475569;
+            border-radius: 5px;
+            min-height: 30px;
+        }}
+
+        QScrollArea#sidebarScrollArea QScrollBar::handle:vertical:hover {{
+            background-color: #64748b;
         }}
 
         .logo {{
@@ -1152,6 +1308,15 @@ def _build_dark_stylesheet(
             border-radius: 12px;
             background-color: #111827;
             padding: 20px;
+        }}
+
+        QScrollArea#paramTabScrollArea {{
+            background-color: transparent;
+            border: none;
+        }}
+
+        QScrollArea#paramTabScrollArea > QWidget > QWidget {{
+            background-color: transparent;
         }}
 
         QTabBar::tab {{

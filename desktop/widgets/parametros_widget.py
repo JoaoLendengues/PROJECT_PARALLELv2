@@ -13,6 +13,7 @@ from accessibility_manager import (
     apply_accessibility_config,
     build_accessibility_config,
     get_accessibility_options,
+    get_screen_resolution_context,
     save_local_accessibility_config,
 )
 from widgets.toast_notification import notification_manager
@@ -181,17 +182,30 @@ class ParametrosWidget(QWidget):
         layout.addStretch()
         return widget
 
+    def _wrap_tab_scroll_area(self, content_widget):
+        scroll = QScrollArea()
+        scroll.setObjectName("paramTabScrollArea")
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll.setWidget(content_widget)
+        return scroll
+
     def create_tab_acessibilidade(self):
         """Aba de acessibilidade e interface"""
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
+        content = QWidget()
+        content.setObjectName("paramTabScrollContent")
+        layout = QVBoxLayout(content)
         layout.setSpacing(20)
+        layout.setContentsMargins(0, 0, 0, 12)
         options = get_accessibility_options()
 
         grupo_acessibilidade = QGroupBox("Acessibilidade e Interface")
         grupo_acessibilidade.setObjectName("configGroup")
         form_acessibilidade = QFormLayout(grupo_acessibilidade)
         form_acessibilidade.setContentsMargins(20, 20, 20, 20)
+        form_acessibilidade.setVerticalSpacing(14)
 
         self.tema_interface = QComboBox()
         self.tema_interface.setObjectName("configCombo")
@@ -210,7 +224,11 @@ class ParametrosWidget(QWidget):
 
         self.navegacao_teclado = QCheckBox("Destacar foco e priorizar navegacao por teclado")
         self.navegacao_teclado.setObjectName("configCheckbox")
-        form_acessibilidade.addRow("", self.navegacao_teclado)
+        layout_navegacao = QHBoxLayout()
+        layout_navegacao.setContentsMargins(0, 0, 0, 0)
+        layout_navegacao.addWidget(self.navegacao_teclado)
+        layout_navegacao.addStretch()
+        form_acessibilidade.addRow("Navegacao por teclado:", layout_navegacao)
 
         self.tema_interface.currentTextChanged.connect(self.previsualizar_acessibilidade)
         self.tamanho_fonte.currentTextChanged.connect(self.previsualizar_acessibilidade)
@@ -223,8 +241,16 @@ class ParametrosWidget(QWidget):
         dica.setWordWrap(True)
         dica.setStyleSheet("color: #64748b;")
 
+        self.resolucao_detectada_label = QLabel("")
+        self.resolucao_detectada_label.setWordWrap(True)
+        self.resolucao_detectada_label.setStyleSheet("color: #64748b;")
+
         botoes_layout = QHBoxLayout()
         botoes_layout.addStretch()
+        btn_automatico = QPushButton("Usar recomendacao da maquina")
+        btn_automatico.setObjectName("btnSecondary")
+        btn_automatico.clicked.connect(self.aplicar_escala_automatica)
+        botoes_layout.addWidget(btn_automatico)
         btn_restaurar = QPushButton("Restaurar padrao")
         btn_restaurar.setObjectName("btnSecondary")
         btn_restaurar.clicked.connect(self.restaurar_acessibilidade_padrao)
@@ -232,10 +258,33 @@ class ParametrosWidget(QWidget):
 
         layout.addWidget(grupo_acessibilidade)
         layout.addWidget(dica)
+        layout.addWidget(self.resolucao_detectada_label)
+        layout.addWidget(self._create_accessibility_context_group())
         layout.addWidget(self._create_accessibility_preview_group())
         layout.addLayout(botoes_layout)
         layout.addStretch()
-        return widget
+        self._refresh_resolution_hint()
+        return self._wrap_tab_scroll_area(content)
+
+    def _create_accessibility_context_group(self):
+        grupo_contexto = QGroupBox("Leitura da maquina")
+        grupo_contexto.setObjectName("configGroup")
+        layout = QFormLayout(grupo_contexto)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
+
+        self.resolucao_valor = QLabel("-")
+        self.escala_aplicada_valor = QLabel("-")
+        self.dpi_valor = QLabel("-")
+        self.recomendacao_tela_valor = QLabel("-")
+        self.recomendacao_tela_valor.setWordWrap(True)
+
+        layout.addRow("Resolucao detectada:", self.resolucao_valor)
+        layout.addRow("Escala aplicada:", self.escala_aplicada_valor)
+        layout.addRow("DPI logico:", self.dpi_valor)
+        layout.addRow("Leitura sugerida:", self.recomendacao_tela_valor)
+
+        return grupo_contexto
 
     def _create_accessibility_preview_group(self):
         grupo_preview = QGroupBox("Pre-visualizacao")
@@ -271,6 +320,22 @@ class ParametrosWidget(QWidget):
         self.preview_checkbox.setObjectName("configCheckbox")
         layout.addWidget(self.preview_checkbox)
 
+        self.preview_tabela = QTableWidget(2, 2)
+        self.preview_tabela.setHorizontalHeaderLabels(["Campo", "Valor exibido"])
+        self.preview_tabela.verticalHeader().setVisible(False)
+        self.preview_tabela.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.preview_tabela.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.preview_tabela.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.preview_tabela.setSelectionMode(QTableWidget.NoSelection)
+        self.preview_tabela.setFocusPolicy(Qt.NoFocus)
+        self.preview_tabela.setMinimumHeight(110)
+        self.preview_tabela.setItem(0, 0, QTableWidgetItem("Departamento"))
+        self.preview_tabela.setItem(0, 1, QTableWidgetItem("Administrativo e Operacoes"))
+        self.preview_tabela.setItem(1, 0, QTableWidgetItem("Observacao"))
+        self.preview_tabela.setItem(1, 1, QTableWidgetItem("Texto de referencia para validar leitura, espaco e contraste."))
+        self.preview_tabela.resizeRowsToContents()
+        layout.addWidget(self.preview_tabela)
+
         linha_botoes = QHBoxLayout()
         linha_botoes.setSpacing(12)
 
@@ -287,6 +352,16 @@ class ParametrosWidget(QWidget):
 
         return grupo_preview
 
+    def aplicar_escala_automatica(self):
+        self._loading_configuracoes = True
+        try:
+            self._set_combo_value(self.escala_interface, "Automatica")
+        finally:
+            self._loading_configuracoes = False
+
+        self.previsualizar_acessibilidade()
+        notification_manager.info("Escala automatica aplicada para esta maquina.", self.window(), 2500)
+
     def restaurar_acessibilidade_padrao(self):
         self._loading_configuracoes = True
         try:
@@ -298,6 +373,7 @@ class ParametrosWidget(QWidget):
             self._loading_configuracoes = False
 
         self.previsualizar_acessibilidade()
+        self._refresh_resolution_hint()
         notification_manager.info("Acessibilidade restaurada para o padrao.", self.window(), 2500)
 
     def create_tab_backup(self):
@@ -1559,10 +1635,45 @@ class ParametrosWidget(QWidget):
             self.navegacao_teclado.isChecked(),
         )
 
+    def _refresh_resolution_hint(self):
+        if not hasattr(self, "resolucao_detectada_label"):
+            return
+
+        context = get_screen_resolution_context(self._collect_accessibility_config())
+        width = context["width"]
+        height = context["height"]
+        dpi = context["dpi"]
+        mode = context["scale_mode"]
+        applied = context["scale_aplicada"]
+        if mode == "Automatica":
+            texto = (
+                f"Resolucao detectada nesta maquina: {width}x{height}. "
+                f"Escala automatica sugerida e aplicada: {applied}."
+            )
+        else:
+            texto = (
+                f"Resolucao detectada nesta maquina: {width}x{height}. "
+                f"Escala manual selecionada: {mode}."
+            )
+        self.resolucao_detectada_label.setText(texto)
+        self.resolucao_valor.setText(f"{width}x{height}")
+        self.escala_aplicada_valor.setText(f"{applied} ({mode})" if mode == "Automatica" else mode)
+        self.dpi_valor.setText(str(dpi))
+
+        if applied in {"90%", "100%"}:
+            recomendacao = "Layout mais compacto, indicado para telas menores ou com menos altura util."
+        elif applied in {"110%", "125%"}:
+            recomendacao = "Equilibrio entre leitura e densidade de informacao para a maioria das maquinas."
+        else:
+            recomendacao = "Leitura mais confortavel, indicada para monitores grandes ou uso mais distante da tela."
+        self.recomendacao_tela_valor.setText(recomendacao)
+
     def previsualizar_acessibilidade(self, *_args):
         if self._loading_configuracoes:
             return
-        apply_accessibility_config(self._collect_accessibility_config())
+        config = self._collect_accessibility_config()
+        self._refresh_resolution_hint()
+        apply_accessibility_config(config)
 
     def carregar_configuracoes(self):
         """Carrega as configuracoes salvas do backend"""
@@ -1640,6 +1751,7 @@ class ParametrosWidget(QWidget):
                 if "modo_nao_perturbe" in config:
                     self.modo_nao_perturbe.setChecked(config["modo_nao_perturbe"] == True or config["modo_nao_perturbe"] == "true")
 
+                self._refresh_resolution_hint()
                 apply_accessibility_config(config)
                 print("Configuracoes carregadas com sucesso")
 

@@ -361,7 +361,7 @@ def get_configuracoes(
     defaults = {
         "tema": "Claro",
         "tamanho_fonte": "Padrão",
-        "escala_interface": "100%",
+        "escala_interface": "Automatica",
         "navegacao_teclado": False,
         "alerta_estoque": 5,
         "alerta_estoque_critico": 2,

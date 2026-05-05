@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                                QPushButton, QLabel, QFrame, QStackedWidget, QMessageBox, QApplication)
+                                QPushButton, QLabel, QFrame, QStackedWidget, QMessageBox, QApplication,
+                                QScrollArea)
 from PySide6.QtCore import Qt, QTimer, QThread, Signal
 from PySide6.QtGui import QFont
 from datetime import datetime
@@ -152,8 +153,15 @@ class MainWindow(QMainWindow):
             menu_layout.addWidget(btn)
             self.menu_buttons[screen_key] = btn
 
-        layout.addWidget(menu_container)
-        layout.addStretch()
+        menu_scroll = QScrollArea()
+        menu_scroll.setObjectName("sidebarScrollArea")
+        menu_scroll.setFrameShape(QFrame.NoFrame)
+        menu_scroll.setWidgetResizable(True)
+        menu_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        menu_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        menu_scroll.setWidget(menu_container)
+
+        layout.addWidget(menu_scroll, 1)
 
         bottom_container = QWidget()
         bottom_layout = QVBoxLayout(bottom_container)

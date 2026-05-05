@@ -8,6 +8,26 @@ router = APIRouter(prefix='/api/auth', tags=['Autenticação'])
 
 
 
+@router.get('/usuario-preview/{codigo}', response_model=schemas.LoginUserPreviewResponse)
+def get_usuario_preview(
+    codigo: str,
+    db: Session = Depends(get_db)
+):
+    """Retorna o nome do usuario ativo a partir do codigo informado."""
+    usuario = db.query(models.UsuarioSistema).filter(
+        models.UsuarioSistema.codigo == codigo,
+        models.UsuarioSistema.ativo == True
+    ).first()
+
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario nao encontrado")
+
+    return {
+        "codigo": usuario.codigo,
+        "nome": usuario.nome
+    }
+
+
 @router.post('/login', response_model=schemas.LoginResponse)
 def login(
     login_data: schemas.LoginRequest,
