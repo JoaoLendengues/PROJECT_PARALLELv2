@@ -7,8 +7,16 @@ from PySide6.QtGui import QFont, QColor
 from api_client import api_client
 from access_control import get_action_label, has_action_access
 from widgets.company_filter_utils import company_filter_ready, populate_company_filter, selected_company_value
-from widgets.filter_utils import is_all_option, same_filter_value, same_text
+from widgets.filter_utils import contains_text, is_all_option, same_filter_value, same_text
 from widgets.table_utils import configure_data_table, number_item
+from user_preferences import (
+    apply_combo_data,
+    apply_combo_text,
+    apply_table_sort_state,
+    get_table_sort_state,
+    get_widget_preferences,
+    save_widget_preferences,
+)
 
 
 class ManutencoesWidget(QWidget):
@@ -20,12 +28,21 @@ class ManutencoesWidget(QWidget):
         self.maquinas = []
         self.empresas = []
         self._loaded = False
+        self._restoring_preferences = False
+        self._saved_preferences = {}
         self.init_ui()
 
     def on_show(self):
         if not self._loaded:
             self.carregar_empresas()
-            self._mostrar_prompt_empresa()
+            self._carregar_preferencias()
+            self._aplicar_preferencias_salvas()
+            if self.empresa_pronta():
+                empresa = self.empresa_param()
+                self.carregar_maquinas(empresa=empresa)
+                self.carregar_manutencoes()
+            else:
+                self._mostrar_prompt_empresa()
             self._loaded = True
 
     def init_ui(self):
@@ -56,6 +73,15 @@ class ManutencoesWidget(QWidget):
 
         # Barra de pesquisa e filtros
         filtros = QHBoxLayout()
+
+        filtros.addWidget(QLabel("Busca:"))
+        self.pesquisa_edit = QLineEdit()
+        self.pesquisa_edit.setPlaceholderText("Pesquisar por maquina, tipo, descricao, responsavel...")
+        self.pesquisa_edit.setMaximumWidth(340)
+        self.pesquisa_edit.textChanged.connect(self.filtrar_manutencoes)
+        filtros.addWidget(self.pesquisa_edit)
+
+        filtros.addSpacing(20)
 
         # Filtro Status
         filtros.addWidget(QLabel("Status:"))
@@ -112,6 +138,7 @@ class ManutencoesWidget(QWidget):
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
         configure_data_table(self.tabela, stretch_columns=(3,))
+        self.tabela.horizontalHeader().sortIndicatorChanged.connect(self._ao_ordenar_tabela)
 
         layout.addWidget(self.tabela)
 
@@ -136,7 +163,16 @@ class ManutencoesWidget(QWidget):
 
     def set_usuario(self, usuario):
         self.usuario = usuario or {}
+        self._carregar_preferencias()
         self.aplicar_permissoes()
+        if self._loaded:
+            self._aplicar_preferencias_salvas()
+            if self.empresa_pronta():
+                empresa = self.empresa_param()
+                self.carregar_maquinas(empresa=empresa)
+                self.carregar_manutencoes()
+            else:
+                self._mostrar_prompt_empresa()
 
     def _pode(self, action_key):
         return has_action_access(self.usuario, action_key)
@@ -160,6 +196,43 @@ class ManutencoesWidget(QWidget):
     def empresa_param(self):
         return selected_company_value(self.empresa_filter)
 
+    def _carregar_preferencias(self):
+        self._saved_preferences = get_widget_preferences(self.usuario, "manutencoes")
+
+    def _aplicar_preferencias_salvas(self):
+        self._restoring_preferences = True
+        try:
+            self.pesquisa_edit.setText(str(self._saved_preferences.get("busca") or ""))
+            apply_combo_text(self.status_filter, self._saved_preferences.get("status"))
+            apply_combo_data(self.empresa_filter, self._saved_preferences.get("empresa"))
+        finally:
+            self._restoring_preferences = False
+
+    def _aplicar_preferencias_dependentes(self):
+        self._restoring_preferences = True
+        try:
+            apply_combo_data(self.maquina_filter, self._saved_preferences.get("maquina_id"))
+        finally:
+            self._restoring_preferences = False
+
+    def _preferencias_atuais(self):
+        return {
+            "busca": self.pesquisa_edit.text().strip(),
+            "status": self.status_filter.currentText(),
+            "empresa": self.empresa_filter.currentData(),
+            "maquina_id": self.maquina_filter.currentData(),
+            "sort": get_table_sort_state(self.tabela),
+        }
+
+    def _salvar_preferencias(self):
+        if self._restoring_preferences:
+            return
+        self._saved_preferences = self._preferencias_atuais()
+        save_widget_preferences(self.usuario, "manutencoes", self._saved_preferences)
+
+    def _ao_ordenar_tabela(self, *_args):
+        self._salvar_preferencias()
+
     def _mostrar_prompt_empresa(self):
         self.manutencoes = []
         self.manutencoes_cache = []
@@ -173,10 +246,12 @@ class ManutencoesWidget(QWidget):
     def ao_alterar_empresa(self):
         if not self.empresa_pronta():
             self._mostrar_prompt_empresa()
+            self._salvar_preferencias()
             return
         empresa = self.empresa_param()
         self.carregar_maquinas(empresa=empresa)
         self.carregar_manutencoes()
+        self._salvar_preferencias()
 
     def carregar_maquinas(self, empresa=None):
         """Carrega a lista de máquinas para o filtro"""
@@ -186,6 +261,7 @@ class ManutencoesWidget(QWidget):
             self.maquina_filter.addItem("Todas as máquinas")
             for maq in self.maquinas:
                 self.maquina_filter.addItem(f"{maq.get('nome', '')} - {maq.get('empresa', '')}", maq.get("id"))
+            self._aplicar_preferencias_dependentes()
             print(f'✅ Máquinas carregadas: {len(self.maquinas)}')
         except Exception as e:
             print(f"Erro ao carregar máquinas: {e}")
@@ -208,7 +284,7 @@ class ManutencoesWidget(QWidget):
         try:
             self.manutencoes = api_client.listar_manutencoes(empresa=self.empresa_param())
             self.manutencoes_cache = self.manutencoes.copy()
-            self.atualizar_tabela(self.manutencoes)
+            self.filtrar_manutencoes()
             self.atualizar_dashboard_home()
             self.empresa_prompt.setVisible(False)
             print(f"✅ Manutenções carregadas: {len(self.manutencoes)}")
@@ -225,6 +301,7 @@ class ManutencoesWidget(QWidget):
         status = self.status_filter.currentText()
         empresa = self.empresa_filter.currentText()
         maquina_id_selecionada = self.maquina_filter.currentData()
+        search_text = self.pesquisa_edit.text()
 
         filtered = []
         for manut in self.manutencoes:
@@ -249,9 +326,21 @@ class ManutencoesWidget(QWidget):
             if maquina_id_selecionada and manut.get("maquina_id") != maquina_id_selecionada:
                 continue
 
+            if not contains_text(
+                search_text,
+                manut.get("id", ""),
+                manut.get("maquina_nome", ""),
+                manut.get("tipo", ""),
+                manut.get("descricao", ""),
+                manut.get("responsavel", ""),
+                manut.get("status", ""),
+            ):
+                continue
+
             filtered.append(manut)
 
         self.atualizar_tabela(filtered)
+        self._salvar_preferencias()
 
     def atualizar_tabela(self, manutencoes):
         """Atualiza a tabela com a lista de manutenções"""
@@ -277,6 +366,8 @@ class ManutencoesWidget(QWidget):
             status_color = status_colors.get(manut.get("status", "pendente"), QColor(0, 0, 0))
             status_item.setForeground(status_color)
             self.tabela.setItem(row, 7, status_item)
+
+        apply_table_sort_state(self.tabela, self._saved_preferences.get("sort"))
 
     def nova_manutencao(self):
         if not self._pode("manutencoes.create"):

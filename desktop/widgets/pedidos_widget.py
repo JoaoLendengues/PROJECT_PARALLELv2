@@ -9,9 +9,18 @@ from PySide6.QtGui import QDesktopServices, QFont, QColor, QCursor
 from api_client import api_client
 from access_control import get_action_label, has_action_access
 from widgets.company_filter_utils import company_filter_ready, populate_company_filter, selected_company_value
+from widgets.form_feedback import focus_invalid_field, optional_label, required_field_message, required_hint_label, required_label
 from widgets.toast_notification import notification_manager
-from widgets.filter_utils import is_all_option, same_filter_value, same_text
+from widgets.filter_utils import contains_text, is_all_option, same_filter_value, same_text
 from widgets.table_utils import configure_data_table, number_item
+from user_preferences import (
+    apply_combo_data,
+    apply_combo_text,
+    apply_table_sort_state,
+    get_table_sort_state,
+    get_widget_preferences,
+    save_widget_preferences,
+)
 
 
 class PedidosWidget(QWidget):
@@ -23,13 +32,22 @@ class PedidosWidget(QWidget):
         self.materiais = []
         self.departamentos = []
         self._loaded = False
+        self._restoring_preferences = False
+        self._saved_preferences = {}
         self.init_ui()
 
     def on_show(self):
         if not self._loaded:
             self.carregar_departamentos()
             self.carregar_empresas()
-            self._mostrar_prompt_empresa()
+            self._carregar_preferencias()
+            self._aplicar_preferencias_salvas()
+            if self.empresa_pronta():
+                empresa = self.empresa_param()
+                self.carregar_materiais(empresa=empresa)
+                self.carregar_pedidos()
+            else:
+                self._mostrar_prompt_empresa()
             self._loaded = True
 
     def init_ui(self):
@@ -60,6 +78,15 @@ class PedidosWidget(QWidget):
 
         # Barra de pesquisa e filtros
         filtros = QHBoxLayout()
+
+        filtros.addWidget(QLabel("Busca:"))
+        self.pesquisa_edit = QLineEdit()
+        self.pesquisa_edit.setPlaceholderText("Pesquisar por material, solicitante, departamento, link...")
+        self.pesquisa_edit.setMaximumWidth(340)
+        self.pesquisa_edit.textChanged.connect(self.filtrar_pedidos)
+        filtros.addWidget(self.pesquisa_edit)
+
+        filtros.addSpacing(20)
 
         # Filtro Status
         filtros.addWidget(QLabel("Status:"))
@@ -120,6 +147,7 @@ class PedidosWidget(QWidget):
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
         configure_data_table(self.tabela, stretch_columns=(1, 9, 10))
+        self.tabela.horizontalHeader().sortIndicatorChanged.connect(self._ao_ordenar_tabela)
 
         layout.addWidget(self.tabela)
 
@@ -156,7 +184,16 @@ class PedidosWidget(QWidget):
 
     def set_usuario(self, usuario):
         self.usuario = usuario or {}
+        self._carregar_preferencias()
         self.aplicar_permissoes()
+        if self._loaded:
+            self._aplicar_preferencias_salvas()
+            if self.empresa_pronta():
+                empresa = self.empresa_param()
+                self.carregar_materiais(empresa=empresa)
+                self.carregar_pedidos()
+            else:
+                self._mostrar_prompt_empresa()
 
     def _pode(self, action_key):
         return has_action_access(self.usuario, action_key)
@@ -186,6 +223,37 @@ class PedidosWidget(QWidget):
     def empresa_param(self):
         return selected_company_value(self.empresa_filter)
 
+    def _carregar_preferencias(self):
+        self._saved_preferences = get_widget_preferences(self.usuario, "pedidos")
+
+    def _aplicar_preferencias_salvas(self):
+        self._restoring_preferences = True
+        try:
+            self.pesquisa_edit.setText(str(self._saved_preferences.get("busca") or ""))
+            apply_combo_text(self.status_filter, self._saved_preferences.get("status"))
+            apply_combo_data(self.empresa_filter, self._saved_preferences.get("empresa"))
+            apply_combo_text(self.departamento_filter, self._saved_preferences.get("departamento"))
+        finally:
+            self._restoring_preferences = False
+
+    def _preferencias_atuais(self):
+        return {
+            "busca": self.pesquisa_edit.text().strip(),
+            "status": self.status_filter.currentText(),
+            "empresa": self.empresa_filter.currentData(),
+            "departamento": self.departamento_filter.currentText(),
+            "sort": get_table_sort_state(self.tabela),
+        }
+
+    def _salvar_preferencias(self):
+        if self._restoring_preferences:
+            return
+        self._saved_preferences = self._preferencias_atuais()
+        save_widget_preferences(self.usuario, "pedidos", self._saved_preferences)
+
+    def _ao_ordenar_tabela(self, *_args):
+        self._salvar_preferencias()
+
     def _pedido_selecionado(self):
         current_row = self.tabela.currentRow()
         if current_row < 0 or self.tabela.item(current_row, 0) is None:
@@ -214,10 +282,12 @@ class PedidosWidget(QWidget):
     def ao_alterar_empresa(self):
         if not self.empresa_pronta():
             self._mostrar_prompt_empresa()
+            self._salvar_preferencias()
             return
         empresa = self.empresa_param()
         self.carregar_materiais(empresa=empresa)
         self.carregar_pedidos()
+        self._salvar_preferencias()
 
     def carregar_materiais(self, empresa=None):
         """Carrega a lista de materiais"""
@@ -257,7 +327,7 @@ class PedidosWidget(QWidget):
         try:
             self.pedidos = api_client.listar_pedidos(empresa=self.empresa_param())
             self.pedidos_cache = self.pedidos.copy()
-            self.atualizar_tabela(self.pedidos)
+            self.filtrar_pedidos()
             self.empresa_prompt.setVisible(False)
             print(f"✅ Pedidos carregados: {len(self.pedidos)}")
         except Exception as e:
@@ -273,6 +343,7 @@ class PedidosWidget(QWidget):
         status = self.status_filter.currentText()
         empresa = self.empresa_filter.currentText()
         departamento = self.departamento_filter.currentText()
+        search_text = self.pesquisa_edit.text()
 
         filtered = []
         for pedido in self.pedidos:
@@ -288,9 +359,23 @@ class PedidosWidget(QWidget):
             if not is_all_option(departamento) and not same_text(pedido.get('departamento'), departamento):
                 continue
 
+            if not contains_text(
+                search_text,
+                pedido.get("id", ""),
+                pedido.get("material_nome", ""),
+                pedido.get("solicitante", ""),
+                pedido.get("empresa", ""),
+                pedido.get("departamento", ""),
+                pedido.get("status", ""),
+                pedido.get("observacao", ""),
+                pedido.get("link_compra", ""),
+            ):
+                continue
+
             filtered.append(pedido)
 
         self.atualizar_tabela(filtered)
+        self._salvar_preferencias()
 
     def atualizar_tabela(self, pedidos):
         """Atualiza a tabela com a lista de pedidos"""
@@ -323,6 +408,8 @@ class PedidosWidget(QWidget):
             self.tabela.setItem(row, 9, link_item)
 
             self.tabela.setItem(row, 10, QTableWidgetItem(str(pedido.get("observacao") or "-")[:50]))
+
+        apply_table_sort_state(self.tabela, self._saved_preferences.get("sort"))
 
     def novo_pedido(self):
         if not self._pode("pedidos.create"):
@@ -560,6 +647,7 @@ class PedidoDialog(QDialog):
 
         form_layout = QFormLayout()
         form_layout.setSpacing(15)
+        layout.addWidget(required_hint_label())
 
         # Material - AGORA COM CAMPO DE TEXTO LIVRE E BOTÃO PARA CADASTRAR
         material_layout = QHBoxLayout()
@@ -585,7 +673,7 @@ class PedidoDialog(QDialog):
         self.novo_material_btn.clicked.connect(self.cadastrar_novo_material)
         material_layout.addWidget(self.novo_material_btn)
 
-        form_layout.addRow("Material:", material_layout)
+        form_layout.addRow(required_label("Material:"), material_layout)
 
         # ID do material (oculto, para quando for material existente)
         self.material_id_edit = QLineEdit()
@@ -596,26 +684,26 @@ class PedidoDialog(QDialog):
         self.quantidade_spin = QSpinBox()
         self.quantidade_spin.setRange(1, 99999)
         self.quantidade_spin.setValue(1)
-        form_layout.addRow("Quantidade:", self.quantidade_spin)
+        form_layout.addRow(required_label("Quantidade:"), self.quantidade_spin)
 
         # Solicitante
         self.solicitante_edit = QLineEdit()
         self.solicitante_edit.setPlaceholderText("Nome do solicitante")
-        form_layout.addRow("Solicitante:", self.solicitante_edit)
+        form_layout.addRow(required_label("Solicitante:"), self.solicitante_edit)
 
         # Empresa
         self.empresa_combo = QComboBox()
         self.empresa_combo.setEditable(False)
         self.empresa_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_empresas_combo()
-        form_layout.addRow("Empresa:", self.empresa_combo)
+        form_layout.addRow(required_label("Empresa:"), self.empresa_combo)
 
         # Departamento
         self.departamento_combo = QComboBox()
         self.departamento_combo.setEditable(False)
         self.departamento_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_departamentos_combo()
-        form_layout.addRow("Departamento:", self.departamento_combo)
+        form_layout.addRow(required_label("Departamento:"), self.departamento_combo)
 
         # Status (só aparece na edição)
         self.status_label = QLabel("Status:")
@@ -805,6 +893,7 @@ class PedidoDialog(QDialog):
         material_id = self.material_id_edit.text().strip()
 
         if not material_nome:
+            focus_invalid_field(self.material_edit)
             QMessageBox.warning(self, "Atenção", "Informe o nome do material!")
             return
 
@@ -817,14 +906,17 @@ class PedidoDialog(QDialog):
         link_normalizado = self.normalizar_link_compra(link_compra)
 
         if link_compra and not link_normalizado:
+            focus_invalid_field(self.link_compra_edit)
             QMessageBox.warning(self, "Atencao", "Informe um link de compra valido.")
             return
 
         if not solicitante:
+            focus_invalid_field(self.solicitante_edit)
             QMessageBox.warning(self, "Atenção", "Informe o nome do solicitante!")
             return
 
         if not empresa:
+            focus_invalid_field(self.empresa_combo)
             QMessageBox.warning(self, "Atenção", "Selecione uma empresa!")
             return
 
@@ -861,19 +953,19 @@ class PedidoDialog(QDialog):
                 # Atualizar
                 response = api_client.atualizar_pedido(self.dados_item["id"], dados)
                 if response:
-                    QMessageBox.information(self, "Sucesso", "Pedido atualizado com sucesso!")
+                    QMessageBox.information(self, "Sucesso", f"Pedido de '{material_nome}' atualizado com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Erro ao atualizar pedido")
+                    QMessageBox.warning(self, "Erro", "Nao foi possivel atualizar o pedido. Revise os dados e tente novamente.")
             else:
                 # Criar
                 response = api_client.criar_pedido(dados)
                 if response:
-                    QMessageBox.information(self, "Sucesso", "Pedido criado com sucesso!")
+                    QMessageBox.information(self, "Sucesso", f"Pedido de '{material_nome}' criado com sucesso.")
                     # Recarregar materiais para incluir o novo material
                     self.carregar_materiais_novos(empresa=empresa)
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Erro ao criar pedido")
+                    QMessageBox.warning(self, "Erro", "Nao foi possivel criar o pedido. Revise os dados e tente novamente.")
         except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Erro ao salvar: {e}")
+            QMessageBox.critical(self, "Erro", f"Nao foi possivel salvar o pedido.\n\nDetalhes: {e}")

@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 
 from access_control import get_role_label, has_screen_access
 from api_client import api_client
+from version import get_release_date, get_version
 
 
 class ClickableCard(QFrame):
@@ -262,7 +263,9 @@ class HomeWidget(QWidget):
         self.main_window = None
         self.metric_cards = {}
         self.internet_card_data = {}
+        self.technical_cards = {}
         self.last_internet_refresh = None
+        self.last_technical_refresh = None
         self._applying_theme_styles = False
 
         self.init_ui()
@@ -272,7 +275,7 @@ class HomeWidget(QWidget):
         self.timer.start(1000)
 
         self.timer_internet = QTimer(self)
-        self.timer_internet.timeout.connect(self.atualizar_status_internet)
+        self.timer_internet.timeout.connect(self.atualizar_monitoramento_tecnico)
         self.timer_internet.start(30000)
 
         self.update_datetime()
@@ -308,9 +311,9 @@ class HomeWidget(QWidget):
         self.scroll_area.setWidget(self.content)
         root_layout.addWidget(self.scroll_area)
 
-        content_layout = QVBoxLayout(self.content)
-        content_layout.setContentsMargins(28, 28, 28, 28)
-        content_layout.setSpacing(22)
+        self.content_layout = QVBoxLayout(self.content)
+        self.content_layout.setContentsMargins(28, 28, 28, 28)
+        self.content_layout.setSpacing(22)
 
         self.header_frame = QFrame()
         self.header_frame.setObjectName("homeHeaderFrame")
@@ -355,7 +358,7 @@ class HomeWidget(QWidget):
         role_layout.addWidget(self.role_value_label)
 
         header_layout.addWidget(self.role_chip, 0, Qt.AlignTop)
-        content_layout.addWidget(self.header_frame)
+        self.content_layout.addWidget(self.header_frame)
 
         self.cards_layout = QGridLayout()
         self.cards_layout.setContentsMargins(0, 0, 0, 0)
@@ -363,8 +366,11 @@ class HomeWidget(QWidget):
         self.cards_layout.setVerticalSpacing(18)
         self.cards_layout.setColumnStretch(0, 1)
         self.cards_layout.setColumnStretch(1, 1)
-        content_layout.addLayout(self.cards_layout)
-        content_layout.addStretch()
+        self.content_layout.addLayout(self.cards_layout)
+
+        self.technical_panel = self._create_technical_panel()
+        self.content_layout.addWidget(self.technical_panel)
+        self.content_layout.addStretch()
 
         self._apply_theme_styles()
         self._rebuild_cards()
@@ -436,7 +442,7 @@ class HomeWidget(QWidget):
 
     def executar_acao(self, acao):
         if acao == "atualizar_status_internet":
-            self.atualizar_status_internet(show_feedback=True)
+            self.atualizar_monitoramento_tecnico(show_feedback=True)
             return
 
         if self.main_window and hasattr(self.main_window, acao):
@@ -457,7 +463,11 @@ class HomeWidget(QWidget):
                 continue
             self._apply_metric_data(config["name"], resumo)
 
-        self.atualizar_status_internet()
+        self.atualizar_monitoramento_tecnico()
+
+    def atualizar_monitoramento_tecnico(self, show_feedback=False):
+        network_status = self.atualizar_status_internet(show_feedback=show_feedback)
+        self.atualizar_painel_tecnico(network_status)
 
     def atualizar_status_internet(self, show_feedback=False):
         try:
@@ -468,7 +478,7 @@ class HomeWidget(QWidget):
 
         self.last_internet_refresh = datetime.now()
         if not self.internet_card_data:
-            return
+            return status
 
         palette = self._theme_palette()
         quality = str(status.get("qualidade", "erro")).lower()
@@ -548,6 +558,104 @@ class HomeWidget(QWidget):
                     self.window(),
                     3000,
                 )
+
+        return status
+
+    def atualizar_painel_tecnico(self, network_status=None):
+        palette = self._theme_palette()
+        self.last_technical_refresh = datetime.now()
+
+        if not self.technical_cards:
+            return
+
+        health = api_client.get_health_status()
+        api_online = str(health.get("status", "")).lower() == "healthy"
+        db_connected = str(health.get("database", "")).lower() == "connected"
+        pool_status = health.get("pool_status") or {}
+
+        api_value = "Online" if api_online else "Offline"
+        api_meta = api_client.base_url
+        if api_online and health.get("timestamp"):
+            api_meta = f"{api_client.base_url} - leitura normal"
+        elif health.get("error"):
+            api_meta = str(health.get("error"))
+        self._set_technical_card_state(
+            "api",
+            api_value,
+            api_meta,
+            "Saudavel" if api_online else "Falha",
+            "good" if api_online else "critical",
+            "#22c55e" if api_online else "#ef4444",
+        )
+
+        db_value = "Conectado" if db_connected else "Desconectado"
+        if db_connected:
+            db_meta = (
+                f"Pool {pool_status.get('pool_size', 0)} · "
+                f"em uso {pool_status.get('checked_out', 0)} · "
+                f"livres {pool_status.get('checked_in', 0)}"
+            )
+        else:
+            db_meta = str(health.get("error") or "Nao houve resposta do banco.")
+        self._set_technical_card_state(
+            "database",
+            db_value,
+            db_meta,
+            "Disponivel" if db_connected else "Offline",
+            "good" if db_connected else "critical",
+            "#10b981" if db_connected else "#ef4444",
+        )
+
+        if network_status is None:
+            network_status = self.atualizar_status_internet()
+        network_quality = str(network_status.get("qualidade", "erro")).lower()
+        network_online = network_status.get("status") == "online"
+        network_value_map = {
+            "excelente": "Excelente",
+            "bom": "Boa",
+            "regular": "Regular",
+            "ruim": "Instavel",
+            "erro": "Erro",
+            "offline": "Offline",
+        }
+        network_tone_map = {
+            "excelente": "good",
+            "bom": "info",
+            "regular": "warn",
+            "ruim": "critical",
+            "erro": "critical",
+            "offline": "critical",
+        }
+        network_value = network_value_map.get(network_quality, "Online" if network_online else "Offline")
+        latency = network_status.get("latencia_ms")
+        if latency is not None:
+            network_meta = f"Latencia local de {latency} ms"
+        else:
+            network_meta = str(network_status.get("servidor") or "Sem leitura da rede local.")
+        self._set_technical_card_state(
+            "network",
+            network_value,
+            network_meta,
+            "Monitorado" if network_online else "Sem resposta",
+            network_tone_map.get(network_quality, "info"),
+            network_status.get("cor") or ("#22c55e" if network_online else "#ef4444"),
+        )
+
+        release_date = get_release_date()
+        app_meta = f"Release {release_date}" if release_date else "Instalacao local atual"
+        self._set_technical_card_state(
+            "app",
+            f"v{get_version()}",
+            app_meta,
+            "Desktop",
+            "info",
+            "#3b82f6",
+        )
+
+        self.technical_panel_subtitle.setText(
+            f"API, banco, rede local e versao atual da instalacao. Atualizado as {self.last_technical_refresh.strftime('%H:%M')}."
+        )
+        self._refresh_technical_card_styles(palette)
 
     def _rebuild_cards(self):
         self._clear_layout(self.cards_layout)
@@ -779,6 +887,136 @@ class HomeWidget(QWidget):
         }
         return card
 
+    def _create_technical_panel(self):
+        panel = QFrame()
+        panel.setObjectName("homeTechPanel")
+
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(22, 20, 22, 20)
+        layout.setSpacing(16)
+
+        header_layout = QVBoxLayout()
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(4)
+
+        title = QLabel("Painel Tecnico")
+        title.setObjectName("homeTechTitle")
+        header_layout.addWidget(title)
+
+        self.technical_panel_subtitle = QLabel(
+            "API, banco, rede local e versao atual da instalacao."
+        )
+        self.technical_panel_subtitle.setObjectName("homeTechSubtitle")
+        self.technical_panel_subtitle.setWordWrap(True)
+        header_layout.addWidget(self.technical_panel_subtitle)
+
+        layout.addLayout(header_layout)
+
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(14)
+        grid.setVerticalSpacing(14)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 1)
+
+        configs = (
+            ("api", "API", "#22c55e"),
+            ("database", "Banco", "#10b981"),
+            ("network", "Rede", "#3b82f6"),
+            ("app", "Aplicacao", "#8b5cf6"),
+        )
+
+        self.technical_cards = {}
+        for index, (name, label, accent) in enumerate(configs):
+            card = self._create_technical_card(name, label, accent)
+            grid.addWidget(card, index // 2, index % 2)
+
+        layout.addLayout(grid)
+        return panel
+
+    def _create_technical_card(self, name, label_text, accent_color):
+        card = QFrame()
+        card.setObjectName("homeTechCard")
+        card.setMinimumHeight(128)
+
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(0, 0, 0, 0)
+        card_layout.setSpacing(0)
+
+        accent = QFrame()
+        accent.setObjectName("homeTechAccent")
+        accent.setFixedHeight(3)
+        card_layout.addWidget(accent)
+
+        body = QWidget()
+        body_layout = QVBoxLayout(body)
+        body_layout.setContentsMargins(18, 16, 18, 16)
+        body_layout.setSpacing(10)
+
+        top_row = QHBoxLayout()
+        top_row.setContentsMargins(0, 0, 0, 0)
+        top_row.setSpacing(10)
+
+        label = QLabel(label_text)
+        label.setObjectName("homeTechLabel")
+        top_row.addWidget(label, 0, Qt.AlignLeft)
+
+        top_row.addStretch()
+
+        badge = QLabel("Aguardando")
+        badge.setObjectName("homeTechBadge")
+        badge.setAlignment(Qt.AlignCenter)
+        top_row.addWidget(badge, 0, Qt.AlignRight)
+        body_layout.addLayout(top_row)
+
+        value = QLabel("--")
+        value.setObjectName("homeTechValue")
+        body_layout.addWidget(value)
+
+        meta = QLabel("Leitura ainda nao iniciada.")
+        meta.setObjectName("homeTechMeta")
+        meta.setWordWrap(True)
+        body_layout.addWidget(meta)
+        body_layout.addStretch()
+
+        card_layout.addWidget(body)
+
+        self.technical_cards[name] = {
+            "card": card,
+            "accent": accent,
+            "label": label,
+            "badge": badge,
+            "value": value,
+            "meta": meta,
+            "default_accent": accent_color,
+            "current_accent": accent_color,
+            "badge_tone": "info",
+        }
+        return card
+
+    def _set_technical_card_state(self, card_name, value, meta, badge_text, tone, accent):
+        card = self.technical_cards.get(card_name)
+        if not card:
+            return
+
+        card["value"].setText(str(value))
+        card["meta"].setText(str(meta))
+        card["badge"].setText(str(badge_text))
+        card["badge_tone"] = tone or "info"
+        card["current_accent"] = accent or card["default_accent"]
+
+    def _refresh_technical_card_styles(self, palette):
+        for card in self.technical_cards.values():
+            accent = card.get("current_accent") or card["default_accent"]
+            badge_bg, badge_fg = self._tone_colors(card.get("badge_tone"), palette)
+            card["accent"].setStyleSheet(
+                f"background-color: {accent}; border-top-left-radius: 18px; border-top-right-radius: 18px;"
+            )
+            card["badge"].setStyleSheet(self._build_badge_style(badge_bg, badge_fg))
+            card["value"].setStyleSheet(
+                f"color: {accent}; font-size: 26px; font-weight: 800; background: transparent;"
+            )
+
     def _apply_metric_data(self, card_name, resumo):
         card = self.metric_cards.get(card_name)
         if not card:
@@ -931,6 +1169,49 @@ class HomeWidget(QWidget):
                     font-weight: 700;
                     background: transparent;
                 }}
+                QFrame#homeTechPanel {{
+                    background-color: {palette['panel_bg']};
+                    border: 1px solid {palette['border']};
+                    border-radius: 20px;
+                }}
+                QLabel#homeTechTitle {{
+                    color: {palette['text_primary']};
+                    font-size: 17px;
+                    font-weight: 700;
+                    background: transparent;
+                }}
+                QLabel#homeTechSubtitle {{
+                    color: {palette['text_muted']};
+                    font-size: 12px;
+                    line-height: 1.4;
+                    background: transparent;
+                }}
+                QFrame#homeTechCard {{
+                    background-color: {palette['card_bg']};
+                    border: 1px solid {palette['border']};
+                    border-radius: 18px;
+                }}
+                QLabel#homeTechLabel {{
+                    color: {palette['text_secondary']};
+                    font-size: 12px;
+                    font-weight: 700;
+                    background: transparent;
+                }}
+                QLabel#homeTechBadge {{
+                    background: transparent;
+                }}
+                QLabel#homeTechValue {{
+                    color: {palette['text_primary']};
+                    font-size: 26px;
+                    font-weight: 800;
+                    background: transparent;
+                }}
+                QLabel#homeTechMeta {{
+                    color: {palette['text_muted']};
+                    font-size: 12px;
+                    line-height: 1.45;
+                    background: transparent;
+                }}
                 QFrame#homeCard,
                 QFrame#homeFeaturedCard {{
                     background-color: {palette['card_bg']};
@@ -1016,6 +1297,9 @@ class HomeWidget(QWidget):
                     f"color: {accent}; font-size: 13px; font-weight: 600; background: transparent;"
                 )
                 self.internet_card_data["pulse"].set_visuals(accent, palette["card_bg"], self._is_dark_theme())
+
+            if self.technical_cards:
+                self._refresh_technical_card_styles(palette)
         finally:
             self._applying_theme_styles = False
 

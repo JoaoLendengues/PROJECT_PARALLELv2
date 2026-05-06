@@ -46,3 +46,8 @@ def get_user_config_dir() -> Path:
 def get_accessibility_config_path() -> Path:
     """Retorna o arquivo local usado para persistir a acessibilidade entre sessoes."""
     return get_user_config_dir() / "accessibility.json"
+
+
+def get_user_preferences_path() -> Path:
+    """Retorna o arquivo local usado para persistir preferencias por usuario."""
+    return get_user_config_dir() / "user_preferences.json"

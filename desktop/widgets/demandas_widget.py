@@ -29,8 +29,18 @@ from widgets.company_filter_utils import (
     populate_company_filter,
     selected_company_value,
 )
+from widgets.form_feedback import focus_invalid_field, optional_label, required_field_message, required_hint_label, required_label
 from widgets.filter_utils import is_all_option, same_filter_value
+from widgets.filter_utils import contains_text
 from widgets.table_utils import configure_data_table, number_item
+from user_preferences import (
+    apply_combo_data,
+    apply_combo_text,
+    apply_table_sort_state,
+    get_table_sort_state,
+    get_widget_preferences,
+    save_widget_preferences,
+)
 
 
 class DemandasWidget(QWidget):
@@ -41,11 +51,15 @@ class DemandasWidget(QWidget):
         self.empresas = []
         self._loaded = False
         self._modo_solicitante = False
+        self._restoring_preferences = False
+        self._saved_preferences = {}
         self.init_ui()
 
     def on_show(self):
         if not self._loaded:
             self.carregar_empresas()
+            self._carregar_preferencias()
+            self._aplicar_preferencias_salvas()
             self._loaded = True
 
         if self._modo_solicitante:
@@ -79,6 +93,16 @@ class DemandasWidget(QWidget):
         layout.addLayout(header)
 
         filtros = QHBoxLayout()
+
+        self.busca_label = QLabel("Busca:")
+        filtros.addWidget(self.busca_label)
+        self.pesquisa_edit = QLineEdit()
+        self.pesquisa_edit.setPlaceholderText("Pesquisar por titulo, descricao, status ou responsavel...")
+        self.pesquisa_edit.setMaximumWidth(340)
+        self.pesquisa_edit.textChanged.connect(self.filtrar_demandas)
+        filtros.addWidget(self.pesquisa_edit)
+
+        filtros.addSpacing(20)
 
         self.status_label = QLabel("Status:")
         filtros.addWidget(self.status_label)
@@ -155,14 +179,22 @@ class DemandasWidget(QWidget):
         layout.addLayout(acoes)
 
         self._configurar_colunas_tabela()
+        self.tabela.horizontalHeader().sortIndicatorChanged.connect(self._ao_ordenar_tabela)
         self.aplicar_permissoes()
         self.aplicar_modo_usuario()
 
     def set_usuario(self, usuario):
         self.usuario = usuario or {}
         self._modo_solicitante = normalize_access_level(self.usuario.get("nivel_acesso")) == ROLE_REQUESTER
+        self._carregar_preferencias()
         self.aplicar_modo_usuario()
         self.aplicar_permissoes()
+        if self._loaded:
+            self._aplicar_preferencias_salvas()
+            if self._modo_solicitante or self.empresa_pronta():
+                self.carregar_demandas()
+            else:
+                self._mostrar_prompt_empresa()
 
     def _pode(self, action_key):
         return has_action_access(self.usuario, action_key)
@@ -250,6 +282,38 @@ class DemandasWidget(QWidget):
             return self._empresa_contexto_solicitante()
         return selected_company_value(self.empresa_filter)
 
+    def _carregar_preferencias(self):
+        self._saved_preferences = get_widget_preferences(self.usuario, "demandas")
+
+    def _aplicar_preferencias_salvas(self):
+        self._restoring_preferences = True
+        try:
+            self.pesquisa_edit.setText(str(self._saved_preferences.get("busca") or ""))
+            apply_combo_text(self.status_filter, self._saved_preferences.get("status"))
+            apply_combo_text(self.prioridade_filter, self._saved_preferences.get("prioridade"))
+            if not self._modo_solicitante:
+                apply_combo_data(self.empresa_filter, self._saved_preferences.get("empresa"))
+        finally:
+            self._restoring_preferences = False
+
+    def _preferencias_atuais(self):
+        return {
+            "busca": self.pesquisa_edit.text().strip(),
+            "status": self.status_filter.currentText(),
+            "prioridade": self.prioridade_filter.currentText(),
+            "empresa": self.empresa_filter.currentData(),
+            "sort": get_table_sort_state(self.tabela),
+        }
+
+    def _salvar_preferencias(self):
+        if self._restoring_preferences:
+            return
+        self._saved_preferences = self._preferencias_atuais()
+        save_widget_preferences(self.usuario, "demandas", self._saved_preferences)
+
+    def _ao_ordenar_tabela(self, *_args):
+        self._salvar_preferencias()
+
     def carregar_empresas(self):
         try:
             self.empresas = api_client.get_empresas()
@@ -288,8 +352,10 @@ class DemandasWidget(QWidget):
             return
         if not self.empresa_pronta():
             self._mostrar_prompt_empresa()
+            self._salvar_preferencias()
             return
         self.carregar_demandas()
+        self._salvar_preferencias()
 
     def carregar_demandas(self):
         if not self.empresa_pronta():
@@ -299,8 +365,7 @@ class DemandasWidget(QWidget):
         try:
             demandas = api_client.listar_demandas(empresa=self.empresa_param())
             self.demandas = self._demandas_visiveis_para_usuario(demandas)
-            self.atualizar_tabela(self.demandas)
-            self._atualizar_prompt_apos_carga(len(self.demandas))
+            self.filtrar_demandas()
         except Exception as e:
             print(f"Erro ao carregar demandas: {e}")
             QMessageBox.warning(self, "Erro", f"Erro ao carregar demandas: {e}")
@@ -312,6 +377,7 @@ class DemandasWidget(QWidget):
 
         status = self.status_filter.currentText()
         prioridade = self.prioridade_filter.currentText()
+        search_text = self.pesquisa_edit.text()
 
         filtradas = []
         for demanda in self.demandas:
@@ -319,10 +385,22 @@ class DemandasWidget(QWidget):
                 continue
             if not is_all_option(prioridade) and not same_filter_value(demanda.get("prioridade", ""), prioridade):
                 continue
+            if not contains_text(
+                search_text,
+                demanda.get("id", ""),
+                demanda.get("titulo", ""),
+                demanda.get("descricao", ""),
+                demanda.get("solicitante", ""),
+                demanda.get("responsavel", ""),
+                demanda.get("status", ""),
+                demanda.get("empresa", ""),
+            ):
+                continue
             filtradas.append(demanda)
 
         self.atualizar_tabela(filtradas)
         self._atualizar_prompt_apos_carga(len(filtradas))
+        self._salvar_preferencias()
 
     def atualizar_tabela(self, demandas):
         self.tabela.setRowCount(len(demandas))
@@ -365,6 +443,8 @@ class DemandasWidget(QWidget):
                 self.tabela.setItem(row, 5, status_item)
                 self.tabela.setItem(row, 6, QTableWidgetItem(data))
                 self.tabela.setItem(row, 7, QTableWidgetItem(demanda.get("responsavel", "-") or "-"))
+
+        apply_table_sort_state(self.tabela, self._saved_preferences.get("sort"))
 
     def _demanda_selecionada(self):
         row = self.tabela.currentRow()
@@ -559,6 +639,7 @@ class DemandaDialog(QDialog):
         self.usuario_context = usuario_context or {}
         self.empresa_padrao = empresa_padrao
         self._rows = {}
+        self._required_rows = {"titulo", "descricao", "solicitante", "empresa", "prioridade", "urgencia"}
 
         if readonly:
             titulo = "Detalhes da Demanda"
@@ -587,6 +668,7 @@ class DemandaDialog(QDialog):
         form_layout = QFormLayout()
         form_layout.setSpacing(14)
         self.form_layout = form_layout
+        layout.addWidget(required_hint_label())
 
         self.titulo_edit = QLineEdit()
         self.titulo_edit.setPlaceholderText("Titulo da demanda")
@@ -652,7 +734,7 @@ class DemandaDialog(QDialog):
         layout.addLayout(botoes)
 
     def _add_row(self, key, label_text, widget):
-        label = QLabel(label_text)
+        label = required_label(label_text) if key in self._required_rows else optional_label(label_text)
         self.form_layout.addRow(label, widget)
         self._rows[key] = (label, widget)
 
@@ -779,29 +861,33 @@ class DemandaDialog(QDialog):
                 dados["data_prevista"] = None
 
         if not dados["titulo"]:
-            QMessageBox.warning(self, "Atencao", "O titulo e obrigatorio.")
+            focus_invalid_field(self.titulo_edit)
+            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Titulo"))
             return
 
         if not dados["descricao"]:
-            QMessageBox.warning(self, "Atencao", "A descricao e obrigatoria.")
+            focus_invalid_field(self.descricao_edit)
+            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Descricao"))
             return
 
         if not dados["solicitante"]:
-            QMessageBox.warning(self, "Atencao", "O solicitante e obrigatorio.")
+            focus_invalid_field(self.solicitante_edit)
+            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Solicitante"))
             return
 
         if not dados["empresa"]:
-            QMessageBox.warning(self, "Atencao", "A empresa e obrigatoria.")
+            focus_invalid_field(self.empresa_combo)
+            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Empresa"))
             return
 
         try:
             if self.dados_item:
                 response = api_client.atualizar_demanda(self.dados_item["id"], dados)
                 if response:
-                    QMessageBox.information(self, "Sucesso", "Demanda atualizada com sucesso!")
+                    QMessageBox.information(self, "Sucesso", f"Demanda '{dados['titulo']}' atualizada com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Erro ao atualizar demanda.")
+                    QMessageBox.warning(self, "Erro", "Nao foi possivel atualizar a demanda. Revise os dados e tente novamente.")
             else:
                 response = api_client.criar_demanda(dados)
                 if response:
@@ -809,10 +895,10 @@ class DemandaDialog(QDialog):
                     if self.requester_mode and protocolo:
                         mensagem = f"Demanda #{protocolo} enviada com sucesso!"
                     else:
-                        mensagem = "Demanda criada com sucesso!"
+                        mensagem = f"Demanda '{dados['titulo']}' criada com sucesso!"
                     QMessageBox.information(self, "Sucesso", mensagem)
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Erro ao criar demanda.")
+                    QMessageBox.warning(self, "Erro", "Nao foi possivel criar a demanda. Revise os dados e tente novamente.")
         except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Erro ao salvar: {e}")
+            QMessageBox.critical(self, "Erro", f"Nao foi possivel salvar a demanda.\n\nDetalhes: {e}")

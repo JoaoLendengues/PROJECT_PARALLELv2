@@ -7,9 +7,18 @@ from PySide6.QtGui import QFont, QColor, QCursor
 from api_client import api_client
 from access_control import get_action_label, has_action_access
 from widgets.company_filter_utils import company_filter_ready, populate_company_filter, selected_company_value
+from widgets.form_feedback import focus_invalid_field, optional_label, required_field_message, required_hint_label, required_label
 from widgets.toast_notification import notification_manager
 from widgets.filter_utils import contains_text, is_all_option, same_filter_value, same_text
 from widgets.table_utils import configure_data_table, number_item
+from user_preferences import (
+    apply_combo_data,
+    apply_combo_text,
+    apply_table_sort_state,
+    get_table_sort_state,
+    get_widget_preferences,
+    save_widget_preferences,
+)
 
 
 class MateriaisWidget(QWidget):
@@ -21,6 +30,8 @@ class MateriaisWidget(QWidget):
         self.categorias = []
         self.empresas = []
         self._loaded = False  # ✅ Flag para controle de carregamento
+        self._restoring_preferences = False
+        self._saved_preferences = {}
         self.init_ui()
         # ⚠️ NÃO carregar dados aqui - será feito no on_show()
 
@@ -29,7 +40,12 @@ class MateriaisWidget(QWidget):
         if not self._loaded:
             self.carregar_categorias()
             self.carregar_empresas()
-            self._mostrar_prompt_empresa()
+            self._carregar_preferencias()
+            self._aplicar_preferencias_salvas()
+            if self.empresa_pronta():
+                self.carregar_materiais()
+            else:
+                self._mostrar_prompt_empresa()
             self._loaded = True
 
     def init_ui(self):
@@ -125,6 +141,7 @@ class MateriaisWidget(QWidget):
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
         configure_data_table(self.tabela, stretch_columns=(1, 2))
+        self.tabela.horizontalHeader().sortIndicatorChanged.connect(self._ao_ordenar_tabela)
 
         layout.addWidget(self.tabela)
 
@@ -145,7 +162,14 @@ class MateriaisWidget(QWidget):
 
     def set_usuario(self, usuario):
         self.usuario = usuario or {}
+        self._carregar_preferencias()
         self.aplicar_permissoes()
+        if self._loaded:
+            self._aplicar_preferencias_salvas()
+            if self.empresa_pronta():
+                self.carregar_materiais()
+            else:
+                self._mostrar_prompt_empresa()
 
     def _pode(self, action_key):
         return has_action_access(self.usuario, action_key)
@@ -167,6 +191,37 @@ class MateriaisWidget(QWidget):
     def empresa_param(self):
         return selected_company_value(self.empresa_filter)
 
+    def _carregar_preferencias(self):
+        self._saved_preferences = get_widget_preferences(self.usuario, "materiais")
+
+    def _aplicar_preferencias_salvas(self):
+        self._restoring_preferences = True
+        try:
+            self.pesquisa_edit.setText(str(self._saved_preferences.get("busca") or ""))
+            apply_combo_data(self.empresa_filter, self._saved_preferences.get("empresa"))
+            apply_combo_text(self.categoria_filter, self._saved_preferences.get("categoria"))
+            apply_combo_text(self.status_filter, self._saved_preferences.get("status"))
+        finally:
+            self._restoring_preferences = False
+
+    def _preferencias_atuais(self):
+        return {
+            "busca": self.pesquisa_edit.text().strip(),
+            "empresa": self.empresa_filter.currentData(),
+            "categoria": self.categoria_filter.currentText(),
+            "status": self.status_filter.currentText(),
+            "sort": get_table_sort_state(self.tabela),
+        }
+
+    def _salvar_preferencias(self):
+        if self._restoring_preferences:
+            return
+        self._saved_preferences = self._preferencias_atuais()
+        save_widget_preferences(self.usuario, "materiais", self._saved_preferences)
+
+    def _ao_ordenar_tabela(self, *_args):
+        self._salvar_preferencias()
+
     def _mostrar_prompt_empresa(self):
         self.materiais = []
         self.dados_cache = []
@@ -176,16 +231,20 @@ class MateriaisWidget(QWidget):
     def ao_alterar_empresa(self):
         if not self.empresa_pronta():
             self._mostrar_prompt_empresa()
+            self._salvar_preferencias()
             return
         self.carregar_materiais()
+        self._salvar_preferencias()
 
     def carregar_categorias(self):
         try:
+            categoria_atual = self.categoria_filter.currentText()
             self.categorias = api_client.listar_categorias()
             self.categoria_filter.clear()
             self.categoria_filter.addItem("Todas as categorias")
             for cat in self.categorias:
                 self.categoria_filter.addItem(cat)
+            apply_combo_text(self.categoria_filter, self._saved_preferences.get("categoria") or categoria_atual)
         except Exception as e:
             print(f"Erro ao carregar categorias: {e}")
 
@@ -206,7 +265,7 @@ class MateriaisWidget(QWidget):
         try:
             self.materiais = api_client.listar_materiais(empresa=self.empresa_param())
             self.dados_cache = self.materiais.copy() # Cache para filtros
-            self.atualizar_tabela(self.materiais)
+            self.filtrar_materiais()
             self.empresa_prompt.setVisible(False)
             print(f"✅ Materiais carregados: {len(self.materiais)}")
         except Exception as e:
@@ -242,6 +301,7 @@ class MateriaisWidget(QWidget):
                 filtered.append(material)
 
         self.atualizar_tabela(filtered)
+        self._salvar_preferencias()
 
     def atualizar_tabela(self, materiais):
         """Atualiza a tabela com a lista de materiais"""
@@ -265,6 +325,8 @@ class MateriaisWidget(QWidget):
             status_color = status_colors.get(material.get("status", "ativo"), QColor(0, 0, 0))
             status_item.setForeground(status_color)
             self.tabela.setItem(row, 6, status_item)
+
+        apply_table_sort_state(self.tabela, self._saved_preferences.get("sort"))
 
     def novo_material(self):
         if not self._pode("materiais.create"):
@@ -362,10 +424,11 @@ class MaterialDialog(QDialog):
 
         form_layout = QFormLayout()
         form_layout.setSpacing(15)
+        layout.addWidget(required_hint_label())
 
         self.nome_edit = QLineEdit()
         self.nome_edit.setPlaceholderText("Ex: Mouse Logitech M90")
-        form_layout.addRow("Nome do Material:", self.nome_edit)
+        form_layout.addRow(required_label("Nome do Material:"), self.nome_edit)
 
         self.descricao_edit = QTextEdit()
         self.descricao_edit.setMaximumHeight(100)
@@ -374,7 +437,7 @@ class MaterialDialog(QDialog):
 
         self.quantidade_spin = QSpinBox()
         self.quantidade_spin.setRange(0, 999999)
-        form_layout.addRow("Quantidade:", self.quantidade_spin)
+        form_layout.addRow(required_label("Quantidade:"), self.quantidade_spin)
 
         self.categoria_combo = QComboBox()
         self.categoria_combo.setStyleSheet("""
@@ -415,7 +478,7 @@ class MaterialDialog(QDialog):
         self.categoria_combo.setEditable(False)
         self.categoria_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_categorias()
-        form_layout.addRow("Categoria:", self.categoria_combo)
+        form_layout.addRow(required_label("Categoria:"), self.categoria_combo)
 
         self.empresa_combo = QComboBox()
         self.empresa_combo.setStyleSheet("""
@@ -456,7 +519,7 @@ class MaterialDialog(QDialog):
         self.empresa_combo.setEditable(False)
         self.empresa_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_empresas()
-        form_layout.addRow("Empresa:", self.empresa_combo)
+        form_layout.addRow(required_label("Empresa:"), self.empresa_combo)
 
         self.status_combo = QComboBox()
         self.status_combo.setStyleSheet("""
@@ -495,7 +558,7 @@ class MaterialDialog(QDialog):
             }
         """)
         self.status_combo.addItems(["ativo", "inativo", "descontinuado"])
-        form_layout.addRow("Status:", self.status_combo)
+        form_layout.addRow(required_label("Status:"), self.status_combo)
 
         layout.addLayout(form_layout)
 

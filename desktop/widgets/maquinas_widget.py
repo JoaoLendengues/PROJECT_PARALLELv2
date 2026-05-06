@@ -7,9 +7,18 @@ from PySide6.QtGui import QFont, QColor, QCursor
 from api_client import api_client
 from access_control import get_action_label, has_action_access
 from widgets.company_filter_utils import company_filter_ready, populate_company_filter, selected_company_value
+from widgets.form_feedback import focus_invalid_field, required_hint_label, required_label
 from widgets.toast_notification import notification_manager
 from widgets.filter_utils import contains_text, is_all_option, same_filter_value, same_text
 from widgets.table_utils import configure_data_table, number_item
+from user_preferences import (
+    apply_combo_data,
+    apply_combo_text,
+    apply_table_sort_state,
+    get_table_sort_state,
+    get_widget_preferences,
+    save_widget_preferences,
+)
 
 
 class MaquinasWidget(QWidget):
@@ -21,13 +30,20 @@ class MaquinasWidget(QWidget):
         self.departamentos = []
         self.empresas = []  # NOVO: lista de empresas
         self._loaded = False
+        self._restoring_preferences = False
+        self._saved_preferences = {}
         self.init_ui()
 
     def on_show(self):
         if not self._loaded:
             self.carregar_departamentos()
             self.carregar_empresas()
-            self._mostrar_prompt_empresa()
+            self._carregar_preferencias()
+            self._aplicar_preferencias_salvas()
+            if self.empresa_pronta():
+                self.carregar_maquinas()
+            else:
+                self._mostrar_prompt_empresa()
             self._loaded = True
 
     def init_ui(self):
@@ -122,6 +138,7 @@ class MaquinasWidget(QWidget):
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
         configure_data_table(self.tabela, stretch_columns=(1, 7))
+        self.tabela.horizontalHeader().sortIndicatorChanged.connect(self._ao_ordenar_tabela)
 
         layout.addWidget(self.tabela)
 
@@ -142,7 +159,14 @@ class MaquinasWidget(QWidget):
 
     def set_usuario(self, usuario):
         self.usuario = usuario or {}
+        self._carregar_preferencias()
         self.aplicar_permissoes()
+        if self._loaded:
+            self._aplicar_preferencias_salvas()
+            if self.empresa_pronta():
+                self.carregar_maquinas()
+            else:
+                self._mostrar_prompt_empresa()
 
     def _pode(self, action_key):
         return has_action_access(self.usuario, action_key)
@@ -164,6 +188,37 @@ class MaquinasWidget(QWidget):
     def empresa_param(self):
         return selected_company_value(self.empresa_filter)
 
+    def _carregar_preferencias(self):
+        self._saved_preferences = get_widget_preferences(self.usuario, "maquinas")
+
+    def _aplicar_preferencias_salvas(self):
+        self._restoring_preferences = True
+        try:
+            self.pesquisa_edit.setText(str(self._saved_preferences.get("busca") or ""))
+            apply_combo_data(self.empresa_filter, self._saved_preferences.get("empresa"))
+            apply_combo_text(self.departamento_filter, self._saved_preferences.get("departamento"))
+            apply_combo_text(self.status_filter, self._saved_preferences.get("status"))
+        finally:
+            self._restoring_preferences = False
+
+    def _preferencias_atuais(self):
+        return {
+            "busca": self.pesquisa_edit.text().strip(),
+            "empresa": self.empresa_filter.currentData(),
+            "departamento": self.departamento_filter.currentText(),
+            "status": self.status_filter.currentText(),
+            "sort": get_table_sort_state(self.tabela),
+        }
+
+    def _salvar_preferencias(self):
+        if self._restoring_preferences:
+            return
+        self._saved_preferences = self._preferencias_atuais()
+        save_widget_preferences(self.usuario, "maquinas", self._saved_preferences)
+
+    def _ao_ordenar_tabela(self, *_args):
+        self._salvar_preferencias()
+
     def _mostrar_prompt_empresa(self):
         self.maquinas = []
         self.dados_cache = []
@@ -173,12 +228,15 @@ class MaquinasWidget(QWidget):
     def ao_alterar_empresa(self):
         if not self.empresa_pronta():
             self._mostrar_prompt_empresa()
+            self._salvar_preferencias()
             return
         self.carregar_maquinas()
+        self._salvar_preferencias()
 
     def carregar_departamentos(self):
         """Carrega a lista de departamentos do backend para o filtro"""
         try:
+            departamento_atual = self.departamento_filter.currentText()
             self.departamentos = api_client.get_departamentos_lista()
             self.departamento_filter.clear()
             self.departamento_filter.addItem("Todos os departamentos")
@@ -207,7 +265,7 @@ class MaquinasWidget(QWidget):
         try:
             self.maquinas = api_client.listar_maquinas(empresa=self.empresa_param())
             self.dados_cache = self.maquinas.copy()
-            self.atualizar_tabela(self.maquinas)
+            self.filtrar_maquinas()
             self.empresa_prompt.setVisible(False)
             print(f"✅ Máquinas carregadas: {len(self.maquinas)}")
         except Exception as e:
@@ -243,6 +301,7 @@ class MaquinasWidget(QWidget):
                 filtered.append(maquina)
 
         self.atualizar_tabela(filtered)
+        self._salvar_preferencias()
 
     def atualizar_tabela(self, maquinas):
         self.tabela.setRowCount(len(maquinas))
@@ -271,6 +330,8 @@ class MaquinasWidget(QWidget):
             self.tabela.setItem(row, 6, status_item)
 
             self.tabela.setItem(row, 7, QTableWidgetItem(maquina.get("observacoes", "-")[:50]))
+
+        apply_table_sort_state(self.tabela, self._saved_preferences.get("sort"))
 
     def nova_maquina(self):
         if not self._pode("maquinas.create"):
@@ -366,6 +427,7 @@ class MaquinaDialog(QDialog):
 
         form_layout = QFormLayout()
         form_layout.setSpacing(15)
+        layout.addWidget(required_hint_label())
 
         self.nome_edit = QLineEdit()
         self.nome_edit.setPlaceholderText("Ex: PC Administrativo 01")
@@ -385,18 +447,18 @@ class MaquinaDialog(QDialog):
         self.empresa_combo.setEditable(False)
         self.empresa_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_empresas_combo()
-        form_layout.addRow("Empresa:", self.empresa_combo)
+        form_layout.addRow(required_label("Empresa:"), self.empresa_combo)
 
 
         self.departamento_combo = QComboBox()
         self.departamento_combo.setEditable(False)
         self.departamento_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_departamentos_combo()
-        form_layout.addRow("Departamento:", self.departamento_combo)
+        form_layout.addRow(required_label("Departamento:"), self.departamento_combo)
 
         self.status_combo = QComboBox()
         self.status_combo.addItems(["ativo", "manutencao", "inativo"])
-        form_layout.addRow("Status:", self.status_combo)
+        form_layout.addRow(required_label("Status:"), self.status_combo)
 
         self.observacoes_edit = QTextEdit()
         self.observacoes_edit.setMaximumHeight(80)
@@ -486,6 +548,7 @@ class MaquinaDialog(QDialog):
         }
 
         if not dados["nome"]:
+            focus_invalid_field(self.nome_edit)
             QMessageBox.warning(self, "Atenção", "O nome da máquina é obrigatório!")
             return
 

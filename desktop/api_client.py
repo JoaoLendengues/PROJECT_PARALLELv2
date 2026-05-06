@@ -1237,6 +1237,29 @@ class APIClient:
             print(f'❌ Erro ao obter status da internet: {e}')
             return {'status': 'offline', 'qualidade': 'erro', 'latencia_ms': None}
 
+    def get_health_status(self):
+        """Obtém a saúde da API e do banco de dados."""
+        try:
+            response = requests.get(
+                f"{self.base_url}/health",
+                headers=self.get_headers(),
+                timeout=10
+            )
+            if response.status_code == 200:
+                return response.json()
+            return {
+                "status": "offline",
+                "database": "disconnected",
+                "error": f"HTTP {response.status_code}",
+            }
+        except Exception as e:
+            print(f"Erro ao obter saúde da API: {e}")
+            return {
+                "status": "offline",
+                "database": "disconnected",
+                "error": str(e),
+            }
+
     # =====================================================
     # Departamentos (CRUD)
     # =====================================================
