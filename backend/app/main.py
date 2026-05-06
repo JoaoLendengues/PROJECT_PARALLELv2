@@ -4,9 +4,9 @@ from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from app.database import engine, Base, get_db, test_connection, get_pool_status
 from app.routers import (materiais, maquinas, manutencoes, movimentacoes, pedidos,
-                         auth, usuarios_sistema, colaboradores, dashboard, demandas, 
-                         configuracoes, departamentos, cargos, backup, notificacoes)
-from sqlalchemy import text
+                         auth, usuarios_sistema, colaboradores, dashboard, demandas,
+                         configuracoes, departamentos, cargos, backup, notificacoes, auditoria)
+from sqlalchemy import inspect, text
 from datetime import datetime
 from fastapi.responses import HTMLResponse, JSONResponse
 import psutil
@@ -15,9 +15,22 @@ import os
 # Importar o configurar_scheduler do módulo backup
 from app.backup import configurar_scheduler
 
+
+def ensure_schema_compatibility():
+    """Aplica ajustes pequenos de schema em bases ja existentes."""
+    inspector = inspect(engine)
+
+    if inspector.has_table("pedidos"):
+        pedidos_columns = {column["name"] for column in inspector.get_columns("pedidos")}
+        if "link_compra" not in pedidos_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE pedidos ADD COLUMN link_compra TEXT"))
+            print("Compatibilidade aplicada: coluna pedidos.link_compra criada.")
+
 # Criar as tabelas no banco (se não existirem)
 print("📦 Criando/verificando tabelas no banco de dados...")
 Base.metadata.create_all(bind=engine)
+ensure_schema_compatibility()
 print("✅ Tabelas criadas/verificadas com sucesso!")
 
 # Criar aplicação FastAPI
@@ -55,6 +68,7 @@ app.include_router(departamentos.router)
 app.include_router(cargos.router)
 app.include_router(backup.router)
 app.include_router(notificacoes.router)
+app.include_router(auditoria.router)
 
 
 # Evento de startup - inicializa o scheduler de backup quando a API inicia

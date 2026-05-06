@@ -12,3 +12,4 @@ from . import configuracoes
 from . import departamentos
 from . import cargos
 from . import notificacoes
+from . import auditoria

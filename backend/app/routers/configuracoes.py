@@ -1,47 +1,46 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from typing import List
-from pydantic import BaseModel
-from app.database import get_db
-from app import models, auth
 import json
+from typing import List
 
-router = APIRouter(prefix='/api/configuracoes', tags=['Configurações'])
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
-# Schema para requisições
+from app import auth, models
+from app.audit import registrar_log_auditoria
+from app.database import get_db
+
+router = APIRouter(prefix="/api/configuracoes", tags=["Configuracoes"])
+
+
 class ItemListaRequest(BaseModel):
     nome: str
 
 
 def _get_lista(db: Session, chave: str, default: List[str]) -> List[str]:
-    """Obtém uma lista do banco de dados"""
     config = db.query(models.Configuracao).filter(models.Configuracao.chave == chave).first()
     if config and config.valor:
         try:
             return json.loads(config.valor)
-        except:
+        except Exception:
             return default
     return default
 
 
 def _salvar_lista(db: Session, chave: str, lista: List[str], commit: bool = True) -> bool:
-    """Salva uma lista no banco de dados"""
     config = db.query(models.Configuracao).filter(models.Configuracao.chave == chave).first()
     valor_json = json.dumps(lista, ensure_ascii=False)
-    
+
     if config:
         config.valor = valor_json
     else:
-        config = models.Configuracao(chave=chave, valor=valor_json)
-        db.add(config)
-    
+        db.add(models.Configuracao(chave=chave, valor=valor_json))
+
     if commit:
         db.commit()
     return True
 
 
 def _renomear_empresa_em_registros(db: Session, nome_atual: str, novo_nome: str) -> None:
-    """Propaga a troca do nome da empresa para os registros relacionados."""
     campos_empresa = (
         (models.Usuario, models.Usuario.empresa),
         (models.Material, models.Material.empresa),
@@ -61,312 +60,388 @@ def _renomear_empresa_em_registros(db: Session, nome_atual: str, novo_nome: str)
 
 
 def _renomear_categoria_em_registros(db: Session, nome_atual: str, novo_nome: str) -> None:
-    """Propaga a troca do nome da categoria para os materiais."""
     db.query(models.Material).filter(models.Material.categoria == nome_atual).update(
         {models.Material.categoria: novo_nome},
         synchronize_session=False,
     )
 
 
-# =====================================================
-# EMPRESAS
-# =====================================================
+def _registrar_lista_auditoria(
+    db: Session,
+    current_user: models.UsuarioSistema,
+    acao: str,
+    tabela_afetada: str,
+    http_request: Request,
+    dados_anteriores: dict = None,
+    dados_novos: dict = None,
+):
+    registrar_log_auditoria(
+        db,
+        current_user,
+        acao=acao,
+        tabela_afetada=tabela_afetada,
+        dados_anteriores=dados_anteriores,
+        dados_novos=dados_novos,
+        request=http_request,
+    )
 
-@router.get('/empresas', response_model=List[str])
+
+@router.get("/empresas", response_model=List[str])
 def get_empresas(
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.get_current_user)
+    current_user: models.UsuarioSistema = Depends(auth.get_current_user),
 ):
-    """Retorna lista de empresas"""
-    return _get_lista(db, 'empresas', ["Matriz", "Filial 1", "Filial 2", "Filial 3"])
+    return _get_lista(db, "empresas", ["Matriz", "Filial 1", "Filial 2", "Filial 3"])
 
 
-@router.post('/empresas')
+@router.post("/empresas")
 def add_empresa(
     request: ItemListaRequest,
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.verificar_admin)
+    current_user: models.UsuarioSistema = Depends(auth.verificar_admin),
+    http_request: Request = None,
 ):
-    """Adiciona uma nova empresa"""
     if not request.nome or not request.nome.strip():
-        raise HTTPException(status_code=400, detail="Nome da empresa não pode estar vazio")
-    
-    empresas = _get_lista(db, 'empresas', [])
+        raise HTTPException(status_code=400, detail="Nome da empresa nao pode estar vazio")
+
+    empresas = _get_lista(db, "empresas", [])
     nome_limpo = request.nome.strip()
-    
+
     if nome_limpo in empresas:
-        raise HTTPException(status_code=400, detail="Empresa já existe")
-    
+        raise HTTPException(status_code=400, detail="Empresa ja existe")
+
     empresas.append(nome_limpo)
     empresas.sort()
-    _salvar_lista(db, 'empresas', empresas)
-    
+    _salvar_lista(db, "empresas", empresas, commit=False)
+    _registrar_lista_auditoria(
+        db,
+        current_user,
+        acao="CREATE",
+        tabela_afetada="configuracoes_empresas",
+        http_request=http_request,
+        dados_novos={"nome": nome_limpo, "lista_resultante": empresas},
+    )
+    db.commit()
+
     return {"success": True, "message": f"Empresa '{nome_limpo}' adicionada", "lista": empresas}
 
 
-@router.put('/empresas/{nome_atual}')
+@router.put("/empresas/{nome_atual}")
 def update_empresa(
     nome_atual: str,
     request: ItemListaRequest,
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.verificar_admin)
+    current_user: models.UsuarioSistema = Depends(auth.verificar_admin),
+    http_request: Request = None,
 ):
-    """Atualiza o nome de uma empresa e propaga a mudanca para os registros relacionados."""
     if not request.nome or not request.nome.strip():
         raise HTTPException(status_code=400, detail="Nome da empresa nao pode estar vazio")
 
-    empresas = _get_lista(db, 'empresas', [])
-
+    empresas = _get_lista(db, "empresas", [])
     if nome_atual not in empresas:
         raise HTTPException(status_code=404, detail="Empresa nao encontrada")
 
     novo_nome = request.nome.strip()
-
     if novo_nome != nome_atual and novo_nome in empresas:
         raise HTTPException(status_code=400, detail="Empresa ja existe")
 
     if novo_nome == nome_atual:
         return {"success": True, "message": "Nenhuma alteracao realizada", "lista": empresas}
 
+    empresas_antes = list(empresas)
     empresas = [novo_nome if empresa == nome_atual else empresa for empresa in empresas]
     empresas.sort()
 
     _renomear_empresa_em_registros(db, nome_atual, novo_nome)
-    _salvar_lista(db, 'empresas', empresas, commit=False)
+    _salvar_lista(db, "empresas", empresas, commit=False)
 
-    empresa_padrao = db.query(models.Configuracao).filter(
-        models.Configuracao.chave == "empresa_padrao"
-    ).first()
+    empresa_padrao = db.query(models.Configuracao).filter(models.Configuracao.chave == "empresa_padrao").first()
     if empresa_padrao and empresa_padrao.valor == nome_atual:
         empresa_padrao.valor = novo_nome
 
+    _registrar_lista_auditoria(
+        db,
+        current_user,
+        acao="UPDATE",
+        tabela_afetada="configuracoes_empresas",
+        http_request=http_request,
+        dados_anteriores={"nome": nome_atual, "lista_anterior": empresas_antes},
+        dados_novos={"nome": novo_nome, "lista_resultante": empresas},
+    )
     db.commit()
 
     return {"success": True, "message": f"Empresa '{nome_atual}' atualizada", "lista": empresas}
 
 
-@router.delete('/empresas/{nome}')
+@router.delete("/empresas/{nome}")
 def delete_empresa(
     nome: str,
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.verificar_admin)
+    current_user: models.UsuarioSistema = Depends(auth.verificar_admin),
+    http_request: Request = None,
 ):
-    """Remove uma empresa"""
-    empresas = _get_lista(db, 'empresas', [])
-    
+    empresas = _get_lista(db, "empresas", [])
     if nome not in empresas:
-        raise HTTPException(status_code=404, detail="Empresa não encontrada")
-    
-    # Verificar se está sendo usada
-    material_uso = db.query(models.Material).filter(models.Material.empresa == nome).first()
-    maquina_uso = db.query(models.Maquina).filter(models.Maquina.empresa == nome).first()
-    movimentacao_uso = db.query(models.Movimentacao).filter(models.Movimentacao.empresa == nome).first()
-    pedido_uso = db.query(models.Pedido).filter(models.Pedido.empresa == nome).first()
-    usuario_uso = db.query(models.Usuario).filter(models.Usuario.empresa == nome).first()
-    usuario_sistema_uso = db.query(models.UsuarioSistema).filter(models.UsuarioSistema.empresa == nome).first()
-    colaborador_uso = db.query(models.Colaborador).filter(models.Colaborador.empresa == nome).first()
-    demanda_uso = db.query(models.Demanda).filter(models.Demanda.empresa == nome).first()
-    
-    if any([material_uso, maquina_uso, movimentacao_uso, pedido_uso, usuario_uso, usuario_sistema_uso, colaborador_uso, demanda_uso]):
-        raise HTTPException(status_code=400, detail="Empresa está sendo usada em outros registros do sistema")
-    
+        raise HTTPException(status_code=404, detail="Empresa nao encontrada")
+
+    em_uso = any(
+        (
+            db.query(models.Material).filter(models.Material.empresa == nome).first(),
+            db.query(models.Maquina).filter(models.Maquina.empresa == nome).first(),
+            db.query(models.Movimentacao).filter(models.Movimentacao.empresa == nome).first(),
+            db.query(models.Pedido).filter(models.Pedido.empresa == nome).first(),
+            db.query(models.Usuario).filter(models.Usuario.empresa == nome).first(),
+            db.query(models.UsuarioSistema).filter(models.UsuarioSistema.empresa == nome).first(),
+            db.query(models.Colaborador).filter(models.Colaborador.empresa == nome).first(),
+            db.query(models.Demanda).filter(models.Demanda.empresa == nome).first(),
+        )
+    )
+    if em_uso:
+        raise HTTPException(status_code=400, detail="Empresa esta sendo usada em outros registros do sistema")
+
+    empresas_antes = list(empresas)
     empresas.remove(nome)
-    _salvar_lista(db, 'empresas', empresas)
-    
+    _salvar_lista(db, "empresas", empresas, commit=False)
+    _registrar_lista_auditoria(
+        db,
+        current_user,
+        acao="DELETE",
+        tabela_afetada="configuracoes_empresas",
+        http_request=http_request,
+        dados_anteriores={"nome": nome, "lista_anterior": empresas_antes},
+        dados_novos={"lista_resultante": empresas},
+    )
+    db.commit()
+
     return {"success": True, "message": f"Empresa '{nome}' removida", "lista": empresas}
 
 
-# =====================================================
-# DEPARTAMENTOS
-# =====================================================
-
-@router.get('/departamentos', response_model=List[str])
+@router.get("/departamentos", response_model=List[str])
 def get_departamentos(
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.get_current_user)
+    current_user: models.UsuarioSistema = Depends(auth.get_current_user),
 ):
-    """Retorna lista de departamentos"""
-    return _get_lista(db, 'departamentos', ["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logística"])
+    return _get_lista(
+        db,
+        "departamentos",
+        ["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logistica"],
+    )
 
 
-@router.post('/departamentos')
+@router.post("/departamentos")
 def add_departamento(
     request: ItemListaRequest,
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.verificar_admin)
+    current_user: models.UsuarioSistema = Depends(auth.verificar_admin),
+    http_request: Request = None,
 ):
-    """Adiciona um novo departamento"""
     if not request.nome or not request.nome.strip():
-        raise HTTPException(status_code=400, detail="Nome do departamento não pode estar vazio")
-    
-    departamentos = _get_lista(db, 'departamentos', [])
+        raise HTTPException(status_code=400, detail="Nome do departamento nao pode estar vazio")
+
+    departamentos = _get_lista(db, "departamentos", [])
     nome_limpo = request.nome.strip()
-    
     if nome_limpo in departamentos:
-        raise HTTPException(status_code=400, detail="Departamento já existe")
-    
+        raise HTTPException(status_code=400, detail="Departamento ja existe")
+
     departamentos.append(nome_limpo)
     departamentos.sort()
-    _salvar_lista(db, 'departamentos', departamentos)
-    
+    _salvar_lista(db, "departamentos", departamentos, commit=False)
+    _registrar_lista_auditoria(
+        db,
+        current_user,
+        acao="CREATE",
+        tabela_afetada="configuracoes_departamentos",
+        http_request=http_request,
+        dados_novos={"nome": nome_limpo, "lista_resultante": departamentos},
+    )
+    db.commit()
+
     return {"success": True, "message": f"Departamento '{nome_limpo}' adicionado", "lista": departamentos}
 
 
-@router.delete('/departamentos/{nome}')
+@router.delete("/departamentos/{nome}")
 def delete_departamento(
     nome: str,
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.verificar_admin)
+    current_user: models.UsuarioSistema = Depends(auth.verificar_admin),
+    http_request: Request = None,
 ):
-    """Remove um departamento"""
-    departamentos = _get_lista(db, 'departamentos', [])
-    
+    departamentos = _get_lista(db, "departamentos", [])
     if nome not in departamentos:
-        raise HTTPException(status_code=404, detail="Departamento não encontrado")
-    
-    # Verificar se está sendo usado
-    maquina_uso = db.query(models.Maquina).filter(models.Maquina.departamento == nome).first()
-    colaborador_uso = db.query(models.Colaborador).filter(models.Colaborador.departamento == nome).first()
-    pedido_uso = db.query(models.Pedido).filter(models.Pedido.departamento == nome).first()
-    demanda_uso = db.query(models.Demanda).filter(models.Demanda.departamento == nome).first()
-    
-    if any([maquina_uso, colaborador_uso, pedido_uso, demanda_uso]):
-        raise HTTPException(status_code=400, detail="Departamento está sendo usado em outros registros do sistema")
-    
+        raise HTTPException(status_code=404, detail="Departamento nao encontrado")
+
+    em_uso = any(
+        (
+            db.query(models.Maquina).filter(models.Maquina.departamento == nome).first(),
+            db.query(models.Colaborador).filter(models.Colaborador.departamento == nome).first(),
+            db.query(models.Pedido).filter(models.Pedido.departamento == nome).first(),
+            db.query(models.Demanda).filter(models.Demanda.departamento == nome).first(),
+        )
+    )
+    if em_uso:
+        raise HTTPException(status_code=400, detail="Departamento esta sendo usado em outros registros do sistema")
+
+    departamentos_antes = list(departamentos)
     departamentos.remove(nome)
-    _salvar_lista(db, 'departamentos', departamentos)
-    
+    _salvar_lista(db, "departamentos", departamentos, commit=False)
+    _registrar_lista_auditoria(
+        db,
+        current_user,
+        acao="DELETE",
+        tabela_afetada="configuracoes_departamentos",
+        http_request=http_request,
+        dados_anteriores={"nome": nome, "lista_anterior": departamentos_antes},
+        dados_novos={"lista_resultante": departamentos},
+    )
+    db.commit()
+
     return {"success": True, "message": f"Departamento '{nome}' removido", "lista": departamentos}
 
 
-# =====================================================
-# CATEGORIAS
-# =====================================================
-
-@router.get('/categorias', response_model=List[str])
+@router.get("/categorias", response_model=List[str])
 def get_categorias(
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.get_current_user)
+    current_user: models.UsuarioSistema = Depends(auth.get_current_user),
 ):
-    """Retorna lista de categorias de materiais"""
-    return _get_lista(db, 'categorias', ["Periféricos", "Hardware", "Armazenamento", "Monitores", "Cabos", "Redes", "Consumíveis", "Softwares"])
+    return _get_lista(
+        db,
+        "categorias",
+        ["Perifericos", "Hardware", "Armazenamento", "Monitores", "Cabos", "Redes", "Consumiveis", "Softwares"],
+    )
 
 
-@router.post('/categorias')
+@router.post("/categorias")
 def add_categoria(
     request: ItemListaRequest,
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.verificar_admin)
+    current_user: models.UsuarioSistema = Depends(auth.verificar_admin),
+    http_request: Request = None,
 ):
-    """Adiciona uma nova categoria"""
     if not request.nome or not request.nome.strip():
-        raise HTTPException(status_code=400, detail="Nome da categoria não pode estar vazio")
-    
-    categorias = _get_lista(db, 'categorias', [])
+        raise HTTPException(status_code=400, detail="Nome da categoria nao pode estar vazio")
+
+    categorias = _get_lista(db, "categorias", [])
     nome_limpo = request.nome.strip()
-    
     if nome_limpo in categorias:
-        raise HTTPException(status_code=400, detail="Categoria já existe")
-    
+        raise HTTPException(status_code=400, detail="Categoria ja existe")
+
     categorias.append(nome_limpo)
     categorias.sort()
-    _salvar_lista(db, 'categorias', categorias)
-    
+    _salvar_lista(db, "categorias", categorias, commit=False)
+    _registrar_lista_auditoria(
+        db,
+        current_user,
+        acao="CREATE",
+        tabela_afetada="configuracoes_categorias",
+        http_request=http_request,
+        dados_novos={"nome": nome_limpo, "lista_resultante": categorias},
+    )
+    db.commit()
+
     return {"success": True, "message": f"Categoria '{nome_limpo}' adicionada", "lista": categorias}
 
 
-@router.put('/categorias/{nome_atual}')
+@router.put("/categorias/{nome_atual}")
 def update_categoria(
     nome_atual: str,
     request: ItemListaRequest,
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.verificar_admin)
+    current_user: models.UsuarioSistema = Depends(auth.verificar_admin),
+    http_request: Request = None,
 ):
-    """Atualiza o nome de uma categoria e propaga a mudanca para os materiais."""
     if not request.nome or not request.nome.strip():
         raise HTTPException(status_code=400, detail="Nome da categoria nao pode estar vazio")
 
-    categorias = _get_lista(db, 'categorias', [])
-
+    categorias = _get_lista(db, "categorias", [])
     if nome_atual not in categorias:
         raise HTTPException(status_code=404, detail="Categoria nao encontrada")
 
     novo_nome = request.nome.strip()
-
     if novo_nome != nome_atual and novo_nome in categorias:
         raise HTTPException(status_code=400, detail="Categoria ja existe")
 
     if novo_nome == nome_atual:
         return {"success": True, "message": "Nenhuma alteracao realizada", "lista": categorias}
 
+    categorias_antes = list(categorias)
     categorias = [novo_nome if categoria == nome_atual else categoria for categoria in categorias]
     categorias.sort()
 
     _renomear_categoria_em_registros(db, nome_atual, novo_nome)
-    _salvar_lista(db, 'categorias', categorias, commit=False)
+    _salvar_lista(db, "categorias", categorias, commit=False)
+    _registrar_lista_auditoria(
+        db,
+        current_user,
+        acao="UPDATE",
+        tabela_afetada="configuracoes_categorias",
+        http_request=http_request,
+        dados_anteriores={"nome": nome_atual, "lista_anterior": categorias_antes},
+        dados_novos={"nome": novo_nome, "lista_resultante": categorias},
+    )
     db.commit()
 
     return {"success": True, "message": f"Categoria '{nome_atual}' atualizada", "lista": categorias}
 
 
-@router.delete('/categorias/{nome}')
+@router.delete("/categorias/{nome}")
 def delete_categoria(
     nome: str,
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.verificar_admin)
+    current_user: models.UsuarioSistema = Depends(auth.verificar_admin),
+    http_request: Request = None,
 ):
-    """Remove uma categoria"""
-    categorias = _get_lista(db, 'categorias', [])
-    
+    categorias = _get_lista(db, "categorias", [])
     if nome not in categorias:
-        raise HTTPException(status_code=404, detail="Categoria não encontrada")
-    
-    # Verificar se está sendo usada
+        raise HTTPException(status_code=404, detail="Categoria nao encontrada")
+
     material_uso = db.query(models.Material).filter(models.Material.categoria == nome).first()
-    
     if material_uso:
-        raise HTTPException(status_code=400, detail="Categoria está sendo usada em materiais")
-    
+        raise HTTPException(status_code=400, detail="Categoria esta sendo usada em materiais")
+
+    categorias_antes = list(categorias)
     categorias.remove(nome)
-    _salvar_lista(db, 'categorias', categorias)
-    
+    _salvar_lista(db, "categorias", categorias, commit=False)
+    _registrar_lista_auditoria(
+        db,
+        current_user,
+        acao="DELETE",
+        tabela_afetada="configuracoes_categorias",
+        http_request=http_request,
+        dados_anteriores={"nome": nome, "lista_anterior": categorias_antes},
+        dados_novos={"lista_resultante": categorias},
+    )
+    db.commit()
+
     return {"success": True, "message": f"Categoria '{nome}' removida", "lista": categorias}
 
-# =====================================================
-# CONFIGURAÇÕES GERAIS DO SISTEMA
-# =====================================================
 
-@router.get('/')
+@router.get("/")
 def get_configuracoes(
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.get_current_user)
+    current_user: models.UsuarioSistema = Depends(auth.get_current_user),
 ):
-    """Obtém todas as configurações gerais do sistema"""
-    
     configs = db.query(models.Configuracao).all()
-    
+
     result = {}
     for config in configs:
         valor = config.valor
-        # Converter tipos quando possível
-        if valor == 'true':
+        if valor == "true":
             valor = True
-        elif valor == 'false':
+        elif valor == "false":
             valor = False
         elif valor and valor.isdigit():
             valor = int(valor)
         result[config.chave] = valor
-    
-    # Valores padrão se não existirem
+
     defaults = {
         "tema": "Claro",
-        "tamanho_fonte": "Padrão",
+        "tamanho_fonte": "Padrao",
         "escala_interface": "Automatica",
         "navegacao_teclado": False,
         "alerta_estoque": 5,
         "alerta_estoque_critico": 2,
         "backup_automatico": True,
-        "frequencia_backup": "Diário",
+        "frequencia_backup": "Diario",
         "horario_backup": "02:00",
         "dias_retencao": 30,
         "notif_estoque_baixo": True,
@@ -380,45 +455,53 @@ def get_configuracoes(
         "intervalo_verificacao": "5 minutos",
         "tempo_notificacao": "5 segundos",
         "modo_nao_perturbe": False,
-        "empresa_padrao": "Matriz"
+        "empresa_padrao": "Matriz",
     }
-    
+
     for key, default in defaults.items():
         if key not in result:
             result[key] = default
-    
+
     return result
 
 
-@router.post('/')
+@router.post("/")
 def salvar_configuracoes(
     configuracoes: dict,
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.verificar_admin)
+    current_user: models.UsuarioSistema = Depends(auth.verificar_admin),
+    http_request: Request = None,
 ):
-    """Salva as configurações gerais do sistema (apenas admin)"""
-    
+    dados_anteriores = {}
+    dados_novos = {}
+
     for chave, valor in configuracoes.items():
-        # Pular listas (empresas, departamentos, categorias) - já têm endpoints próprios
-        if chave in ['empresas', 'departamentos', 'categorias']:
+        if chave in ["empresas", "departamentos", "categorias"]:
             continue
-        
-        # Converter para string para salvar
-        if isinstance(valor, bool):
-            valor_str = str(valor).lower()
-        else:
-            valor_str = str(valor)
-        
-        existing = db.query(models.Configuracao).filter(
-            models.Configuracao.chave == chave
-        ).first()
-        
+
+        valor_str = str(valor).lower() if isinstance(valor, bool) else str(valor)
+        existing = db.query(models.Configuracao).filter(models.Configuracao.chave == chave).first()
+        valor_antigo = existing.valor if existing else None
+
         if existing:
             existing.valor = valor_str
         else:
-            nova_config = models.Configuracao(chave=chave, valor=valor_str)
-            db.add(nova_config)
-    
+            db.add(models.Configuracao(chave=chave, valor=valor_str))
+
+        if valor_antigo != valor_str:
+            dados_anteriores[chave] = valor_antigo
+            dados_novos[chave] = valor
+
+    if dados_novos:
+        registrar_log_auditoria(
+            db,
+            current_user,
+            acao="UPDATE",
+            tabela_afetada="configuracoes",
+            dados_anteriores=dados_anteriores,
+            dados_novos=dados_novos,
+            request=http_request,
+        )
+
     db.commit()
-    
-    return {"message": "Configurações salvas com sucesso"}
+    return {"message": "Configuracoes salvas com sucesso"}

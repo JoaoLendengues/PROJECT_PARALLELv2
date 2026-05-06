@@ -90,7 +90,7 @@ class UsuariosWidget(QWidget):
 
         self.nivel_filter = QComboBox()
         self.nivel_filter.addItem("Todos os níveis")
-        self.nivel_filter.addItems(["admin", "gerente", "usuario"])
+        self.nivel_filter.addItems(["admin", "gerente", "usuario", "solicitante"])
         self.nivel_filter.currentTextChanged.connect(self.filtrar_usuarios)
         filtros.addWidget(QLabel("Nível:"))
         filtros.addWidget(self.nivel_filter)
@@ -227,6 +227,8 @@ class UsuariosWidget(QWidget):
                 nivel_item.setForeground(QColor(231, 111, 81))
             elif usuario.get("nivel_acesso") == "gerente":
                 nivel_item.setForeground(QColor(244, 162, 97))
+            elif usuario.get("nivel_acesso") == "solicitante":
+                nivel_item.setForeground(QColor(99, 102, 241))
             else:
                 nivel_item.setForeground(QColor(42, 157, 143))
             self.tabela.setItem(row, 5, nivel_item)
@@ -468,11 +470,12 @@ class UsuarioDialog(QDialog):
         form_layout.addRow("Empresa:", self.empresa_combo)
 
         self.nivel_combo = QComboBox()
-        self.nivel_combo.addItems(["admin", "gerente", "usuario"])
+        self.nivel_combo.addItems(["admin", "gerente", "usuario", "solicitante"])
         self.nivel_combo.setToolTip(
             "admin: Acesso total\n"
-            "gerente: Pode aprovar pedidos\n"
-            "usuario: Acesso básico"
+            "gerente: Pode gerir operacao e demandas\n"
+            "usuario: Acesso basico\n"
+            "solicitante: Abre demandas e acompanha as proprias"
         )
         form_layout.addRow("Nível de Acesso:", self.nivel_combo)
 

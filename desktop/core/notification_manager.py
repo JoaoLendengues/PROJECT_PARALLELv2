@@ -92,6 +92,7 @@ class NotificationManager(QObject):
                     self._ultimas_notificacoes.insert(0, notif)
                     # Emitir sinal para mostrar notificação
                     self.nova_notificacao.emit(notif)
+                    self._mostrar_toast_notificacao(notif)
                     
             # Manter apenas as últimas 50
             self._ultimas_notificacoes = self._ultimas_notificacoes[:50]
@@ -99,6 +100,32 @@ class NotificationManager(QObject):
             
         except Exception as e:
             print(f"Erro ao buscar notificações: {e}")
+
+    def _mostrar_toast_notificacao(self, notificacao):
+        prioridade = notificacao.get("prioridade", "baixa")
+        if not self.deve_mostrar_notificacao(prioridade):
+            return
+
+        try:
+            from PySide6.QtWidgets import QApplication
+            from widgets.toast_notification import notification_manager as toast_manager
+
+            parent_window = self._parent or QApplication.activeWindow()
+            mensagem = notificacao.get("mensagem") or notificacao.get("titulo") or "Nova notificação"
+            duracao = {"alta": 10000, "media": 7000, "baixa": 5000}.get(prioridade, 5000)
+
+            toast_manager.show(
+                message=mensagem,
+                tipo="warning" if prioridade in ["alta", "media"] else "info",
+                duration=duracao,
+                parent=parent_window,
+                prioridade=prioridade,
+                acao=notificacao.get("acao"),
+                acao_id=notificacao.get("acao_id"),
+                notificacao_id=notificacao.get("id"),
+            )
+        except Exception as e:
+            print(f"Erro ao exibir toast de notificação: {e}")
     
     def deve_mostrar_notificacao(self, prioridade):
         """Verifica se a notificação deve ser mostrada (respeitando modo não perturbe)"""

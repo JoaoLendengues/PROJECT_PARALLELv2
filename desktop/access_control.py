@@ -1,11 +1,25 @@
+import unicodedata
+
+
 ROLE_ADMIN = "admin"
 ROLE_MANAGER = "gerente"
 ROLE_USER = "usuario"
+ROLE_REQUESTER = "solicitante"
+ROLE_TI = "ti"
+
+TI_CARGO_KEYWORDS = (
+    "ti",
+    "t.i",
+    "tecnologia",
+    "suporte",
+    "informatica",
+)
 
 ROLE_LABELS = {
     ROLE_ADMIN: "Administrador",
-    ROLE_MANAGER: "Gerência",
-    ROLE_USER: "Usuário",
+    ROLE_MANAGER: "Gerencia",
+    ROLE_USER: "Usuario",
+    ROLE_REQUESTER: "Solicitante",
 }
 
 ROLE_ALIASES = {
@@ -15,24 +29,26 @@ ROLE_ALIASES = {
     "gerencia": ROLE_MANAGER,
     "manager": ROLE_MANAGER,
     "usuario": ROLE_USER,
-    "usuário": ROLE_USER,
     "comum": ROLE_USER,
+    "solicitante": ROLE_REQUESTER,
+    "funcionario": ROLE_REQUESTER,
+    "vendedor": ROLE_REQUESTER,
 }
 
 SCREEN_LABELS = {
     "home": "Home",
     "materiais": "Materiais",
-    "maquinas": "Máquinas",
-    "movimentacoes": "Movimentações",
-    "manutencoes": "Manutenções",
+    "maquinas": "Maquinas",
+    "movimentacoes": "Movimentacoes",
+    "manutencoes": "Manutencoes",
     "pedidos": "Pedidos",
     "colaboradores": "Colaboradores",
     "demandas": "Demandas",
-    "relatorios": "Relatórios",
-    "usuarios": "Usuários",
-    "parametros": "Parâmetros",
-    "updates": "Atualizações",
-    "notificacoes": "Notificações",
+    "relatorios": "Relatorios",
+    "usuarios": "Usuarios",
+    "parametros": "Parametros",
+    "updates": "Atualizacoes",
+    "notificacoes": "Notificacoes",
 }
 
 SCREEN_PERMISSIONS = {
@@ -43,12 +59,12 @@ SCREEN_PERMISSIONS = {
     "manutencoes": {ROLE_ADMIN, ROLE_MANAGER},
     "pedidos": {ROLE_ADMIN, ROLE_MANAGER},
     "colaboradores": {ROLE_ADMIN, ROLE_MANAGER},
-    "demandas": {ROLE_ADMIN, ROLE_MANAGER},
+    "demandas": {ROLE_ADMIN, ROLE_MANAGER, ROLE_REQUESTER, ROLE_TI},
     "relatorios": {ROLE_ADMIN, ROLE_MANAGER},
     "usuarios": {ROLE_ADMIN},
     "parametros": {ROLE_ADMIN},
     "updates": {ROLE_ADMIN, ROLE_MANAGER, ROLE_USER},
-    "notificacoes": {ROLE_ADMIN, ROLE_MANAGER, ROLE_USER},
+    "notificacoes": {ROLE_ADMIN, ROLE_MANAGER, ROLE_USER, ROLE_TI},
 }
 
 ACTION_PERMISSIONS = {
@@ -71,10 +87,11 @@ ACTION_PERMISSIONS = {
     "pedidos.complete": {ROLE_ADMIN, ROLE_MANAGER},
     "pedidos.cancel": {ROLE_ADMIN, ROLE_MANAGER},
     "pedidos.delete": {ROLE_ADMIN},
-    "demandas.create": {ROLE_ADMIN, ROLE_MANAGER},
-    "demandas.edit": {ROLE_ADMIN, ROLE_MANAGER},
-    "demandas.complete": {ROLE_ADMIN, ROLE_MANAGER},
-    "demandas.cancel": {ROLE_ADMIN, ROLE_MANAGER},
+    "demandas.create": {ROLE_ADMIN, ROLE_MANAGER, ROLE_REQUESTER, ROLE_TI},
+    "demandas.edit": {ROLE_ADMIN, ROLE_MANAGER, ROLE_TI},
+    "demandas.assign": {ROLE_ADMIN, ROLE_MANAGER, ROLE_TI},
+    "demandas.complete": {ROLE_ADMIN, ROLE_MANAGER, ROLE_TI},
+    "demandas.cancel": {ROLE_ADMIN, ROLE_MANAGER, ROLE_TI},
     "demandas.delete": {ROLE_ADMIN},
     "relatorios.export": {ROLE_ADMIN, ROLE_MANAGER},
     "movimentacoes.deletar": {ROLE_ADMIN},
@@ -84,16 +101,16 @@ ACTION_LABELS = {
     "materiais.create": "criar materiais",
     "materiais.edit": "editar materiais",
     "materiais.delete": "deletar materiais",
-    "maquinas.create": "criar máquinas",
-    "maquinas.edit": "editar máquinas",
-    "maquinas.delete": "deletar máquinas",
+    "maquinas.create": "criar maquinas",
+    "maquinas.edit": "editar maquinas",
+    "maquinas.delete": "deletar maquinas",
     "colaboradores.create": "criar colaboradores",
     "colaboradores.edit": "editar colaboradores",
     "colaboradores.delete": "deletar colaboradores",
-    "manutencoes.create": "criar manutenções",
-    "manutencoes.edit": "editar manutenções",
-    "manutencoes.complete": "concluir manutenções",
-    "manutencoes.delete": "deletar manutenções",
+    "manutencoes.create": "criar manutencoes",
+    "manutencoes.edit": "editar manutencoes",
+    "manutencoes.complete": "concluir manutencoes",
+    "manutencoes.delete": "deletar manutencoes",
     "pedidos.create": "criar pedidos",
     "pedidos.edit": "editar pedidos",
     "pedidos.approve": "aprovar pedidos",
@@ -102,17 +119,39 @@ ACTION_LABELS = {
     "pedidos.delete": "deletar pedidos",
     "demandas.create": "criar demandas",
     "demandas.edit": "editar demandas",
+    "demandas.assign": "assumir demandas",
     "demandas.complete": "concluir demandas",
     "demandas.cancel": "cancelar demandas",
     "demandas.delete": "deletar demandas",
-    "relatorios.export": "exportar relatórios",
-    "movimentacoes.deletar": "deletar movimentações",
+    "relatorios.export": "exportar relatorios",
+    "movimentacoes.deletar": "deletar movimentacoes",
 }
 
 
+def _normalize_text(value):
+    text = "" if value is None else str(value)
+    text = unicodedata.normalize("NFKD", text.strip().lower())
+    return "".join(char for char in text if not unicodedata.combining(char))
+
+
 def normalize_access_level(level):
-    value = str(level or ROLE_USER).strip().lower()
+    value = _normalize_text(level) or ROLE_USER
     return ROLE_ALIASES.get(value, ROLE_USER)
+
+
+def is_ti_user(usuario):
+    cargo = _normalize_text((usuario or {}).get("cargo"))
+    if not cargo:
+        return False
+    return any(keyword in cargo for keyword in TI_CARGO_KEYWORDS)
+
+
+def get_access_tags(usuario):
+    role = normalize_access_level((usuario or {}).get("nivel_acesso"))
+    tags = {role}
+    if is_ti_user(usuario):
+        tags.add(ROLE_TI)
+    return tags
 
 
 def get_role_label(level):
@@ -124,16 +163,14 @@ def get_screen_label(screen_key):
 
 
 def has_screen_access(usuario, screen_key):
-    role = normalize_access_level((usuario or {}).get("nivel_acesso"))
     allowed_roles = SCREEN_PERMISSIONS.get(screen_key, {ROLE_ADMIN})
-    return role in allowed_roles
+    return bool(get_access_tags(usuario) & allowed_roles)
 
 
 def has_action_access(usuario, action_key):
-    role = normalize_access_level((usuario or {}).get("nivel_acesso"))
     allowed_roles = ACTION_PERMISSIONS.get(action_key, {ROLE_ADMIN})
-    return role in allowed_roles
+    return bool(get_access_tags(usuario) & allowed_roles)
 
 
 def get_action_label(action_key):
-    return ACTION_LABELS.get(action_key, "executar esta ação")
+    return ACTION_LABELS.get(action_key, "executar esta acao")

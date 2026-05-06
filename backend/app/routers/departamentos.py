@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from typing import Optional, List
+from app.audit import model_to_dict, registrar_log_auditoria
 from app.database import get_db
 from app import models, schemas, auth
 
@@ -45,7 +46,8 @@ def get_lista_departamentos(
 def criar_departamento(
     departamento: schemas.DepartamentoCreate,
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.verificar_admin)
+    current_user: models.UsuarioSistema = Depends(auth.verificar_admin),
+    http_request: Request = None
 ):
     """Cria um novo departamento (apenas admin)"""
     
@@ -59,6 +61,16 @@ def criar_departamento(
     
     novo_departamento = models.Departamento(**departamento.model_dump())
     db.add(novo_departamento)
+    db.flush()
+    registrar_log_auditoria(
+        db,
+        current_user,
+        acao="CREATE",
+        tabela_afetada="departamentos",
+        registro_id=novo_departamento.id,
+        dados_novos=model_to_dict(novo_departamento),
+        request=http_request,
+    )
     db.commit()
     db.refresh(novo_departamento)
     
@@ -70,7 +82,8 @@ def atualizar_departamento(
     departamento_id: int,
     departamento: schemas.DepartamentoUpdate,
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.verificar_admin)
+    current_user: models.UsuarioSistema = Depends(auth.verificar_admin),
+    http_request: Request = None
 ):
     """Atualiza um departamento (apenas admin)"""
     
@@ -81,6 +94,7 @@ def atualizar_departamento(
     if not departamento_existente:
         raise HTTPException(status_code=404, detail="Departamento nao encontrado")
     
+    dados_anteriores = model_to_dict(departamento_existente)
     update_data = departamento.model_dump(exclude_unset=True)
 
     novo_nome = update_data.get("nome")
@@ -103,23 +117,38 @@ def atualizar_departamento(
     for field, value in update_data.items():
         setattr(departamento_existente, field, value)
 
+    propagacao = {}
     if novo_nome and novo_nome != nome_anterior:
-        db.query(models.Maquina).filter(
+        propagacao["maquinas"] = db.query(models.Maquina).filter(
             models.Maquina.departamento == nome_anterior
         ).update({models.Maquina.departamento: novo_nome}, synchronize_session=False)
 
-        db.query(models.Colaborador).filter(
+        propagacao["colaboradores"] = db.query(models.Colaborador).filter(
             models.Colaborador.departamento == nome_anterior
         ).update({models.Colaborador.departamento: novo_nome}, synchronize_session=False)
 
-        db.query(models.Pedido).filter(
+        propagacao["pedidos"] = db.query(models.Pedido).filter(
             models.Pedido.departamento == nome_anterior
         ).update({models.Pedido.departamento: novo_nome}, synchronize_session=False)
 
-        db.query(models.Demanda).filter(
+        propagacao["demandas"] = db.query(models.Demanda).filter(
             models.Demanda.departamento == nome_anterior
         ).update({models.Demanda.departamento: novo_nome}, synchronize_session=False)
-    
+
+    dados_novos = model_to_dict(departamento_existente)
+    if propagacao:
+        dados_novos["propagacao"] = propagacao
+
+    registrar_log_auditoria(
+        db,
+        current_user,
+        acao="UPDATE",
+        tabela_afetada="departamentos",
+        registro_id=departamento_existente.id,
+        dados_anteriores=dados_anteriores,
+        dados_novos=dados_novos,
+        request=http_request,
+    )
     db.commit()
     db.refresh(departamento_existente)
     
@@ -130,7 +159,8 @@ def atualizar_departamento(
 def deletar_departamento(
     departamento_id: int,
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.verificar_admin)
+    current_user: models.UsuarioSistema = Depends(auth.verificar_admin),
+    http_request: Request = None
 ):
     """Remove um departamento (apenas admin)"""
     
@@ -165,6 +195,16 @@ def deletar_departamento(
             detail="Departamento estÃ¡ sendo usado em outros registros do sistema"
         )
     
+    dados_anteriores = model_to_dict(departamento)
+    registrar_log_auditoria(
+        db,
+        current_user,
+        acao="DELETE",
+        tabela_afetada="departamentos",
+        registro_id=departamento.id,
+        dados_anteriores=dados_anteriores,
+        request=http_request,
+    )
     db.delete(departamento)
     db.commit()
     

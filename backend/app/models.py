@@ -93,6 +93,7 @@ class Pedido(Base):
     data_conclusao = Column(Date)
     status = Column(String(20), default="pedente")
     observacao = Column(Text)
+    link_compra = Column(Text)
     criado_em = Column(DateTime, server_default=func.now())
     usuario_id = Column(Integer, ForeignKey("usuarios.id"))
 
@@ -210,4 +211,4 @@ class Notificacao(Base):
     lida_em = Column(DateTime, nullable=True)
     
     # Relacionamento
-    usuario = relationship("UsuarioSistema", backref="notificacoes")    
+    usuario = relationship("UsuarioSistema", backref="notificacoes")

@@ -1,12 +1,34 @@
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
-                               QTableWidgetItem, QPushButton, QLabel, QLineEdit,
-                               QComboBox, QDialog, QFormLayout, QTextEdit,
-                               QDateEdit, QMessageBox, QHeaderView)
-from PySide6.QtCore import Qt, QDate
-from PySide6.QtGui import QFont, QColor
+from PySide6.QtCore import QDate
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDateEdit,
+    QDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
+
+from access_control import (
+    ROLE_REQUESTER,
+    get_action_label,
+    has_action_access,
+    normalize_access_level,
+)
 from api_client import api_client
-from access_control import get_action_label, has_action_access
-from widgets.company_filter_utils import company_filter_ready, populate_company_filter, selected_company_value
+from widgets.company_filter_utils import (
+    company_filter_ready,
+    populate_company_filter,
+    selected_company_value,
+)
 from widgets.filter_utils import is_all_option, same_filter_value
 from widgets.table_utils import configure_data_table, number_item
 
@@ -18,146 +40,214 @@ class DemandasWidget(QWidget):
         self.demandas = []
         self.empresas = []
         self._loaded = False
+        self._modo_solicitante = False
         self.init_ui()
 
     def on_show(self):
         if not self._loaded:
             self.carregar_empresas()
-            self._mostrar_prompt_empresa()
             self._loaded = True
+
+        if self._modo_solicitante:
+            self.carregar_demandas()
+        elif self.empresa_pronta():
+            self.carregar_demandas()
+        else:
+            self._mostrar_prompt_empresa()
 
     def init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(15)
 
-        # Cabeçalho
         header = QHBoxLayout()
-        titulo = QLabel("🎫 Demandas / Chamados TI")
-        titulo.setProperty("class", "page-title")
-        header.addWidget(titulo)
+        self.titulo_label = QLabel("Demandas / Chamados TI")
+        self.titulo_label.setProperty("class", "page-title")
+        header.addWidget(self.titulo_label)
         header.addStretch()
 
-        # Botão Nova Demanda
         self.novo_btn = QPushButton("+ Nova Demanda")
         self.novo_btn.setFixedHeight(40)
         self.novo_btn.clicked.connect(self.nova_demanda)
         header.addWidget(self.novo_btn)
 
-        # Botão Atualizar
-        self.atualizar_btn = QPushButton("🔄 Atualizar")
+        self.atualizar_btn = QPushButton("Atualizar")
         self.atualizar_btn.setFixedHeight(40)
         self.atualizar_btn.clicked.connect(self.carregar_demandas)
         header.addWidget(self.atualizar_btn)
 
         layout.addLayout(header)
 
-        # Filtros
         filtros = QHBoxLayout()
 
+        self.status_label = QLabel("Status:")
+        filtros.addWidget(self.status_label)
         self.status_filter = QComboBox()
-        self.status_filter.addItems(["Todos", "Aberto", "Em Andamento", "Concluído", "Cancelado"])
+        self.status_filter.addItems(["Todos", "Aberto", "Em Andamento", "Concluido", "Cancelado"])
         self.status_filter.currentTextChanged.connect(self.filtrar_demandas)
-        filtros.addWidget(QLabel("Status:"))
         filtros.addWidget(self.status_filter)
 
+        self.empresa_label = QLabel("Empresa:")
+        filtros.addWidget(self.empresa_label)
         self.empresa_filter = QComboBox()
-        self.empresa_filter.setMinimumWidth(150)
+        self.empresa_filter.setMinimumWidth(170)
         self.empresa_filter.currentIndexChanged.connect(self.ao_alterar_empresa)
-        filtros.addWidget(QLabel("Empresa:"))
         filtros.addWidget(self.empresa_filter)
 
+        self.prioridade_label = QLabel("Prioridade:")
+        filtros.addWidget(self.prioridade_label)
         self.prioridade_filter = QComboBox()
-        self.prioridade_filter.addItems(["Todas", "Alta", "Média", "Baixa"])
+        self.prioridade_filter.addItems(["Todas", "Alta", "Media", "Baixa"])
         self.prioridade_filter.currentTextChanged.connect(self.filtrar_demandas)
-        filtros.addWidget(QLabel("Prioridade:"))
         filtros.addWidget(self.prioridade_filter)
 
         filtros.addStretch()
-
         layout.addLayout(filtros)
 
-        self.empresa_prompt = QLabel('Selecione uma empresa ou "Todas as empresas" para carregar as demandas.')
+        self.empresa_prompt = QLabel("Selecione uma empresa ou 'Todas as empresas' para carregar as demandas.")
         self.empresa_prompt.setStyleSheet("color: #64748b; font-size: 13px;")
         layout.addWidget(self.empresa_prompt)
 
-        # Tabela com estilo melhorado
         self.tabela = QTableWidget()
         self.tabela.setAlternatingRowColors(True)
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabela.setEditTriggers(QTableWidget.NoEditTriggers)
         self.tabela.verticalHeader().setVisible(False)
-
-        # Estilo da tabela
-        self.tabela.setStyleSheet("""
+        self.tabela.setStyleSheet(
+            """
             QTableWidget::item {
                 padding: 10px 8px;
             }
             QHeaderView::section {
                 padding: 10px 12px;
             }
-        """)
-
-        headers = ["ID", "Título", "Solicitante", "Prioridade", "Urgência", "Status", "Data Abertura", "Responsável"]
-        self.tabela.setColumnCount(len(headers))
-        self.tabela.setHorizontalHeaderLabels(headers)
-        configure_data_table(self.tabela, stretch_columns=(1,))
-
+            """
+        )
         layout.addWidget(self.tabela)
 
-        # Botões de ação
         acoes = QHBoxLayout()
         acoes.addStretch()
 
-        self.ver_btn = QPushButton("👁️ Ver Detalhes")
+        self.ver_btn = QPushButton("Ver Detalhes")
         self.ver_btn.clicked.connect(self.ver_demanda)
         acoes.addWidget(self.ver_btn)
 
-        self.editar_btn = QPushButton("✏️ Editar")
+        self.assumir_btn = QPushButton("Assumir para mim")
+        self.assumir_btn.clicked.connect(self.assumir_demanda)
+        acoes.addWidget(self.assumir_btn)
+
+        self.editar_btn = QPushButton("Editar")
         self.editar_btn.clicked.connect(self.editar_demanda)
         acoes.addWidget(self.editar_btn)
 
-        self.concluir_btn = QPushButton("✅ Concluir")
+        self.concluir_btn = QPushButton("Concluir")
         self.concluir_btn.clicked.connect(self.concluir_demanda)
         acoes.addWidget(self.concluir_btn)
 
-        self.cancelar_btn = QPushButton("❌ Cancelar")
+        self.cancelar_btn = QPushButton("Cancelar")
         self.cancelar_btn.clicked.connect(self.cancelar_demanda)
         acoes.addWidget(self.cancelar_btn)
 
-        self.deletar_btn = QPushButton("🗑️ Deletar")
+        self.deletar_btn = QPushButton("Deletar")
         self.deletar_btn.clicked.connect(self.deletar_demanda)
         acoes.addWidget(self.deletar_btn)
 
         layout.addLayout(acoes)
+
+        self._configurar_colunas_tabela()
         self.aplicar_permissoes()
+        self.aplicar_modo_usuario()
 
     def set_usuario(self, usuario):
         self.usuario = usuario or {}
+        self._modo_solicitante = normalize_access_level(self.usuario.get("nivel_acesso")) == ROLE_REQUESTER
+        self.aplicar_modo_usuario()
         self.aplicar_permissoes()
 
     def _pode(self, action_key):
         return has_action_access(self.usuario, action_key)
 
     def _avisar_sem_permissao(self, action_key):
-        QMessageBox.warning(self, "Acesso não permitido", f"Você não tem permissão para {get_action_label(action_key)}.")
+        QMessageBox.warning(
+            self,
+            "Acesso nao permitido",
+            f"Voce nao tem permissao para {get_action_label(action_key)}.",
+        )
+
+    def _empresa_contexto_solicitante(self):
+        return str(self.usuario.get("empresa") or "").strip() or None
+
+    def _demandas_visiveis_para_usuario(self, demandas):
+        if not self._modo_solicitante:
+            return list(demandas or [])
+
+        usuario_id = self.usuario.get("id")
+        visiveis = []
+        for demanda in demandas or []:
+            if usuario_id is not None and demanda.get("criado_por") == usuario_id:
+                visiveis.append(demanda)
+        return visiveis
+
+    def _configurar_colunas_tabela(self):
+        if self._modo_solicitante:
+            headers = ["ID", "Titulo", "Prioridade", "Urgencia", "Status", "Data Abertura"]
+        else:
+            headers = [
+                "ID",
+                "Titulo",
+                "Solicitante",
+                "Prioridade",
+                "Urgencia",
+                "Status",
+                "Data Abertura",
+                "Responsavel",
+            ]
+
+        self.tabela.setColumnCount(len(headers))
+        self.tabela.setHorizontalHeaderLabels(headers)
+        configure_data_table(self.tabela, stretch_columns=(1,))
+
+    def aplicar_modo_usuario(self):
+        if not hasattr(self, "titulo_label"):
+            return
+
+        self._configurar_colunas_tabela()
+
+        if self._modo_solicitante:
+            self.titulo_label.setText("Minhas Demandas")
+            self.empresa_label.setVisible(False)
+            self.empresa_filter.setVisible(False)
+            self.empresa_prompt.setText("Abra uma nova demanda e acompanhe abaixo apenas os chamados enviados por voce.")
+        else:
+            self.titulo_label.setText("Demandas / Chamados TI")
+            self.empresa_label.setVisible(True)
+            self.empresa_filter.setVisible(True)
+            self.empresa_prompt.setText("Selecione uma empresa ou 'Todas as empresas' para carregar as demandas.")
+
+        self.ver_btn.setVisible(True)
 
     def aplicar_permissoes(self):
         if hasattr(self, "novo_btn"):
             self.novo_btn.setVisible(self._pode("demandas.create"))
+        if hasattr(self, "assumir_btn"):
+            self.assumir_btn.setVisible(self._pode("demandas.assign") and not self._modo_solicitante)
         if hasattr(self, "editar_btn"):
-            self.editar_btn.setVisible(self._pode("demandas.edit"))
+            self.editar_btn.setVisible(self._pode("demandas.edit") and not self._modo_solicitante)
         if hasattr(self, "concluir_btn"):
-            self.concluir_btn.setVisible(self._pode("demandas.complete"))
+            self.concluir_btn.setVisible(self._pode("demandas.complete") and not self._modo_solicitante)
         if hasattr(self, "cancelar_btn"):
-            self.cancelar_btn.setVisible(self._pode("demandas.cancel"))
+            self.cancelar_btn.setVisible(self._pode("demandas.cancel") and not self._modo_solicitante)
         if hasattr(self, "deletar_btn"):
-            self.deletar_btn.setVisible(self._pode("demandas.delete"))
+            self.deletar_btn.setVisible(self._pode("demandas.delete") and not self._modo_solicitante)
 
     def empresa_pronta(self):
+        if self._modo_solicitante:
+            return True
         return company_filter_ready(self.empresa_filter)
 
     def empresa_param(self):
+        if self._modo_solicitante:
+            return self._empresa_contexto_solicitante()
         return selected_company_value(self.empresa_filter)
 
     def carregar_empresas(self):
@@ -165,14 +255,37 @@ class DemandasWidget(QWidget):
             self.empresas = api_client.get_empresas()
             populate_company_filter(self.empresa_filter, self.empresas)
         except Exception as e:
-            print(f"❌ Erro ao carregar empresas: {e}")
+            print(f"Erro ao carregar empresas: {e}")
 
     def _mostrar_prompt_empresa(self):
         self.demandas = []
         self.tabela.setRowCount(0)
         self.empresa_prompt.setVisible(True)
 
+    def _atualizar_prompt_apos_carga(self, quantidade):
+        if self._modo_solicitante:
+            if quantidade:
+                self.empresa_prompt.setVisible(False)
+            else:
+                if self.demandas:
+                    self.empresa_prompt.setText("Nenhuma demanda encontrada com os filtros atuais.")
+                else:
+                    self.empresa_prompt.setText("Voce ainda nao abriu nenhuma demanda.")
+                self.empresa_prompt.setVisible(True)
+            return
+
+        if quantidade:
+            self.empresa_prompt.setVisible(False)
+        elif not self.empresa_pronta():
+            self.empresa_prompt.setText("Selecione uma empresa ou 'Todas as empresas' para carregar as demandas.")
+            self.empresa_prompt.setVisible(True)
+        else:
+            self.empresa_prompt.setText("Nenhuma demanda encontrada para os filtros atuais.")
+            self.empresa_prompt.setVisible(True)
+
     def ao_alterar_empresa(self):
+        if self._modo_solicitante:
+            return
         if not self.empresa_pronta():
             self._mostrar_prompt_empresa()
             return
@@ -184,12 +297,12 @@ class DemandasWidget(QWidget):
             return
 
         try:
-            self.demandas = api_client.listar_demandas(empresa=self.empresa_param())
+            demandas = api_client.listar_demandas(empresa=self.empresa_param())
+            self.demandas = self._demandas_visiveis_para_usuario(demandas)
             self.atualizar_tabela(self.demandas)
-            self.empresa_prompt.setVisible(False)
-            print(f"✅ Demandas carregadas: {len(self.demandas)}")
+            self._atualizar_prompt_apos_carga(len(self.demandas))
         except Exception as e:
-            print(f"❌ Erro ao carregar demandas: {e}")
+            print(f"Erro ao carregar demandas: {e}")
             QMessageBox.warning(self, "Erro", f"Erro ao carregar demandas: {e}")
 
     def filtrar_demandas(self):
@@ -200,15 +313,16 @@ class DemandasWidget(QWidget):
         status = self.status_filter.currentText()
         prioridade = self.prioridade_filter.currentText()
 
-        filtered = []
-        for d in self.demandas:
-            if not is_all_option(status) and not same_filter_value(d.get("status", ""), status):
+        filtradas = []
+        for demanda in self.demandas:
+            if not is_all_option(status) and not same_filter_value(demanda.get("status", ""), status):
                 continue
-            if not is_all_option(prioridade) and not same_filter_value(d.get("prioridade", ""), prioridade):
+            if not is_all_option(prioridade) and not same_filter_value(demanda.get("prioridade", ""), prioridade):
                 continue
-            filtered.append(d)
+            filtradas.append(demanda)
 
-        self.atualizar_tabela(filtered)
+        self.atualizar_tabela(filtradas)
+        self._atualizar_prompt_apos_carga(len(filtradas))
 
     def atualizar_tabela(self, demandas):
         self.tabela.setRowCount(len(demandas))
@@ -216,311 +330,392 @@ class DemandasWidget(QWidget):
         prioridade_cores = {
             "alta": QColor(231, 111, 81),
             "media": QColor(244, 162, 97),
-            "baixa": QColor(42, 157, 143)
+            "baixa": QColor(42, 157, 143),
         }
 
         status_cores = {
             "aberto": QColor(244, 162, 97),
             "andamento": QColor(42, 157, 143),
             "concluido": QColor(44, 125, 160),
-            "cancelado": QColor(231, 111, 81)
+            "cancelado": QColor(231, 111, 81),
         }
 
-        for row, d in enumerate(demandas):
-            self.tabela.setItem(row, 0, number_item(d.get("id", "")))
-            self.tabela.setItem(row, 1, QTableWidgetItem(d.get("titulo", "")[:60]))
-            self.tabela.setItem(row, 2, QTableWidgetItem(d.get("solicitante", "-")))
+        for row, demanda in enumerate(demandas):
+            data = (demanda.get("data_abertura") or "")[:10]
+            self.tabela.setItem(row, 0, number_item(demanda.get("id", "")))
+            self.tabela.setItem(row, 1, QTableWidgetItem((demanda.get("titulo") or "")[:80]))
 
-            prioridade_item = QTableWidgetItem(d.get("prioridade", "media").upper())
-            prioridade_item.setForeground(prioridade_cores.get(d.get("prioridade", "media"), QColor(0, 0, 0)))
-            self.tabela.setItem(row, 3, prioridade_item)
+            prioridade_item = QTableWidgetItem((demanda.get("prioridade", "media") or "media").upper())
+            prioridade_item.setForeground(prioridade_cores.get(demanda.get("prioridade", "media"), QColor(0, 0, 0)))
 
-            urgencia_item = QTableWidgetItem(d.get("urgencia", "media").upper())
-            self.tabela.setItem(row, 4, urgencia_item)
+            urgencia_item = QTableWidgetItem((demanda.get("urgencia", "media") or "media").upper())
 
-            status_item = QTableWidgetItem(d.get("status", "aberto").upper())
-            status_item.setForeground(status_cores.get(d.get("status", "aberto"), QColor(0, 0, 0)))
-            self.tabela.setItem(row, 5, status_item)
+            status_item = QTableWidgetItem((demanda.get("status", "aberto") or "aberto").upper())
+            status_item.setForeground(status_cores.get(demanda.get("status", "aberto"), QColor(0, 0, 0)))
 
-            data = d.get("data_abertura", "")
-            if data:
-                data = data[:10]
-            self.tabela.setItem(row, 6, QTableWidgetItem(data))
+            if self._modo_solicitante:
+                self.tabela.setItem(row, 2, prioridade_item)
+                self.tabela.setItem(row, 3, urgencia_item)
+                self.tabela.setItem(row, 4, status_item)
+                self.tabela.setItem(row, 5, QTableWidgetItem(data))
+            else:
+                self.tabela.setItem(row, 2, QTableWidgetItem(demanda.get("solicitante", "-")))
+                self.tabela.setItem(row, 3, prioridade_item)
+                self.tabela.setItem(row, 4, urgencia_item)
+                self.tabela.setItem(row, 5, status_item)
+                self.tabela.setItem(row, 6, QTableWidgetItem(data))
+                self.tabela.setItem(row, 7, QTableWidgetItem(demanda.get("responsavel", "-") or "-"))
 
-            self.tabela.setItem(row, 7, QTableWidgetItem(d.get("responsavel", "-")))
+    def _demanda_selecionada(self):
+        row = self.tabela.currentRow()
+        if row < 0:
+            return None
+
+        item_id = self.tabela.item(row, 0)
+        if item_id is None:
+            return None
+
+        demanda_id = int(item_id.text())
+        return next((demanda for demanda in self.demandas if demanda.get("id") == demanda_id), None)
 
     def nova_demanda(self):
         if not self._pode("demandas.create"):
             self._avisar_sem_permissao("demandas.create")
             return
-        dialog = DemandaDialog(parent=self)
+
+        dialog = DemandaDialog(
+            requester_mode=self._modo_solicitante,
+            usuario_context=self.usuario,
+            empresa_padrao=self.empresa_param(),
+            parent=self,
+        )
         if dialog.exec():
             self.carregar_demandas()
 
     def ver_demanda(self):
-        row = self.tabela.currentRow()
-        if row < 0:
-            QMessageBox.warning(self, "Atenção", "Selecione uma demanda para visualizar")
+        demanda = self._demanda_selecionada()
+        if not demanda:
+            QMessageBox.warning(self, "Atencao", "Selecione uma demanda para visualizar.")
             return
 
-        demanda_id = int(self.tabela.item(row, 0).text())
-        demanda = next((d for d in self.demandas if d["id"] == demanda_id), None)
+        dialog = DemandaDialog(
+            demanda_data=demanda,
+            readonly=True,
+            requester_mode=self._modo_solicitante,
+            usuario_context=self.usuario,
+            empresa_padrao=self.empresa_param(),
+            parent=self,
+        )
+        dialog.exec()
 
-        if demanda:
-            dialog = DemandaDialog(demanda_data=demanda, readonly=True, parent=self)
-            dialog.exec()
+    def assumir_demanda(self):
+        if not self._pode("demandas.assign"):
+            self._avisar_sem_permissao("demandas.assign")
+            return
+
+        demanda = self._demanda_selecionada()
+        if not demanda:
+            QMessageBox.warning(self, "Atencao", "Selecione uma demanda para assumir.")
+            return
+
+        titulo = demanda.get("titulo", "")
+        confirm = QMessageBox.question(
+            self,
+            "Assumir demanda",
+            f"Deseja assumir a demanda '{titulo}' para voce?",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if confirm != QMessageBox.Yes:
+            return
+
+        try:
+            if api_client.assumir_demanda(demanda["id"]):
+                QMessageBox.information(self, "Sucesso", "Demanda assumida com sucesso!")
+                self.carregar_demandas()
+            else:
+                QMessageBox.warning(self, "Erro", "Nao foi possivel assumir a demanda.")
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao assumir demanda: {e}")
 
     def editar_demanda(self):
         if not self._pode("demandas.edit"):
             self._avisar_sem_permissao("demandas.edit")
             return
-        row = self.tabela.currentRow()
-        if row < 0:
-            QMessageBox.warning(self, "Atenção", "Selecione uma demanda para editar")
+
+        demanda = self._demanda_selecionada()
+        if not demanda:
+            QMessageBox.warning(self, "Atencao", "Selecione uma demanda para editar.")
             return
 
-        demanda_id = int(self.tabela.item(row, 0).text())
-        demanda = next((d for d in self.demandas if d["id"] == demanda_id), None)
-
-        if demanda:
-            dialog = DemandaDialog(demanda_data=demanda, parent=self)
-            if dialog.exec():
-                self.carregar_demandas()
+        dialog = DemandaDialog(
+            demanda_data=demanda,
+            requester_mode=False,
+            usuario_context=self.usuario,
+            empresa_padrao=self.empresa_param(),
+            parent=self,
+        )
+        if dialog.exec():
+            self.carregar_demandas()
 
     def concluir_demanda(self):
         if not self._pode("demandas.complete"):
             self._avisar_sem_permissao("demandas.complete")
             return
-        row = self.tabela.currentRow()
-        if row < 0:
-            QMessageBox.warning(self, "Atenção", "Selecione uma demanda para concluir")
-            return
 
-        demanda_id = int(self.tabela.item(row, 0).text())
-        demanda_titulo = self.tabela.item(row, 1).text()
+        demanda = self._demanda_selecionada()
+        if not demanda:
+            QMessageBox.warning(self, "Atencao", "Selecione uma demanda para concluir.")
+            return
 
         confirm = QMessageBox.question(
             self,
-            "Confirmar conclusão",
-            f"Deseja concluir a demanda '{demanda_titulo}'?",
-            QMessageBox.Yes | QMessageBox.No
+            "Confirmar conclusao",
+            f"Deseja concluir a demanda '{demanda.get('titulo', '')}'?",
+            QMessageBox.Yes | QMessageBox.No,
         )
+        if confirm != QMessageBox.Yes:
+            return
 
-        if confirm == QMessageBox.Yes:
-            try:
-                if api_client.concluir_demanda(demanda_id):
-                    QMessageBox.information(self, "Sucesso", "Demanda concluída com sucesso!")
-                    self.carregar_demandas()
-                else:
-                    QMessageBox.warning(self, "Erro", "Erro ao concluir demanda")
-            except Exception as e:
-                QMessageBox.critical(self, "Erro", f"Erro ao concluir: {e}")
+        try:
+            if api_client.concluir_demanda(demanda["id"]):
+                QMessageBox.information(self, "Sucesso", "Demanda concluida com sucesso!")
+                self.carregar_demandas()
+            else:
+                QMessageBox.warning(self, "Erro", "Erro ao concluir demanda.")
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao concluir: {e}")
 
     def cancelar_demanda(self):
         if not self._pode("demandas.cancel"):
             self._avisar_sem_permissao("demandas.cancel")
             return
-        row = self.tabela.currentRow()
-        if row < 0:
-            QMessageBox.warning(self, "Atenção", "Selecione uma demanda para cancelar")
-            return
 
-        demanda_id = int(self.tabela.item(row, 0).text())
-        demanda_titulo = self.tabela.item(row, 1).text()
+        demanda = self._demanda_selecionada()
+        if not demanda:
+            QMessageBox.warning(self, "Atencao", "Selecione uma demanda para cancelar.")
+            return
 
         confirm = QMessageBox.question(
             self,
             "Confirmar cancelamento",
-            f"Deseja cancelar a demanda '{demanda_titulo}'?",
-            QMessageBox.Yes | QMessageBox.No
+            f"Deseja cancelar a demanda '{demanda.get('titulo', '')}'?",
+            QMessageBox.Yes | QMessageBox.No,
         )
+        if confirm != QMessageBox.Yes:
+            return
 
-        if confirm == QMessageBox.Yes:
-            try:
-                if api_client.cancelar_demanda(demanda_id):
-                    QMessageBox.information(self, "Sucesso", "Demanda cancelada com sucesso!")
-                    self.carregar_demandas()
-                else:
-                    QMessageBox.warning(self, "Erro", "Erro ao cancelar demanda")
-            except Exception as e:
-                QMessageBox.critical(self, "Erro", f"Erro ao cancelar: {e}")
+        try:
+            if api_client.cancelar_demanda(demanda["id"]):
+                QMessageBox.information(self, "Sucesso", "Demanda cancelada com sucesso!")
+                self.carregar_demandas()
+            else:
+                QMessageBox.warning(self, "Erro", "Erro ao cancelar demanda.")
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao cancelar: {e}")
 
     def deletar_demanda(self):
         if not self._pode("demandas.delete"):
             self._avisar_sem_permissao("demandas.delete")
             return
-        row = self.tabela.currentRow()
-        if row < 0:
-            QMessageBox.warning(self, "Atenção", "Selecione uma demanda para deletar")
-            return
 
-        demanda_id = int(self.tabela.item(row, 0).text())
-        demanda_titulo = self.tabela.item(row, 1).text()
+        demanda = self._demanda_selecionada()
+        if not demanda:
+            QMessageBox.warning(self, "Atencao", "Selecione uma demanda para deletar.")
+            return
 
         confirm = QMessageBox.question(
             self,
-            "Confirmar exclusão",
-            f"Tem certeza que deseja deletar a demanda '{demanda_titulo}'?",
-            QMessageBox.Yes | QMessageBox.No
+            "Confirmar exclusao",
+            f"Tem certeza que deseja deletar a demanda '{demanda.get('titulo', '')}'?",
+            QMessageBox.Yes | QMessageBox.No,
         )
+        if confirm != QMessageBox.Yes:
+            return
 
-        if confirm == QMessageBox.Yes:
-            try:
-                if api_client.deletar_demanda(demanda_id):
-                    QMessageBox.information(self, "Sucesso", "Demanda deletada com sucesso!")
-                    self.carregar_demandas()
-                else:
-                    QMessageBox.warning(self, "Erro", "Erro ao deletar demanda")
-            except Exception as e:
-                QMessageBox.critical(self, "Erro", f"Erro ao deletar: {e}")
+        try:
+            if api_client.deletar_demanda(demanda["id"]):
+                QMessageBox.information(self, "Sucesso", "Demanda deletada com sucesso!")
+                self.carregar_demandas()
+            else:
+                QMessageBox.warning(self, "Erro", "Erro ao deletar demanda.")
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao deletar: {e}")
 
 
 class DemandaDialog(QDialog):
-    def __init__(self, demanda_data=None, readonly=False, parent=None):
+    def __init__(
+        self,
+        demanda_data=None,
+        readonly=False,
+        requester_mode=False,
+        usuario_context=None,
+        empresa_padrao=None,
+        parent=None,
+    ):
         super().__init__(parent)
         self.dados_item = demanda_data
         self.readonly = readonly
-        self.setWindowTitle("Detalhes da Demanda" if readonly else ("Editar Demanda" if demanda_data else "Nova Demanda"))
+        self.requester_mode = requester_mode
+        self.usuario_context = usuario_context or {}
+        self.empresa_padrao = empresa_padrao
+        self._rows = {}
+
+        if readonly:
+            titulo = "Detalhes da Demanda"
+        elif demanda_data:
+            titulo = "Editar Demanda"
+        else:
+            titulo = "Nova Demanda"
+
+        self.setWindowTitle(titulo)
         self.setModal(True)
-        self.setMinimumWidth(600)
-
-        # Estilo do diálogo
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #f5f7fa;
-            }
-            QDialog QPushButton {
-                min-width: 100px;
-            }
-        """)
-
+        self.setMinimumWidth(620)
         self.init_ui()
+        self._prefill_contexto_usuario()
 
-        if demanda_data and not readonly:
+        if demanda_data:
             self.carregar_dados_edicao()
-        elif demanda_data and readonly:
-            self.carregar_dados_visualizacao()
+
+        self._aplicar_modo_solicitante()
+
+        if self.readonly:
+            self.set_readonly()
 
     def init_ui(self):
         layout = QVBoxLayout(self)
 
         form_layout = QFormLayout()
-        form_layout.setSpacing(15)
+        form_layout.setSpacing(14)
+        self.form_layout = form_layout
 
-        # Título
         self.titulo_edit = QLineEdit()
-        self.titulo_edit.setPlaceholderText("Título da demanda")
-        form_layout.addRow("Título:", self.titulo_edit)
+        self.titulo_edit.setPlaceholderText("Titulo da demanda")
+        self._add_row("titulo", "Titulo:", self.titulo_edit)
 
-        # Descrição
         self.descricao_edit = QTextEdit()
-        self.descricao_edit.setMaximumHeight(100)
-        self.descricao_edit.setPlaceholderText("Descreva a demanda detalhadamente...")
-        form_layout.addRow("Descrição:", self.descricao_edit)
+        self.descricao_edit.setMaximumHeight(110)
+        self.descricao_edit.setPlaceholderText("Descreva o problema com clareza.")
+        self._add_row("descricao", "Descricao:", self.descricao_edit)
 
-        # Solicitante
         self.solicitante_edit = QLineEdit()
         self.solicitante_edit.setPlaceholderText("Nome de quem solicitou")
-        form_layout.addRow("Solicitante:", self.solicitante_edit)
+        self._add_row("solicitante", "Solicitante:", self.solicitante_edit)
 
-        # Departamento
         self.departamento_combo = QComboBox()
-        self.departamento_combo.setEditable(False)
-        self.departamento_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_departamentos_combo()
-        form_layout.addRow("Departamento:", self.departamento_combo)
+        self._add_row("departamento", "Departamento:", self.departamento_combo)
 
-        # Empresa
         self.empresa_combo = QComboBox()
-        self.empresa_combo.setEditable(False)
-        self.empresa_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_empresas_combo()
-        form_layout.addRow("Empresa:", self.empresa_combo)
+        self._add_row("empresa", "Empresa:", self.empresa_combo)
 
-        # Prioridade
         self.prioridade_combo = QComboBox()
         self.prioridade_combo.addItems(["alta", "media", "baixa"])
-        form_layout.addRow("Prioridade:", self.prioridade_combo)
+        self._add_row("prioridade", "Prioridade:", self.prioridade_combo)
 
-        # Urgência
         self.urgencia_combo = QComboBox()
         self.urgencia_combo.addItems(["alta", "media", "baixa"])
-        form_layout.addRow("Urgência:", self.urgencia_combo)
+        self._add_row("urgencia", "Urgencia:", self.urgencia_combo)
 
-        # Status
         self.status_combo = QComboBox()
         self.status_combo.addItems(["aberto", "andamento", "concluido", "cancelado"])
-        form_layout.addRow("Status:", self.status_combo)
+        self._add_row("status", "Status:", self.status_combo)
 
-        # Data Prevista
         self.data_prevista = QDateEdit()
-        self.data_prevista.setDate(QDate.currentDate().addDays(7))
         self.data_prevista.setCalendarPopup(True)
-        form_layout.addRow("Data Prevista:", self.data_prevista)
+        self.data_prevista.setDate(QDate.currentDate().addDays(7))
+        self._add_row("data_prevista", "Data Prevista:", self.data_prevista)
 
-        # Responsável
         self.responsavel_edit = QLineEdit()
-        self.responsavel_edit.setPlaceholderText("Responsável pela demanda")
-        form_layout.addRow("Responsável:", self.responsavel_edit)
+        self.responsavel_edit.setPlaceholderText("Responsavel pela demanda")
+        self._add_row("responsavel", "Responsavel:", self.responsavel_edit)
 
-        # Observação
         self.observacao_edit = QTextEdit()
         self.observacao_edit.setMaximumHeight(80)
-        self.observacao_edit.setPlaceholderText("Observações adicionais...")
-        form_layout.addRow("Observação:", self.observacao_edit)
+        self.observacao_edit.setPlaceholderText("Observacoes adicionais")
+        self._add_row("observacao", "Observacao:", self.observacao_edit)
 
         layout.addLayout(form_layout)
 
-        btn_layout = QHBoxLayout()
-        btn_layout.addStretch()
+        botoes = QHBoxLayout()
+        botoes.addStretch()
 
         if not self.readonly:
             self.salvar_btn = QPushButton("Salvar")
             self.salvar_btn.clicked.connect(self.salvar)
-            btn_layout.addWidget(self.salvar_btn)
+            botoes.addWidget(self.salvar_btn)
 
         self.cancelar_btn = QPushButton("Fechar" if self.readonly else "Cancelar")
         self.cancelar_btn.clicked.connect(self.reject)
-        btn_layout.addWidget(self.cancelar_btn)
+        botoes.addWidget(self.cancelar_btn)
 
-        layout.addLayout(btn_layout)
+        layout.addLayout(botoes)
 
-        if self.readonly:
-            self.set_readonly()
+    def _add_row(self, key, label_text, widget):
+        label = QLabel(label_text)
+        self.form_layout.addRow(label, widget)
+        self._rows[key] = (label, widget)
+
+    def _set_row_visible(self, key, visible):
+        label, widget = self._rows[key]
+        label.setVisible(visible)
+        widget.setVisible(visible)
+
+    def _set_combo_value(self, combo, value, append_if_missing=False):
+        texto = "" if value is None else str(value)
+        index = combo.findText(texto)
+        if index < 0 and texto and append_if_missing:
+            combo.addItem(texto)
+            index = combo.findText(texto)
+        if index >= 0:
+            combo.setCurrentIndex(index)
+
+    def _prefill_contexto_usuario(self):
+        if self.usuario_context.get("nome"):
+            self.solicitante_edit.setText(str(self.usuario_context.get("nome")))
+        empresa = self.usuario_context.get("empresa") or self.empresa_padrao
+        if empresa:
+            self._set_combo_value(self.empresa_combo, empresa, append_if_missing=True)
+        if self.requester_mode:
+            self.status_combo.setCurrentText("aberto")
+
+    def _aplicar_modo_solicitante(self):
+        if not self.requester_mode:
+            return
+
+        self._set_row_visible("solicitante", False)
+        self._set_row_visible("responsavel", False)
+        self._set_row_visible("observacao", False)
+        self._set_row_visible("status", self.readonly)
+        self._set_row_visible("data_prevista", self.readonly)
+        self.empresa_combo.setEnabled(False)
 
     def carregar_departamentos_combo(self):
-        """Carregar os departamentos do backend para o combobox"""
-        """Carrega os departamentos do backend para o combobox"""
         try:
             departamentos = api_client.get_departamentos_lista()
             self.departamento_combo.clear()
-            for dept in departamentos:
-                if dept and dept.strip():
-                    self.departamento_combo.addItem(dept)
-
+            for departamento in departamentos:
+                if departamento and str(departamento).strip():
+                    self.departamento_combo.addItem(departamento)
             if self.departamento_combo.count() == 0:
-                default_depts = ["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logística"]
-                for dept in default_depts:
-                    self.departamento_combo.addItem(dept)
+                for item in ["TI", "Administrativo", "Financeiro", "Comercial"]:
+                    self.departamento_combo.addItem(item)
         except Exception as e:
-            print(f"❌ Erro ao carregar departamentos: {e}")
-            default_depts = ["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logística"]
-            for dept in default_depts:
-                self.departamento_combo.addItem(dept)
+            print(f"Erro ao carregar departamentos: {e}")
+            for item in ["TI", "Administrativo", "Financeiro", "Comercial"]:
+                self.departamento_combo.addItem(item)
 
     def carregar_empresas_combo(self):
-        """Carrega as empresas do backend para o combobox"""
         try:
             empresas = api_client.get_empresas()
             self.empresa_combo.clear()
-            for emp in empresas:
-                if emp and emp.strip():
-                    self.empresa_combo.addItem(emp)
+            for empresa in empresas:
+                if empresa and str(empresa).strip():
+                    self.empresa_combo.addItem(empresa)
         except Exception as e:
-            print(f"❌ Erro ao carregar empresas: {e}")
-            default_empresas = ["Matriz", "Filial 1", "Filial 2", "Filial 3"]
-            for emp in default_empresas:
-                self.empresa_combo.addItem(emp)
+            print(f"Erro ao carregar empresas: {e}")
+            for item in ["Matriz", "Filial 1", "Filial 2"]:
+                self.empresa_combo.addItem(item)
 
     def set_readonly(self):
         self.titulo_edit.setReadOnly(True)
@@ -542,69 +737,61 @@ class DemandaDialog(QDialog):
         self.titulo_edit.setText(str(self.dados_item.get("titulo", "")))
         self.descricao_edit.setPlainText(str(self.dados_item.get("descricao", "")))
         self.solicitante_edit.setText(str(self.dados_item.get("solicitante", "")))
-
-        dept = str(self.dados_item.get("departamento", ""))
-        idx = self.departamento_combo.findText(dept)
-        if idx >= 0:
-            self.departamento_combo.setCurrentIndex(idx)
-
-        empresa = str(self.dados_item.get("empresa", ""))
-        idx = self.empresa_combo.findText(empresa)
-        if idx >= 0:
-            self.empresa_combo.setCurrentIndex(idx)
-
-        prioridade = str(self.dados_item.get("prioridade", "media"))
-        idx = self.prioridade_combo.findText(prioridade)
-        if idx >= 0:
-            self.prioridade_combo.setCurrentIndex(idx)
-
-        urgencia = str(self.dados_item.get("urgencia", "media"))
-        idx = self.urgencia_combo.findText(urgencia)
-        if idx >= 0:
-            self.urgencia_combo.setCurrentIndex(idx)
-
-        status = str(self.dados_item.get("status", "aberto"))
-        idx = self.status_combo.findText(status)
-        if idx >= 0:
-            self.status_combo.setCurrentIndex(idx)
+        self._set_combo_value(self.departamento_combo, self.dados_item.get("departamento", ""), append_if_missing=True)
+        self._set_combo_value(self.empresa_combo, self.dados_item.get("empresa", ""), append_if_missing=True)
+        self._set_combo_value(self.prioridade_combo, self.dados_item.get("prioridade", "media"))
+        self._set_combo_value(self.urgencia_combo, self.dados_item.get("urgencia", "media"))
+        self._set_combo_value(self.status_combo, self.dados_item.get("status", "aberto"))
 
         data_prevista = self.dados_item.get("data_prevista")
         if data_prevista:
-            parsed_date = QDate.fromString(str(data_prevista)[:10], "yyyy-MM-dd")
-            if parsed_date.isValid():
-                self.data_prevista.setDate(parsed_date)
+            parsed = QDate.fromString(str(data_prevista)[:10], "yyyy-MM-dd")
+            if parsed.isValid():
+                self.data_prevista.setDate(parsed)
+        elif self.readonly:
+            self._set_row_visible("data_prevista", False)
 
-        self.responsavel_edit.setText(str(self.dados_item.get("responsavel", "")))
-        self.observacao_edit.setPlainText(str(self.dados_item.get("observacao", "")))
-
-    def carregar_dados_visualizacao(self):
-        self.carregar_dados_edicao()
+        self.responsavel_edit.setText(str(self.dados_item.get("responsavel", "") or ""))
+        self.observacao_edit.setPlainText(str(self.dados_item.get("observacao", "") or ""))
 
     def salvar(self):
         dados = {
             "titulo": self.titulo_edit.text().strip(),
             "descricao": self.descricao_edit.toPlainText().strip(),
             "solicitante": self.solicitante_edit.text().strip(),
-            "departamento": self.departamento_combo.currentText(),
-            "empresa": self.empresa_combo.currentText(),
+            "departamento": self.departamento_combo.currentText() or None,
+            "empresa": self.empresa_combo.currentText().strip(),
             "prioridade": self.prioridade_combo.currentText(),
             "urgencia": self.urgencia_combo.currentText(),
             "status": self.status_combo.currentText(),
             "data_prevista": self.data_prevista.date().toString("yyyy-MM-dd"),
             "responsavel": self.responsavel_edit.text().strip() or None,
-            "observacao": self.observacao_edit.toPlainText().strip() or None
+            "observacao": self.observacao_edit.toPlainText().strip() or None,
         }
 
+        if self.requester_mode:
+            dados["solicitante"] = str(self.usuario_context.get("nome") or dados["solicitante"]).strip()
+            dados["empresa"] = str(self.usuario_context.get("empresa") or dados["empresa"]).strip()
+            if not self.dados_item:
+                dados["status"] = "aberto"
+                dados["responsavel"] = None
+                dados["observacao"] = None
+                dados["data_prevista"] = None
+
         if not dados["titulo"]:
-            QMessageBox.warning(self, "Atenção", "O título é obrigatório!")
+            QMessageBox.warning(self, "Atencao", "O titulo e obrigatorio.")
             return
 
         if not dados["descricao"]:
-            QMessageBox.warning(self, "Atenção", "A descrição é obrigatória!")
+            QMessageBox.warning(self, "Atencao", "A descricao e obrigatoria.")
             return
 
         if not dados["solicitante"]:
-            QMessageBox.warning(self, "Atenção", "O solicitante é obrigatório!")
+            QMessageBox.warning(self, "Atencao", "O solicitante e obrigatorio.")
+            return
+
+        if not dados["empresa"]:
+            QMessageBox.warning(self, "Atencao", "A empresa e obrigatoria.")
             return
 
         try:
@@ -614,13 +801,18 @@ class DemandaDialog(QDialog):
                     QMessageBox.information(self, "Sucesso", "Demanda atualizada com sucesso!")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Erro ao atualizar demanda")
+                    QMessageBox.warning(self, "Erro", "Erro ao atualizar demanda.")
             else:
                 response = api_client.criar_demanda(dados)
                 if response:
-                    QMessageBox.information(self, "Sucesso", "Demanda criada com sucesso!")
+                    protocolo = response.get("id")
+                    if self.requester_mode and protocolo:
+                        mensagem = f"Demanda #{protocolo} enviada com sucesso!"
+                    else:
+                        mensagem = "Demanda criada com sucesso!"
+                    QMessageBox.information(self, "Sucesso", mensagem)
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Erro ao criar demanda")
+                    QMessageBox.warning(self, "Erro", "Erro ao criar demanda.")
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao salvar: {e}")

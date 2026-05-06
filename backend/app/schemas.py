@@ -146,6 +146,7 @@ class PedidoBase(BaseModel):
     data_conclusao: Optional[date] = None
     status: str = 'pendente'
     observacao: Optional[str] = None
+    link_compra: Optional[str] = None
 
 class PedidoCreate(BaseModel):
     material_id: Optional[int] = None  # Pode ser None
@@ -156,6 +157,7 @@ class PedidoCreate(BaseModel):
     departamento: Optional[str] = None
     status: str = "pendente"
     observacao: Optional[str] = None
+    link_compra: Optional[str] = None
 
 class PedidoUpdate(BaseModel):
     quantidade: Optional[int] = None
@@ -164,6 +166,7 @@ class PedidoUpdate(BaseModel):
     data_conclusao: Optional[date] = None
     status: Optional[str] = None
     observacao: Optional[str] = None
+    link_compra: Optional[str] = None
 
 class PedidoResponse(PedidoBase):
     id: int
@@ -183,7 +186,7 @@ class UsuarioSistemaBase(BaseModel):
     nome: str
     cargo: Optional[str] = None
     empresa: str
-    nivel_acesso: str = 'usuario' # admin, gerente, usuario
+    nivel_acesso: str = 'usuario' # admin, gerente, usuario, solicitante
     ativo: bool = True
 
 class UsuarioSistemaCreate(UsuarioSistemaBase):
@@ -287,6 +290,9 @@ class DemandaCreate(DemandaBase):
 class DemandaUpdate(BaseModel):
     titulo: Optional[str] = None
     descricao: Optional[str] = None
+    solicitante: Optional[str] = None
+    departamento: Optional[str] = None
+    empresa: Optional[str] = None
     prioridade: Optional[str] = None
     urgencia: Optional[str] = None
     status: Optional[str] = None
@@ -297,6 +303,7 @@ class DemandaUpdate(BaseModel):
 
 class DemandaResponse(DemandaBase):
     id: int
+    criado_por: Optional[int] = None
     data_abertura: datetime
     data_conclusao: Optional[date] = None
     criado_em: datetime

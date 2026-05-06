@@ -749,6 +749,19 @@ class APIClient:
         except:
             return False
 
+    def assumir_demanda(self, demanda_id):
+        """Assume uma demanda para o usuario autenticado"""
+        try:
+            response = requests.put(
+                f"{self.base_url}/api/demandas/{demanda_id}/assumir",
+                headers=self.get_headers(),
+                timeout=30
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"Erro ao assumir demanda: {e}")
+            return False
+
     def cancelar_demanda(self, demanda_id):
         """Cancela uma demanda"""
         try:

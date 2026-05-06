@@ -1,9 +1,11 @@
+from urllib.parse import urlparse
+
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
                                QTableWidgetItem, QPushButton, QLabel, QLineEdit,
                                QComboBox, QDialog, QFormLayout, QSpinBox,
                                QTextEdit, QMessageBox, QHeaderView, QDateEdit, QApplication)
-from PySide6.QtCore import Qt, QDate
-from PySide6.QtGui import QFont, QColor, QCursor
+from PySide6.QtCore import Qt, QDate, QUrl
+from PySide6.QtGui import QDesktopServices, QFont, QColor, QCursor
 from api_client import api_client
 from access_control import get_action_label, has_action_access
 from widgets.company_filter_utils import company_filter_ready, populate_company_filter, selected_company_value
@@ -114,13 +116,20 @@ class PedidosWidget(QWidget):
         headers = ["ID", "Material", "Qtd", "Solicitante", "Empresa", "Dept", "Data Solic.", "Data Conclusão", "Status", "Observação"]
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
-        configure_data_table(self.tabela, stretch_columns=(1, 9))
+        headers.insert(9, "Link")
+        self.tabela.setColumnCount(len(headers))
+        self.tabela.setHorizontalHeaderLabels(headers)
+        configure_data_table(self.tabela, stretch_columns=(1, 9, 10))
 
         layout.addWidget(self.tabela)
 
         # Botões de ação
         acoes = QHBoxLayout()
         acoes.addStretch()
+
+        self.abrir_link_btn = QPushButton("Abrir Link")
+        self.abrir_link_btn.clicked.connect(self.abrir_link_pedido)
+        acoes.addWidget(self.abrir_link_btn)
 
         self.editar_btn = QPushButton("✏️ Editar")
         self.editar_btn.clicked.connect(self.editar_pedido)
@@ -160,6 +169,8 @@ class PedidosWidget(QWidget):
             self.novo_btn.setVisible(self._pode("pedidos.create"))
         if hasattr(self, "editar_btn"):
             self.editar_btn.setVisible(self._pode("pedidos.edit"))
+        if hasattr(self, "abrir_link_btn"):
+            self.abrir_link_btn.setVisible(True)
         if hasattr(self, "aprovar_btn"):
             self.aprovar_btn.setVisible(self._pode("pedidos.approve"))
         if hasattr(self, "concluir_btn"):
@@ -174,6 +185,25 @@ class PedidosWidget(QWidget):
 
     def empresa_param(self):
         return selected_company_value(self.empresa_filter)
+
+    def _pedido_selecionado(self):
+        current_row = self.tabela.currentRow()
+        if current_row < 0 or self.tabela.item(current_row, 0) is None:
+            return None
+
+        pedido_id = int(self.tabela.item(current_row, 0).text())
+        return next((pedido for pedido in self.pedidos if pedido.get("id") == pedido_id), None)
+
+    def _texto_link(self, link_compra):
+        link = str(link_compra or "").strip()
+        if not link:
+            return "-"
+
+        if "://" not in link:
+            link = f"https://{link}"
+
+        parsed = urlparse(link)
+        return parsed.netloc or "Link salvo"
 
     def _mostrar_prompt_empresa(self):
         self.pedidos = []
@@ -288,7 +318,11 @@ class PedidosWidget(QWidget):
             status_item.setForeground(status_color)
             self.tabela.setItem(row, 8, status_item)
 
-            self.tabela.setItem(row, 9, QTableWidgetItem(pedido.get("observacao", "-")[:50]))
+            link_item = QTableWidgetItem(self._texto_link(pedido.get("link_compra")))
+            link_item.setToolTip(pedido.get("link_compra") or "")
+            self.tabela.setItem(row, 9, link_item)
+
+            self.tabela.setItem(row, 10, QTableWidgetItem(str(pedido.get("observacao") or "-")[:50]))
 
     def novo_pedido(self):
         if not self._pode("pedidos.create"):
@@ -297,7 +331,7 @@ class PedidosWidget(QWidget):
         if not self.empresa_pronta():
             QMessageBox.warning(self, "Atenção", "Selecione uma empresa antes de registrar pedidos.")
             return
-        dialog = PedidoDialog(materiais=self.materiais, parent=self)
+        dialog = PedidoDialog(materiais=self.materiais, empresa_padrao=self.empresa_param(), parent=self)
         if dialog.exec():
             self.carregar_pedidos()
             self.carregar_materiais(empresa=self.empresa_param())
@@ -314,10 +348,35 @@ class PedidosWidget(QWidget):
         pedido = next((p for p in self.pedidos if p["id"] == pedido_id), None)
 
         if pedido:
-            dialog = PedidoDialog(pedido_data=pedido, materiais=self.materiais, parent=self)
+            dialog = PedidoDialog(
+                pedido_data=pedido,
+                materiais=self.materiais,
+                empresa_padrao=self.empresa_param(),
+                parent=self,
+            )
             if dialog.exec():
                 self.carregar_pedidos()
                 self.carregar_materiais(empresa=self.empresa_param())
+
+    def abrir_link_pedido(self):
+        pedido = self._pedido_selecionado()
+        if not pedido:
+            QMessageBox.warning(self, "Atencao", "Selecione um pedido para abrir o link.")
+            return
+
+        link_compra = str(pedido.get("link_compra") or "").strip()
+        if not link_compra:
+            QMessageBox.information(self, "Sem link", "Esse pedido ainda nao possui link de compra cadastrado.")
+            return
+
+        url = QUrl.fromUserInput(link_compra)
+        if not url.isValid():
+            QMessageBox.warning(self, "Link invalido", "O link salvo para este pedido nao pode ser aberto.")
+            return
+
+        if not QDesktopServices.openUrl(url):
+            QMessageBox.warning(self, "Erro", "Nao foi possivel abrir o link de compra.")
+
     def aprovar_pedido(self):
         if not self._pode("pedidos.approve"):
             self._avisar_sem_permissao("pedidos.approve")
@@ -472,10 +531,11 @@ class PedidosWidget(QWidget):
 
 
 class PedidoDialog(QDialog):
-    def __init__(self, pedido_data=None, materiais=None, parent=None):
+    def __init__(self, pedido_data=None, materiais=None, empresa_padrao=None, parent=None):
         super().__init__(parent)
         self.dados_item = pedido_data
         self.materiais = materiais or []
+        self.empresa_padrao = empresa_padrao
         self.setWindowTitle("Novo Pedido" if not pedido_data else "Editar Pedido")
         self.setModal(True)
         self.setMinimumWidth(550)
@@ -571,6 +631,10 @@ class PedidoDialog(QDialog):
         self.observacao_edit.setPlaceholderText("Observações adicionais...")
         form_layout.addRow("Observação:", self.observacao_edit)
 
+        self.link_compra_edit = QLineEdit()
+        self.link_compra_edit.setPlaceholderText("https://www.mercadolivre.com.br/... ou www.amazon.com.br/...")
+        form_layout.addRow("Link de compra:", self.link_compra_edit)
+
         layout.addLayout(form_layout)
 
         btn_layout = QHBoxLayout()
@@ -601,6 +665,11 @@ class PedidoDialog(QDialog):
             default_empresas = ["Matriz", "Filial 1", "Filial 2", "Filial 3"]
             for emp in default_empresas:
                 self.empresa_combo.addItem(emp)
+
+        if self.empresa_padrao:
+            indice = self.empresa_combo.findText(str(self.empresa_padrao))
+            if indice >= 0:
+                self.empresa_combo.setCurrentIndex(indice)
 
     def carregar_departamentos_combo(self):
         """Carrega os departamentos do backend para o combobox"""
@@ -648,10 +717,11 @@ class PedidoDialog(QDialog):
             self.material_edit.setText(novo_material_nome)
             self.material_id_edit.setText("")  # Será buscado pelo nome ao salvar
 
-    def carregar_materiais_novos(self):
+    def carregar_materiais_novos(self, empresa=None):
         """Recarrega a lista de materiais"""
         try:
-            self.materiais = api_client.listar_materiais_para_pedido()
+            empresa_escolhida = empresa if empresa is not None else self.empresa_combo.currentText()
+            self.materiais = api_client.listar_materiais_para_pedido(empresa=empresa_escolhida)
             self.material_combo.clear()
             self.material_combo.addItem("-- Selecione um material existente --")
             for mat in self.materiais:
@@ -713,6 +783,21 @@ class PedidoDialog(QDialog):
 
         # Observação
         self.observacao_edit.setPlainText(str(self.dados_item.get("observacao", "")))
+        self.link_compra_edit.setText(str(self.dados_item.get("link_compra", "") or ""))
+
+    def normalizar_link_compra(self, link_compra):
+        valor = str(link_compra or "").strip()
+        if not valor:
+            return None
+
+        if "://" not in valor:
+            valor = f"https://{valor}"
+
+        parsed = urlparse(valor)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            return None
+
+        return parsed.geturl()
 
     def salvar(self):
         # Obter o material
@@ -728,6 +813,12 @@ class PedidoDialog(QDialog):
         empresa = self.empresa_combo.currentText()
         departamento = self.departamento_combo.currentText()
         observacao = self.observacao_edit.toPlainText().strip()
+        link_compra = self.link_compra_edit.text().strip()
+        link_normalizado = self.normalizar_link_compra(link_compra)
+
+        if link_compra and not link_normalizado:
+            QMessageBox.warning(self, "Atencao", "Informe um link de compra valido.")
+            return
 
         if not solicitante:
             QMessageBox.warning(self, "Atenção", "Informe o nome do solicitante!")
@@ -750,7 +841,8 @@ class PedidoDialog(QDialog):
             "solicitante": solicitante,
             "empresa": empresa,
             "departamento": departamento or None,
-            "observacao": observacao or None
+            "observacao": observacao or None,
+            "link_compra": link_normalizado,
         }
 
         if material_existente:
@@ -779,7 +871,7 @@ class PedidoDialog(QDialog):
                 if response:
                     QMessageBox.information(self, "Sucesso", "Pedido criado com sucesso!")
                     # Recarregar materiais para incluir o novo material
-                    self.carregar_materiais_novos()
+                    self.carregar_materiais_novos(empresa=empresa)
                     self.accept()
                 else:
                     QMessageBox.warning(self, "Erro", "Erro ao criar pedido")

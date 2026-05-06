@@ -88,8 +88,8 @@ class MainWindow(QMainWindow):
         # ✅ Carregar dados em background
         self.load_background_data()
 
-        # Selecionar home por padrão
-        self.show_home()
+        # Abrir a primeira tela acessivel para o perfil
+        self.show_default_screen()
 
     def set_active_menu(self, screen_key=None):
         """Marca o menu como ativo visualmente"""
@@ -171,10 +171,12 @@ class MainWindow(QMainWindow):
         # botão de Notificações
         self.notification_btn = NotificationBadge()
         self.notification_btn.clicked.connect(self.show_notification_center)
+        self.notification_btn.setVisible(has_screen_access(self.usuario, "notificacoes"))
         bottom_layout.addWidget(self.notification_btn)
 
         # Atualizar contador inicial
-        self.notification_btn.atualizar_contador()
+        if has_screen_access(self.usuario, "notificacoes"):
+            self.notification_btn.atualizar_contador()
 
         # Botão Trocar Usuário
         btn_trocar_usuario = QPushButton("🔄 Trocar Usuário")
@@ -220,7 +222,7 @@ class MainWindow(QMainWindow):
         self.relatorios_widget = RelatoriosWidget()
         self.usuarios_widget = UsuariosWidget()
         self.parametros_widget = ParametrosWidget()
-        self.access_denied_widget = AccessDeniedWidget(on_back_home=self.show_home)
+        self.access_denied_widget = AccessDeniedWidget(on_back_home=self.show_default_screen)
         for widget in (
             self.materiais_widget,
             self.maquinas_widget,
@@ -279,6 +281,25 @@ class MainWindow(QMainWindow):
             on_show()
         self.set_active_menu(screen_key)
         return True
+
+    def _default_screen_key(self):
+        for screen_key in ("home", "demandas", "movimentacoes", "updates"):
+            if has_screen_access(self.usuario, screen_key):
+                return screen_key
+        return None
+
+    def show_default_screen(self):
+        screen_key = self._default_screen_key()
+        if screen_key == "home":
+            self.show_home()
+        elif screen_key == "demandas":
+            self.show_demandas()
+        elif screen_key == "movimentacoes":
+            self.show_movimentacoes()
+        elif screen_key == "updates":
+            self.show_updates()
+        else:
+            self.show_access_denied("home")
 
     def show_access_denied(self, screen_key):
         screen_label = get_screen_label(screen_key)

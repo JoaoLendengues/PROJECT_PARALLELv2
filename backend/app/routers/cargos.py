@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from typing import Optional, List
+from app.audit import model_to_dict, registrar_log_auditoria
 from app.database import get_db
 from app import models, schemas, auth
 
@@ -45,7 +46,8 @@ def get_lista_cargos(
 def criar_cargo(
     cargo: schemas.CargoCreate,
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.verificar_admin)
+    current_user: models.UsuarioSistema = Depends(auth.verificar_admin),
+    http_request: Request = None
 ):
     """Cria um novo cargo (apenas admin)"""
     
@@ -58,6 +60,16 @@ def criar_cargo(
     
     novo_cargo = models.Cargo(**cargo.model_dump())
     db.add(novo_cargo)
+    db.flush()
+    registrar_log_auditoria(
+        db,
+        current_user,
+        acao="CREATE",
+        tabela_afetada="cargos",
+        registro_id=novo_cargo.id,
+        dados_novos=model_to_dict(novo_cargo),
+        request=http_request,
+    )
     db.commit()
     db.refresh(novo_cargo)
     
@@ -69,7 +81,8 @@ def atualizar_cargo(
     cargo_id: int,
     cargo: schemas.CargoUpdate,
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.verificar_admin)
+    current_user: models.UsuarioSistema = Depends(auth.verificar_admin),
+    http_request: Request = None
 ):
     """Atualiza um cargo (apenas admin)"""
     
@@ -80,6 +93,7 @@ def atualizar_cargo(
     if not cargo_existente:
         raise HTTPException(status_code=404, detail="Cargo nao encontrado")
     
+    dados_anteriores = model_to_dict(cargo_existente)
     update_data = cargo.model_dump(exclude_unset=True)
 
     novo_nome = update_data.get("nome")
@@ -102,19 +116,34 @@ def atualizar_cargo(
     for field, value in update_data.items():
         setattr(cargo_existente, field, value)
 
+    propagacao = {}
     if novo_nome and novo_nome != nome_anterior:
-        db.query(models.Colaborador).filter(
+        propagacao["colaboradores"] = db.query(models.Colaborador).filter(
             models.Colaborador.cargo == nome_anterior
         ).update({models.Colaborador.cargo: novo_nome}, synchronize_session=False)
 
-        db.query(models.UsuarioSistema).filter(
+        propagacao["usuarios_sistema"] = db.query(models.UsuarioSistema).filter(
             models.UsuarioSistema.cargo == nome_anterior
         ).update({models.UsuarioSistema.cargo: novo_nome}, synchronize_session=False)
 
-        db.query(models.Usuario).filter(
+        propagacao["usuarios_legado"] = db.query(models.Usuario).filter(
             models.Usuario.cargo == nome_anterior
         ).update({models.Usuario.cargo: novo_nome}, synchronize_session=False)
-    
+
+    dados_novos = model_to_dict(cargo_existente)
+    if propagacao:
+        dados_novos["propagacao"] = propagacao
+
+    registrar_log_auditoria(
+        db,
+        current_user,
+        acao="UPDATE",
+        tabela_afetada="cargos",
+        registro_id=cargo_existente.id,
+        dados_anteriores=dados_anteriores,
+        dados_novos=dados_novos,
+        request=http_request,
+    )
     db.commit()
     db.refresh(cargo_existente)
     
@@ -125,7 +154,8 @@ def atualizar_cargo(
 def deletar_cargo(
     cargo_id: int,
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.verificar_admin)
+    current_user: models.UsuarioSistema = Depends(auth.verificar_admin),
+    http_request: Request = None
 ):
     """Remove um cargo (apenas admin)"""
     
@@ -153,6 +183,16 @@ def deletar_cargo(
             detail="Cargo estÃ¡ sendo usado em outros registros do sistema"
         )
     
+    dados_anteriores = model_to_dict(cargo)
+    registrar_log_auditoria(
+        db,
+        current_user,
+        acao="DELETE",
+        tabela_afetada="cargos",
+        registro_id=cargo.id,
+        dados_anteriores=dados_anteriores,
+        request=http_request,
+    )
     db.delete(cargo)
     db.commit()
     
