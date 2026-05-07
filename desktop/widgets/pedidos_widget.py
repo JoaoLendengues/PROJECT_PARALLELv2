@@ -12,7 +12,7 @@ from widgets.company_filter_utils import company_filter_ready, populate_company_
 from widgets.form_feedback import focus_invalid_field, optional_label, required_field_message, required_hint_label, required_label
 from widgets.toast_notification import notification_manager
 from widgets.filter_utils import contains_text, is_all_option, same_filter_value, same_text
-from widgets.table_utils import configure_data_table, number_item
+from widgets.table_utils import configure_data_table, number_item, refresh_data_table_layout
 from user_preferences import (
     apply_combo_data,
     apply_combo_text,
@@ -146,7 +146,24 @@ class PedidosWidget(QWidget):
         headers.insert(9, "Link")
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
-        configure_data_table(self.tabela, stretch_columns=(1, 9, 10))
+        configure_data_table(
+            self.tabela,
+            stretch_columns=(1, 9, 10),
+            minimum_section_size=88,
+            minimum_widths={
+                0: 72,
+                1: 220,
+                2: 90,
+                3: 170,
+                4: 170,
+                5: 150,
+                6: 135,
+                7: 150,
+                8: 120,
+                9: 170,
+                10: 240,
+            },
+        )
         self.tabela.horizontalHeader().sortIndicatorChanged.connect(self._ao_ordenar_tabela)
 
         layout.addWidget(self.tabela)
@@ -410,6 +427,7 @@ class PedidosWidget(QWidget):
             self.tabela.setItem(row, 10, QTableWidgetItem(str(pedido.get("observacao") or "-")[:50]))
 
         apply_table_sort_state(self.tabela, self._saved_preferences.get("sort"))
+        refresh_data_table_layout(self.tabela)
 
     def novo_pedido(self):
         if not self._pode("pedidos.create"):

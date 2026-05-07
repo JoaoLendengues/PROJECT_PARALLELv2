@@ -10,7 +10,7 @@ from widgets.company_filter_utils import company_filter_ready, populate_company_
 from widgets.form_feedback import focus_invalid_field, optional_label, required_field_message, required_hint_label, required_label
 from widgets.toast_notification import notification_manager
 from widgets.filter_utils import contains_text, is_all_option, same_filter_value, same_text
-from widgets.table_utils import configure_data_table, number_item
+from widgets.table_utils import configure_data_table, number_item, refresh_data_table_layout
 from user_preferences import (
     apply_combo_data,
     apply_combo_text,
@@ -140,7 +140,20 @@ class MateriaisWidget(QWidget):
         headers = ["ID", "Nome", "Descrição", "Qtd", "Categoria", "Empresa", "Status"]
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
-        configure_data_table(self.tabela, stretch_columns=(1, 2))
+        configure_data_table(
+            self.tabela,
+            stretch_columns=(1, 2),
+            minimum_section_size=88,
+            minimum_widths={
+                0: 72,
+                1: 220,
+                2: 280,
+                3: 90,
+                4: 160,
+                5: 180,
+                6: 120,
+            },
+        )
         self.tabela.horizontalHeader().sortIndicatorChanged.connect(self._ao_ordenar_tabela)
 
         layout.addWidget(self.tabela)
@@ -327,6 +340,7 @@ class MateriaisWidget(QWidget):
             self.tabela.setItem(row, 6, status_item)
 
         apply_table_sort_state(self.tabela, self._saved_preferences.get("sort"))
+        refresh_data_table_layout(self.tabela)
 
     def novo_material(self):
         if not self._pode("materiais.create"):
@@ -628,7 +642,18 @@ class MaterialDialog(QDialog):
         }
 
         if not dados["nome"]:
-            QMessageBox.warning(self, "Atenção", "O nome do material é obrigatório!")
+            focus_invalid_field(self.nome_edit)
+            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Nome do Material"))
+            return
+
+        if not dados["categoria"]:
+            focus_invalid_field(self.categoria_combo)
+            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Categoria"))
+            return
+
+        if not dados["empresa"]:
+            focus_invalid_field(self.empresa_combo)
+            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Empresa"))
             return
 
         try:
@@ -637,20 +662,20 @@ class MaterialDialog(QDialog):
             if self.dados_item:
                 response = api_client.atualizar_material(self.dados_item['id'], dados)
                 if response:
-                    QMessageBox.information(self, 'Sucesso', 'Material atualizado com sucesso')
+                    QMessageBox.information(self, "Sucesso", f"Material '{dados['nome']}' atualizado com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, 'Erro', 'Erro ao atualizar material')
+                    QMessageBox.warning(self, "Erro", "Nao foi possivel atualizar o material. Revise os dados e tente novamente.")
             else:
                 response = api_client.criar_material(dados)
                 if response:
-                    QMessageBox.information(self, 'Sucesso', 'Material criado com sucesso')
+                    QMessageBox.information(self, "Sucesso", f"Material '{dados['nome']}' criado com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, 'Erro', 'Erro ao criar material')
+                    QMessageBox.warning(self, "Erro", "Nao foi possivel criar o material. Revise os dados e tente novamente.")
 
             QApplication.restoreOverrideCursor()
 
         except Exception as e:
             QApplication.restoreOverrideCursor()
-            QMessageBox.critical(self, 'Erro', f'Erro ao salvar: {e}')
+            QMessageBox.critical(self, "Erro", f"Nao foi possivel salvar o material.\n\nDetalhes: {e}")

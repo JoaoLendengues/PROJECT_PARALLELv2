@@ -2,15 +2,15 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
                                QTableWidgetItem, QPushButton, QLabel, QLineEdit,
                                QComboBox, QDialog, QFormLayout, QTextEdit,
                                QMessageBox, QHeaderView, QApplication)
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont, QColor, QCursor
 from api_client import api_client
 from access_control import get_action_label, has_action_access
 from widgets.company_filter_utils import company_filter_ready, populate_company_filter, selected_company_value
-from widgets.form_feedback import focus_invalid_field, required_hint_label, required_label
+from widgets.form_feedback import focus_invalid_field, optional_label, required_field_message, required_hint_label, required_label
 from widgets.toast_notification import notification_manager
 from widgets.filter_utils import contains_text, is_all_option, same_filter_value, same_text
-from widgets.table_utils import configure_data_table, number_item
+from widgets.table_utils import configure_data_table, number_item, refresh_data_table_layout
 from user_preferences import (
     apply_combo_data,
     apply_combo_text,
@@ -29,10 +29,14 @@ class MaquinasWidget(QWidget):
         self.dados_cache = []
         self.departamentos = []
         self.empresas = []  # NOVO: lista de empresas
+        self.monitoramento_status = {}
         self._loaded = False
         self._restoring_preferences = False
         self._saved_preferences = {}
         self.init_ui()
+        self.monitor_timer = QTimer(self)
+        self.monitor_timer.timeout.connect(self.atualizar_monitoramento_rede)
+        self.monitor_timer.start(30000)
 
     def on_show(self):
         if not self._loaded:
@@ -69,6 +73,11 @@ class MaquinasWidget(QWidget):
         self.atualizar_btn.setFixedHeight(40)
         self.atualizar_btn.clicked.connect(self.carregar_maquinas)
         header.addWidget(self.atualizar_btn)
+
+        self.monitorar_btn = QPushButton("📡 Atualizar Rede")
+        self.monitorar_btn.setFixedHeight(40)
+        self.monitorar_btn.clicked.connect(lambda: self.atualizar_monitoramento_rede(show_feedback=True))
+        header.addWidget(self.monitorar_btn)
 
         layout.addLayout(header)
 
@@ -117,6 +126,10 @@ class MaquinasWidget(QWidget):
         self.empresa_prompt.setStyleSheet("color: #64748b; font-size: 13px;")
         layout.addWidget(self.empresa_prompt)
 
+        self.monitoramento_label = QLabel("Monitoramento de rede local aguardando a primeira leitura.")
+        self.monitoramento_label.setStyleSheet("color: #64748b; font-size: 12px;")
+        layout.addWidget(self.monitoramento_label)
+
         # Tabela de máquinas
         self.tabela = QTableWidget()
         self.tabela.setAlternatingRowColors(True)
@@ -134,10 +147,26 @@ class MaquinasWidget(QWidget):
             }
         """)
 
-        headers = ["ID", "Nome", "Modelo", "Endereço MAC", "Empresa", "Departamento", "Status", "Observações"]
+        headers = ["ID", "Nome", "Modelo", "IP/Host", "Endereço MAC", "Empresa", "Departamento", "Rede", "Status", "Observações"]
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
-        configure_data_table(self.tabela, stretch_columns=(1, 7))
+        configure_data_table(
+            self.tabela,
+            stretch_columns=(1, 9),
+            minimum_section_size=88,
+            minimum_widths={
+                0: 72,
+                1: 210,
+                2: 170,
+                3: 170,
+                4: 170,
+                5: 170,
+                6: 180,
+                7: 145,
+                8: 120,
+                9: 240,
+            },
+        )
         self.tabela.horizontalHeader().sortIndicatorChanged.connect(self._ao_ordenar_tabela)
 
         layout.addWidget(self.tabela)
@@ -222,8 +251,10 @@ class MaquinasWidget(QWidget):
     def _mostrar_prompt_empresa(self):
         self.maquinas = []
         self.dados_cache = []
+        self.monitoramento_status = {}
         self.tabela.setRowCount(0)
         self.empresa_prompt.setVisible(True)
+        self.monitoramento_label.setText("Selecione uma empresa para iniciar o monitoramento de rede.")
 
     def ao_alterar_empresa(self):
         if not self.empresa_pronta():
@@ -265,12 +296,54 @@ class MaquinasWidget(QWidget):
         try:
             self.maquinas = api_client.listar_maquinas(empresa=self.empresa_param())
             self.dados_cache = self.maquinas.copy()
+            self._carregar_status_monitoramento()
             self.filtrar_maquinas()
             self.empresa_prompt.setVisible(False)
             print(f"✅ Máquinas carregadas: {len(self.maquinas)}")
         except Exception as e:
             print(f"❌ Erro ao carregar máquinas: {e}")
             QMessageBox.warning(self, "Erro", f"Erro ao carregar máquinas: {e}")
+
+    def _carregar_status_monitoramento(self):
+        if not self.empresa_pronta():
+            self.monitoramento_status = {}
+            self.monitoramento_label.setText("Selecione uma empresa para iniciar o monitoramento de rede.")
+            return
+
+        status_list = api_client.listar_status_maquinas_monitoramento(empresa=self.empresa_param())
+        self.monitoramento_status = {item.get("id"): item for item in status_list}
+
+        if not status_list:
+            self.monitoramento_label.setText("Nenhuma maquina encontrada para monitoramento nesta selecao.")
+            return
+
+        online = sum(1 for item in status_list if item.get("monitor_status") == "online")
+        offline = sum(1 for item in status_list if item.get("monitor_status") == "offline")
+        pendentes = sum(1 for item in status_list if item.get("monitor_status") == "nao_configurado")
+        erros = sum(1 for item in status_list if item.get("monitor_status") == "erro")
+
+        resumo = [f"{online} online", f"{offline} offline"]
+        if pendentes:
+            resumo.append(f"{pendentes} sem alvo")
+        if erros:
+            resumo.append(f"{erros} com erro")
+
+        self.monitoramento_label.setText("Monitoramento de rede local: " + " | ".join(resumo))
+
+    def atualizar_monitoramento_rede(self, show_feedback=False):
+        if not self._loaded or not self.empresa_pronta():
+            return
+
+        try:
+            self._carregar_status_monitoramento()
+            self.filtrar_maquinas()
+            if show_feedback:
+                notification_manager.success("Monitoramento das maquinas atualizado.", self.window(), 2500)
+        except Exception as e:
+            print(f"Erro ao atualizar monitoramento das maquinas: {e}")
+            self.monitoramento_label.setText("Nao foi possivel atualizar o monitoramento de rede nesta tentativa.")
+            if show_feedback:
+                notification_manager.error("Nao foi possivel atualizar o monitoramento das maquinas.", self.window(), 3000)
 
     def filtrar_maquinas(self):
         if not self.empresa_pronta():
@@ -296,8 +369,14 @@ class MaquinasWidget(QWidget):
             if not is_all_option(departamento) and not same_text(maquina.get("departamento"), departamento):
                 continue
 
-            # Filtro por pesquisa (nome, modelo, MAC)
-            if contains_text(search_text, maquina.get("nome", ""), maquina.get("modelo", ""), maquina.get("mac_address", "")):
+            # Filtro por pesquisa (nome, modelo, IP/host, MAC)
+            if contains_text(
+                search_text,
+                maquina.get("nome", ""),
+                maquina.get("modelo", ""),
+                maquina.get("ip_address", ""),
+                maquina.get("mac_address", ""),
+            ):
                 filtered.append(maquina)
 
         self.atualizar_tabela(filtered)
@@ -332,6 +411,62 @@ class MaquinasWidget(QWidget):
             self.tabela.setItem(row, 7, QTableWidgetItem(maquina.get("observacoes", "-")[:50]))
 
         apply_table_sort_state(self.tabela, self._saved_preferences.get("sort"))
+        refresh_data_table_layout(self.tabela)
+
+    def atualizar_tabela(self, maquinas):
+        self.tabela.setRowCount(len(maquinas))
+
+        status_colors = {
+            "ativo": QColor(42, 157, 143),
+            "manutencao": QColor(233, 196, 106),
+            "inativo": QColor(231, 111, 81),
+        }
+        monitor_colors = {
+            "online": QColor(34, 197, 94),
+            "offline": QColor(239, 68, 68),
+            "erro": QColor(245, 158, 11),
+            "nao_configurado": QColor(148, 163, 184),
+        }
+
+        for row, maquina in enumerate(maquinas):
+            monitor = self.monitoramento_status.get(maquina.get("id"), {})
+            ip_ou_host = maquina.get("ip_address") or monitor.get("alvo_monitoramento") or "-"
+            monitor_label = monitor.get("monitor_label", "Sem leitura")
+            monitor_status = monitor.get("monitor_status", "nao_configurado")
+            monitor_color = monitor_colors.get(monitor_status, QColor(148, 163, 184))
+            monitor_tooltip = monitor.get("detalhe") or "Aguardando leitura de rede."
+            latencia_ms = monitor.get("latencia_ms")
+            if latencia_ms is not None:
+                monitor_tooltip = f"{monitor_tooltip}\nLatencia: {latencia_ms} ms"
+
+            self.tabela.setItem(row, 0, number_item(maquina.get("id", "")))
+            self.tabela.setItem(row, 1, QTableWidgetItem(maquina.get("nome", "")))
+            self.tabela.setItem(row, 2, QTableWidgetItem(maquina.get("modelo", "-")))
+            self.tabela.setItem(row, 3, QTableWidgetItem(ip_ou_host))
+
+            mac = maquina.get("mac_address", "")
+            self.tabela.setItem(row, 4, QTableWidgetItem(mac if mac else "-"))
+            self.tabela.setItem(row, 5, QTableWidgetItem(maquina.get("empresa", "-")))
+            self.tabela.setItem(row, 6, QTableWidgetItem(maquina.get("departamento", "-")))
+
+            monitor_item = QTableWidgetItem(monitor_label)
+            monitor_item.setForeground(monitor_color)
+            monitor_item.setToolTip(monitor_tooltip)
+            self.tabela.setItem(row, 7, monitor_item)
+
+            status_item = QTableWidgetItem(maquina.get("status", "ativo").upper())
+            status_color = status_colors.get(maquina.get("status", "ativo"), QColor(0, 0, 0))
+            status_item.setForeground(status_color)
+            self.tabela.setItem(row, 8, status_item)
+
+            observacoes = maquina.get("observacoes") or "-"
+            observacao_item = QTableWidgetItem(observacoes[:80] if observacoes != "-" else "-")
+            if observacoes != "-":
+                observacao_item.setToolTip(observacoes)
+            self.tabela.setItem(row, 9, observacao_item)
+
+        apply_table_sort_state(self.tabela, self._saved_preferences.get("sort"))
+        refresh_data_table_layout(self.tabela)
 
     def nova_maquina(self):
         if not self._pode("maquinas.create"):
@@ -431,17 +566,21 @@ class MaquinaDialog(QDialog):
 
         self.nome_edit = QLineEdit()
         self.nome_edit.setPlaceholderText("Ex: PC Administrativo 01")
-        form_layout.addRow("Nome da Máquina:", self.nome_edit)
+        form_layout.addRow(required_label("Nome da Máquina:"), self.nome_edit)
 
         self.modelo_edit = QLineEdit()
         self.modelo_edit.setPlaceholderText("Ex: Dell Optiplex 3080")
-        form_layout.addRow("Modelo:", self.modelo_edit)
+        form_layout.addRow(optional_label("Modelo:"), self.modelo_edit)
 
         # NOVO: Campo Endereço MAC
         self.mac_edit = QLineEdit()
         self.mac_edit.setPlaceholderText("Ex: 00:1A:2B:3C:4D:5E")
         self.mac_edit.setMaxLength(17)
-        form_layout.addRow("Endereço MAC:", self.mac_edit)
+        form_layout.addRow(optional_label("Endereço MAC:"), self.mac_edit)
+
+        self.ip_edit = QLineEdit()
+        self.ip_edit.setPlaceholderText("Ex: 10.1.1.25 ou pc-rh-01")
+        form_layout.addRow(optional_label("IP/Host:"), self.ip_edit)
 
         self.empresa_combo = QComboBox()
         self.empresa_combo.setEditable(False)
@@ -463,7 +602,7 @@ class MaquinaDialog(QDialog):
         self.observacoes_edit = QTextEdit()
         self.observacoes_edit.setMaximumHeight(80)
         self.observacoes_edit.setPlaceholderText("Observações adicionais...")
-        form_layout.addRow("Observações:", self.observacoes_edit)
+        form_layout.addRow(optional_label("Observações:"), self.observacoes_edit)
 
         layout.addLayout(form_layout)
 
@@ -519,6 +658,9 @@ class MaquinaDialog(QDialog):
         mac = str(self.dados_item.get("mac_address", ""))
         self.mac_edit.setText(mac if mac != "None" else "")
 
+        ip_address = str(self.dados_item.get("ip_address", ""))
+        self.ip_edit.setText(ip_address if ip_address != "None" else "")
+
         empresa = str(self.dados_item.get("empresa", ""))
         idx = self.empresa_combo.findText(empresa)
         if idx >= 0:
@@ -541,6 +683,7 @@ class MaquinaDialog(QDialog):
             "nome": self.nome_edit.text().strip(),
             "modelo": self.modelo_edit.text().strip() or None,
             "mac_address": self.mac_edit.text().strip() or None,  # NOVO
+            "ip_address": self.ip_edit.text().strip() or None,
             "empresa": self.empresa_combo.currentText(),
             "departamento": self.departamento_combo.currentText(),
             "status": self.status_combo.currentText(),
@@ -549,7 +692,17 @@ class MaquinaDialog(QDialog):
 
         if not dados["nome"]:
             focus_invalid_field(self.nome_edit)
-            QMessageBox.warning(self, "Atenção", "O nome da máquina é obrigatório!")
+            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Nome da Maquina"))
+            return
+
+        if not dados["empresa"]:
+            focus_invalid_field(self.empresa_combo)
+            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Empresa"))
+            return
+
+        if not dados["departamento"]:
+            focus_invalid_field(self.departamento_combo)
+            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Departamento"))
             return
 
         try:
@@ -558,20 +711,20 @@ class MaquinaDialog(QDialog):
             if self.dados_item:
                 response = api_client.atualizar_maquina(self.dados_item["id"], dados)
                 if response and response.get("id"):
-                    QMessageBox.information(self, "Sucesso", "Máquina atualizada com sucesso!")
+                    QMessageBox.information(self, "Sucesso", f"Maquina '{dados['nome']}' atualizada com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Erro ao atualizar máquina")
+                    QMessageBox.warning(self, "Erro", "Nao foi possivel atualizar a maquina. Revise os dados e tente novamente.")
             else:
                 response = api_client.criar_maquina(dados)
                 if response and response.get("id"):
-                    QMessageBox.information(self, "Sucesso", "Máquina criada com sucesso!")
+                    QMessageBox.information(self, "Sucesso", f"Maquina '{dados['nome']}' criada com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Erro ao criar máquina")
+                    QMessageBox.warning(self, "Erro", "Nao foi possivel criar a maquina. Revise os dados e tente novamente.")
 
             QApplication.restoreOverrideCursor()
 
         except Exception as e:
             QApplication.restoreOverrideCursor()
-            QMessageBox.critical(self, "Erro", f"Erro ao salvar: {e}")
+            QMessageBox.critical(self, "Erro", f"Nao foi possivel salvar a maquina.\n\nDetalhes: {e}")

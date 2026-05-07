@@ -32,7 +32,7 @@ from widgets.company_filter_utils import (
 from widgets.form_feedback import focus_invalid_field, optional_label, required_field_message, required_hint_label, required_label
 from widgets.filter_utils import is_all_option, same_filter_value
 from widgets.filter_utils import contains_text
-from widgets.table_utils import configure_data_table, number_item
+from widgets.table_utils import configure_data_table, number_item, refresh_data_table_layout
 from user_preferences import (
     apply_combo_data,
     apply_combo_text,
@@ -237,7 +237,21 @@ class DemandasWidget(QWidget):
 
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
-        configure_data_table(self.tabela, stretch_columns=(1,))
+        configure_data_table(
+            self.tabela,
+            stretch_columns=(1,),
+            minimum_section_size=88,
+            minimum_widths={
+                0: 72,
+                1: 240,
+                2: 160,
+                3: 130,
+                4: 130,
+                5: 140,
+                6: 155,
+                7: 170,
+            },
+        )
 
     def aplicar_modo_usuario(self):
         if not hasattr(self, "titulo_label"):
@@ -445,6 +459,7 @@ class DemandasWidget(QWidget):
                 self.tabela.setItem(row, 7, QTableWidgetItem(demanda.get("responsavel", "-") or "-"))
 
         apply_table_sort_state(self.tabela, self._saved_preferences.get("sort"))
+        refresh_data_table_layout(self.tabela)
 
     def _demanda_selecionada(self):
         row = self.tabela.currentRow()

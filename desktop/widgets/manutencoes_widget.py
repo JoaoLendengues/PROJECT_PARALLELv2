@@ -7,8 +7,9 @@ from PySide6.QtGui import QFont, QColor
 from api_client import api_client
 from access_control import get_action_label, has_action_access
 from widgets.company_filter_utils import company_filter_ready, populate_company_filter, selected_company_value
+from widgets.form_feedback import focus_invalid_field, optional_label, required_field_message, required_hint_label, required_label
 from widgets.filter_utils import contains_text, is_all_option, same_filter_value, same_text
-from widgets.table_utils import configure_data_table, number_item
+from widgets.table_utils import configure_data_table, number_item, refresh_data_table_layout
 from user_preferences import (
     apply_combo_data,
     apply_combo_text,
@@ -137,7 +138,21 @@ class ManutencoesWidget(QWidget):
         headers = ["ID", "Máquina", "Tipo", "Descrição", "Data Início", "Data Fim", "Responsável", "Status"]
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
-        configure_data_table(self.tabela, stretch_columns=(3,))
+        configure_data_table(
+            self.tabela,
+            stretch_columns=(3,),
+            minimum_section_size=88,
+            minimum_widths={
+                0: 72,
+                1: 210,
+                2: 120,
+                3: 280,
+                4: 135,
+                5: 135,
+                6: 170,
+                7: 120,
+            },
+        )
         self.tabela.horizontalHeader().sortIndicatorChanged.connect(self._ao_ordenar_tabela)
 
         layout.addWidget(self.tabela)
@@ -368,6 +383,7 @@ class ManutencoesWidget(QWidget):
             self.tabela.setItem(row, 7, status_item)
 
         apply_table_sort_state(self.tabela, self._saved_preferences.get("sort"))
+        refresh_data_table_layout(self.tabela)
 
     def nova_manutencao(self):
         if not self._pode("manutencoes.create"):
@@ -503,6 +519,7 @@ class ManutencaoDialog(QDialog):
 
         form_layout = QFormLayout()
         form_layout.setSpacing(15)
+        layout.addWidget(required_hint_label())
 
         # Empresa (NOVO)
         self.empresa_combo = QComboBox()
@@ -510,47 +527,44 @@ class ManutencaoDialog(QDialog):
         self.empresa_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_empresas()
         self.empresa_combo.currentIndexChanged.connect(self.filtrar_maquinas_por_empresa)
-        form_layout.addRow('Empresa:', self.empresa_combo)
-
+        form_layout.addRow(required_label('Empresa:'), self.empresa_combo)
         # Máquina
         self.maquina_combo = QComboBox()
         self.maquina_combo.setEditable(False)
         self.maquina_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_maquinas_combo()
-        form_layout.addRow('Máquina:', self.maquina_combo)
-
+        form_layout.addRow(required_label('Máquina:'), self.maquina_combo)
         # Tipo
         self.tipo_combo = QComboBox()
         self.tipo_combo.addItems(["preventiva", "corretiva", "emergencial"])
-        form_layout.addRow("Tipo:", self.tipo_combo)
-
+        form_layout.addRow(required_label("Tipo:"), self.tipo_combo)
         # Descrição
         self.descricao_edit = QTextEdit()
         self.descricao_edit.setMaximumHeight(80)
         self.descricao_edit.setPlaceholderText("Descreva a manutenção a ser realizada...")
-        form_layout.addRow("Descrição:", self.descricao_edit)
+        form_layout.addRow(required_label("Descrição:"), self.descricao_edit)
 
         # Data Início
         self.data_inicio = QDateEdit()
         self.data_inicio.setDate(QDate.currentDate())
         self.data_inicio.setCalendarPopup(True)
-        form_layout.addRow("Data de Início:", self.data_inicio)
+        form_layout.addRow(optional_label("Data de Início:"), self.data_inicio)
 
         # Data Próxima Manutenção
         self.data_proxima = QDateEdit()
         self.data_proxima.setDate(QDate.currentDate().addMonths(6))
         self.data_proxima.setCalendarPopup(True)
-        form_layout.addRow("Próx. Manutenção:", self.data_proxima)
+        form_layout.addRow(optional_label("Próx. Manutenção:"), self.data_proxima)
 
         # Responsável
         self.responsavel_edit = QLineEdit()
         self.responsavel_edit.setPlaceholderText("Nome do responsável")
-        form_layout.addRow("Responsável:", self.responsavel_edit)
+        form_layout.addRow(optional_label("Responsável:"), self.responsavel_edit)
 
         # Status
         self.status_combo = QComboBox()
         self.status_combo.addItems(["pendente", "andamento", "concluida", "cancelada"])
-        form_layout.addRow("Status:", self.status_combo)
+        form_layout.addRow(required_label("Status:"), self.status_combo)
 
         # Campo Data de Término (só aparece na edição)
         self.data_fim_label = QLabel("Data de Término:")
@@ -685,12 +699,14 @@ class ManutencaoDialog(QDialog):
 
         # Validar campos obrigatórios
         if not maquina_id:
-            QMessageBox.warning(self, "Atenção", "Selecione uma máquina!")
+            focus_invalid_field(self.maquina_combo)
+            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Maquina"))
             return
 
         descricao = self.descricao_edit.toPlainText().strip()
         if not descricao:
-            QMessageBox.warning(self, "Atenção", "A descrição é obrigatória!")
+            focus_invalid_field(self.descricao_edit)
+            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Descricao"))
             return
 
         dados = {
@@ -714,17 +730,19 @@ class ManutencaoDialog(QDialog):
                 # Atualizar
                 response = api_client.atualizar_manutencao(self.dados_item["id"], dados)
                 if response:
-                    QMessageBox.information(self, "Sucesso", "Manutenção atualizada com sucesso!")
+                    maquina_nome = self.maquina_combo.currentText().split(" - ")[0].strip() or "manutencao"
+                    QMessageBox.information(self, "Sucesso", f"Manutencao de '{maquina_nome}' atualizada com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Erro ao atualizar manutenção")
+                    QMessageBox.warning(self, "Erro", "Nao foi possivel atualizar a manutencao. Revise os dados e tente novamente.")
             else:
                 # Criar
                 response = api_client.criar_manutencao(dados)
                 if response:
-                    QMessageBox.information(self, "Sucesso", "Manutenção criada com sucesso!")
+                    maquina_nome = self.maquina_combo.currentText().split(" - ")[0].strip() or "manutencao"
+                    QMessageBox.information(self, "Sucesso", f"Manutencao de '{maquina_nome}' criada com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Erro ao criar manutenção")
+                    QMessageBox.warning(self, "Erro", "Nao foi possivel criar a manutencao. Revise os dados e tente novamente.")
         except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Erro ao salvar: {e}")
+            QMessageBox.critical(self, "Erro", f"Nao foi possivel salvar a manutencao.\n\nDetalhes: {e}")

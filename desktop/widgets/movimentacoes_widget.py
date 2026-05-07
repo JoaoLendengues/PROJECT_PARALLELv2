@@ -8,9 +8,10 @@ from datetime import datetime
 from api_client import api_client
 from access_control import has_action_access
 from widgets.company_filter_utils import company_filter_ready, populate_company_filter, selected_company_value
+from widgets.form_feedback import focus_invalid_field, optional_label, required_field_message, required_hint_label, required_label
 from widgets.toast_notification import notification_manager
 from widgets.filter_utils import contains_text, is_all_option, same_filter_value, same_text
-from widgets.table_utils import configure_data_table, number_item
+from widgets.table_utils import configure_data_table, number_item, refresh_data_table_layout
 from user_preferences import (
     apply_combo_data,
     apply_combo_text,
@@ -139,7 +140,21 @@ class MovimentacoesWidget(QWidget):
         headers = ["ID", "Material", "Tipo", "Quantidade", "Empresa", "Colaborador", "Data/Hora", "Observação"]
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
-        configure_data_table(self.tabela, stretch_columns=(1, 7))
+        configure_data_table(
+            self.tabela,
+            stretch_columns=(1, 7),
+            minimum_section_size=88,
+            minimum_widths={
+                0: 72,
+                1: 220,
+                2: 110,
+                3: 100,
+                4: 170,
+                5: 180,
+                6: 155,
+                7: 240,
+            },
+        )
         self.tabela.horizontalHeader().sortIndicatorChanged.connect(self._ao_ordenar_tabela)
 
         layout.addWidget(self.tabela)
@@ -358,6 +373,7 @@ class MovimentacoesWidget(QWidget):
             self.tabela.setItem(row, 7, QTableWidgetItem(obs))
 
         apply_table_sort_state(self.tabela, self._saved_preferences.get("sort"))
+        refresh_data_table_layout(self.tabela)
 
 
     def nova_movimentacao(self):
@@ -483,6 +499,7 @@ class MovimentacaoDialog(QDialog):
 
         form_layout = QFormLayout()
         form_layout.setSpacing(15)
+        layout.addWidget(required_hint_label())
 
         # Material
         self.material_combo = QComboBox()
@@ -493,28 +510,24 @@ class MovimentacaoDialog(QDialog):
                 f"{mat.get('nome', '')} - Estoque: {mat.get('quantidade', 0)} - {mat.get('empresa', '')}",
                 mat.get("id")
             )
-        form_layout.addRow("Material:", self.material_combo)
-
+        form_layout.addRow(required_label("Material:"), self.material_combo)
         # Tipo (Entrada/Saída)
         self.tipo_combo = QComboBox()
         self.tipo_combo.addItems(["entrada", "saida"])
         self.tipo_combo.currentTextChanged.connect(self.on_tipo_changed)
-        form_layout.addRow("Tipo:", self.tipo_combo)
-
+        form_layout.addRow(required_label("Tipo:"), self.tipo_combo)
         # Quantidade
         self.quantidade_spin = QSpinBox()
         self.quantidade_spin.setRange(1, 999999)
         self.quantidade_spin.setValue(1)
-        form_layout.addRow("Quantidade:", self.quantidade_spin)
-
+        form_layout.addRow(required_label("Quantidade:"), self.quantidade_spin)
         # Empresa
         self.empresa_combo = QComboBox()
         self.empresa_combo.setEditable(False)
         self.empresa_combo.setInsertPolicy(QComboBox.NoInsert)
-        form_layout.addRow('Empresa:', self.empresa_combo)
-
+        form_layout.addRow(required_label('Empresa:'), self.empresa_combo)
         # Destinatário (com colaboradores)
-        self.destinatario_label = QLabel("Colaborador:")
+        self.destinatario_label = required_label("Colaborador:")
         self.destinatario_combo = QComboBox()
         self.destinatario_combo.setEditable(False)
         self.destinatario_combo.setInsertPolicy(QComboBox.NoInsert)
@@ -525,7 +538,7 @@ class MovimentacaoDialog(QDialog):
         self.observacao_edit = QTextEdit()
         self.observacao_edit.setMaximumHeight(80)
         self.observacao_edit.setPlaceholderText("Observação sobre a movimentação...")
-        form_layout.addRow("Observação:", self.observacao_edit)
+        form_layout.addRow(optional_label("Observação:"), self.observacao_edit)
 
         layout.addLayout(form_layout)
 
@@ -582,14 +595,14 @@ class MovimentacaoDialog(QDialog):
         """Altera o texto do destinatário conforme o tipo"""
         tipo = self.tipo_combo.currentText()
         if tipo == "entrada":
-            self.destinatario_label.setText("Fornecedor/Origem:")
+            self.destinatario_label.setText('Fornecedor/Origem: <span style="color: #ef4444;">*</span>')
             # ✅ Para entrada, permitir digitar (fornecedor pode não estar cadastrado)
             self.destinatario_combo.setEditable(True)
             self.destinatario_combo.clear()
             self.destinatario_combo.addItem("")
             self.destinatario_combo.setPlaceholderText("Digite o nome do fornecedor")
         else:
-            self.destinatario_label.setText("Colaborador:")
+            self.destinatario_label.setText('Colaborador: <span style="color: #ef4444;">*</span>')
             # ✅ Para saída, apenas seleção (colaboradores cadastrados)
             self.destinatario_combo.setEditable(False)
             self.destinatario_combo.setInsertPolicy(QComboBox.NoInsert)
@@ -618,7 +631,8 @@ class MovimentacaoDialog(QDialog):
 
         senha = dialog.senha()
         if not senha:
-            QMessageBox.warning(self, "AtenÃ§Ã£o", "Digite a sua senha para confirmar o registro.")
+            focus_invalid_field(dialog.senha_edit)
+            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Senha"))
             return False
 
         if not api_client.confirmar_senha_atual(senha):
@@ -631,7 +645,8 @@ class MovimentacaoDialog(QDialog):
         # Obter ID do material selecionado
         idx = self.material_combo.currentIndex()
         if idx < 0 or idx >= len(self.materiais):
-            QMessageBox.warning(self, "Atenção", "Selecione um material válido!")
+            focus_invalid_field(self.material_combo)
+            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Material"))
             return
 
         material_id = self.materiais[idx].get("id")
@@ -644,9 +659,11 @@ class MovimentacaoDialog(QDialog):
         # Verificar destinatário
         if not destinatario:
             if tipo == "entrada":
-                QMessageBox.warning(self, "Atenção", "Informe o fornecedor/origem!")
+                focus_invalid_field(self.destinatario_combo)
+                QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Fornecedor/Origem"))
             else:
-                QMessageBox.warning(self, "Atenção", "Selecione um colaborador!")
+                focus_invalid_field(self.destinatario_combo)
+                QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Colaborador"))
             return
 
         # Verificar estoque para saída
@@ -676,9 +693,9 @@ class MovimentacaoDialog(QDialog):
         try:
             response = api_client.criar_movimentacao(dados)
             if response:
-                QMessageBox.information(self, "Sucesso", f"Movimentação de {tipo} registrada com sucesso!")
+                QMessageBox.information(self, "Sucesso", f"Movimentacao de {tipo} para '{material_nome}' registrada com sucesso.")
                 self.accept()
             else:
-                QMessageBox.warning(self, "Erro", "Erro ao registrar movimentação")
+                QMessageBox.warning(self, "Erro", "Nao foi possivel registrar a movimentacao. Revise os dados e tente novamente.")
         except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Erro ao salvar: {e}")
+            QMessageBox.critical(self, "Erro", f"Nao foi possivel salvar a movimentacao.\n\nDetalhes: {e}")

@@ -8,7 +8,7 @@ from PySide6.QtGui import QFont, QColor
 from api_client import api_client
 from access_control import get_action_label, has_action_access
 from widgets.filter_utils import filter_value, is_all_option
-from widgets.table_utils import configure_data_table
+from widgets.table_utils import configure_data_table, refresh_data_table_layout
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
@@ -298,7 +298,22 @@ class RelatoriosWidget(QWidget):
         headers = ["ID", "Material", "Tipo", "Quantidade", "Empresa", "Destinatário", "Data/Hora", "Usuário", "Observação"]
         self.mov_tabela.setColumnCount(len(headers))
         self.mov_tabela.setHorizontalHeaderLabels(headers)
-        configure_data_table(self.mov_tabela, stretch_columns=(1, 8))
+        configure_data_table(
+            self.mov_tabela,
+            stretch_columns=(1, 8),
+            minimum_section_size=88,
+            minimum_widths={
+                0: 72,
+                1: 220,
+                2: 110,
+                3: 100,
+                4: 170,
+                5: 180,
+                6: 155,
+                7: 160,
+                8: 240,
+            },
+        )
 
         layout.addWidget(self.mov_tabela)
 
@@ -410,7 +425,20 @@ class RelatoriosWidget(QWidget):
         headers = ["ID", "Nome", "Descrição", "Quantidade", "Categoria", "Empresa", "Status"]
         self.est_tabela.setColumnCount(len(headers))
         self.est_tabela.setHorizontalHeaderLabels(headers)
-        configure_data_table(self.est_tabela, stretch_columns=(1, 2))
+        configure_data_table(
+            self.est_tabela,
+            stretch_columns=(1, 2),
+            minimum_section_size=88,
+            minimum_widths={
+                0: 72,
+                1: 220,
+                2: 280,
+                3: 100,
+                4: 160,
+                5: 180,
+                6: 120,
+            },
+        )
 
         layout.addWidget(self.est_tabela)
 
@@ -503,7 +531,21 @@ class RelatoriosWidget(QWidget):
         headers = ["ID", "Material", "Qtd", "Solicitante", "Empresa", "Data Solic.", "Data Conclusão", "Status"]
         self.ped_tabela.setColumnCount(len(headers))
         self.ped_tabela.setHorizontalHeaderLabels(headers)
-        configure_data_table(self.ped_tabela, stretch_columns=(1,))
+        configure_data_table(
+            self.ped_tabela,
+            stretch_columns=(1,),
+            minimum_section_size=88,
+            minimum_widths={
+                0: 72,
+                1: 220,
+                2: 90,
+                3: 170,
+                4: 170,
+                5: 135,
+                6: 150,
+                7: 120,
+            },
+        )
 
         layout.addWidget(self.ped_tabela)
 
@@ -594,7 +636,20 @@ class RelatoriosWidget(QWidget):
         headers = ["ID", "Título", "Solicitante", "Prioridade", "Status", "Data Abertura", "Responsável"]
         self.dem_tabela.setColumnCount(len(headers))
         self.dem_tabela.setHorizontalHeaderLabels(headers)
-        configure_data_table(self.dem_tabela, stretch_columns=(1,))
+        configure_data_table(
+            self.dem_tabela,
+            stretch_columns=(1,),
+            minimum_section_size=88,
+            minimum_widths={
+                0: 72,
+                1: 240,
+                2: 160,
+                3: 130,
+                4: 130,
+                5: 155,
+                6: 170,
+            },
+        )
 
         layout.addWidget(self.dem_tabela)
 
@@ -677,6 +732,8 @@ class RelatoriosWidget(QWidget):
                 obs = str(obs)[:50]
             self.mov_tabela.setItem(row, 8, QTableWidgetItem(obs))
 
+        refresh_data_table_layout(self.mov_tabela)
+
     def carregar_estoque(self):
         """Carrega estoque para o relatório"""
         try:
@@ -726,6 +783,8 @@ class RelatoriosWidget(QWidget):
             else:
                 status_item.setForeground(QColor(231, 111, 81))
             self.est_tabela.setItem(row, 6, status_item)
+
+        refresh_data_table_layout(self.est_tabela)
 
     def carregar_pedidos(self):
         """Carrega pedidos para o relatório"""
@@ -777,6 +836,8 @@ class RelatoriosWidget(QWidget):
             status_item = QTableWidgetItem(ped.get("status", "pendente").upper())
             status_item.setForeground(status_cores.get(ped.get("status", "pendente"), QColor(0, 0, 0)))
             self.ped_tabela.setItem(row, 7, status_item)
+
+        refresh_data_table_layout(self.ped_tabela)
 
     def carregar_demandas(self):
         """Carrega demandas para o relatório"""
@@ -831,6 +892,8 @@ class RelatoriosWidget(QWidget):
                 data = data[:10]
             self.dem_tabela.setItem(row, 5, QTableWidgetItem(data))
             self.dem_tabela.setItem(row, 6, QTableWidgetItem(dem.get("responsavel", "-")))
+
+        refresh_data_table_layout(self.dem_tabela)
 
     # =====================================================
     # MÉTODOS DE EXPORTAÇÃO (mantidos originais)

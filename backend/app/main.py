@@ -27,6 +27,13 @@ def ensure_schema_compatibility():
                 connection.execute(text("ALTER TABLE pedidos ADD COLUMN link_compra TEXT"))
             print("Compatibilidade aplicada: coluna pedidos.link_compra criada.")
 
+    if inspector.has_table("maquinas"):
+        maquinas_columns = {column["name"] for column in inspector.get_columns("maquinas")}
+        if "ip_address" not in maquinas_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE maquinas ADD COLUMN ip_address VARCHAR(100)"))
+            print("Compatibilidade aplicada: coluna maquinas.ip_address criada.")
+
 # Criar as tabelas no banco (se não existirem)
 print("📦 Criando/verificando tabelas no banco de dados...")
 Base.metadata.create_all(bind=engine)

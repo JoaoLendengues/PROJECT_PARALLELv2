@@ -471,7 +471,7 @@ class HomeWidget(QWidget):
 
     def atualizar_status_internet(self, show_feedback=False):
         try:
-            status = api_client.get_status_internet()
+            status = api_client.get_status_internet(self.usuario_context.get("empresa"))
         except Exception as exc:
             print(f"Erro ao atualizar status da rede local: {exc}")
             status = {"status": "erro", "qualidade": "erro", "latencia_ms": None, "servidor": "Falha na medicao"}

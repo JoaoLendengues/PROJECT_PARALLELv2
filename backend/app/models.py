@@ -32,7 +32,7 @@ class Material(Base):
 
 class Maquina(Base):
     __tablename__ = "maquinas"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String(100), nullable=False)
     modelo = Column(String(100))
@@ -41,6 +41,7 @@ class Maquina(Base):
     status = Column(String(20), default="ativo")
     observacoes = Column(Text)
     mac_address = Column(String(17), nullable=True) # Formato: XX:XX:XX:XX:XX:XX
+    ip_address = Column(String(100), nullable=True)
     criado_em = Column(DateTime, server_default=func.now())
     atualizado_em = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

@@ -1,9 +1,10 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel
 
 
 def required_label(text: str) -> QLabel:
     label = QLabel(f'{text} <span style="color: #ef4444;">*</span>')
-    label.setTextFormat(label.textFormat())
+    label.setTextFormat(Qt.RichText)
     return label
 
 

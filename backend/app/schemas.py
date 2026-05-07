@@ -65,6 +65,22 @@ class MaquinaResponse(MaquinaBase):
         from_attributes = True
 
 
+class MaquinaMonitoramentoResponse(BaseModel):
+    id: int
+    nome: str
+    empresa: str
+    departamento: Optional[str] = None
+    status: str
+    mac_address: Optional[str] = None
+    ip_address: Optional[str] = None
+    alvo_monitoramento: Optional[str] = None
+    monitor_status: str
+    monitor_label: str
+    latencia_ms: Optional[int] = None
+    detalhe: Optional[str] = None
+    atualizado_em: datetime
+
+
 class ManutencaoBase(BaseModel):
     maquina_id: int
     tipo: str # preventiva, corretiva, emergencial

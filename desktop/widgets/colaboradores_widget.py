@@ -6,8 +6,9 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QColor
 from api_client import api_client
 from access_control import get_action_label, has_action_access
+from widgets.form_feedback import focus_invalid_field, optional_label, required_field_message, required_hint_label, required_label
 from widgets.filter_utils import contains_text, is_all_option, same_text
-from widgets.table_utils import configure_data_table, number_item
+from widgets.table_utils import configure_data_table, number_item, refresh_data_table_layout
 
 
 class ColaboradoresWidget(QWidget):
@@ -108,7 +109,19 @@ class ColaboradoresWidget(QWidget):
         headers = ["ID", "Nome", "Cargo", "Departamento", "Empresa", "Status"]
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
-        configure_data_table(self.tabela, stretch_columns=(1,))
+        configure_data_table(
+            self.tabela,
+            stretch_columns=(1,),
+            minimum_section_size=88,
+            minimum_widths={
+                0: 72,
+                1: 220,
+                2: 160,
+                3: 180,
+                4: 180,
+                5: 120,
+            },
+        )
 
         layout.addWidget(self.tabela)
 
@@ -205,6 +218,8 @@ class ColaboradoresWidget(QWidget):
             else:
                 status_item.setForeground(QColor(42, 157, 143))
             self.tabela.setItem(row, 5, status_item)
+
+        refresh_data_table_layout(self.tabela)
 
     def novo_colaborador(self):
         if not self._pode("colaboradores.create"):
@@ -319,37 +334,38 @@ class ColaboradorDialog(QDialog):
 
         form_layout = QFormLayout()
         form_layout.setSpacing(15)
+        layout.addWidget(required_hint_label())
 
         # Nome
         self.nome_edit = QLineEdit()
         self.nome_edit.setPlaceholderText("Nome completo")
-        form_layout.addRow("Nome:", self.nome_edit)
+        form_layout.addRow(required_label("Nome:"), self.nome_edit)
 
         # Cargo
         self.cargo_combo = QComboBox()
         self.cargo_combo.setEditable(False)
         self.cargo_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_cargos_combo()
-        form_layout.addRow('Cargo:', self.cargo_combo)
+        form_layout.addRow(optional_label('Cargo:'), self.cargo_combo)
 
         # Departamento
         self.departamento_combo = QComboBox()
         self.departamento_combo.setEditable(False)
         self.departamento_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_departamentos_combo()
-        form_layout.addRow("Departamento:", self.departamento_combo)
+        form_layout.addRow(optional_label("Departamento:"), self.departamento_combo)
 
         # Empresa
         self.empresa_combo = QComboBox()
         self.empresa_combo.setEditable(False)
         self.empresa_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_empresas_combo()
-        form_layout.addRow("Empresa:", self.empresa_combo)
+        form_layout.addRow(required_label("Empresa:"), self.empresa_combo)
 
         # Status
         self.status_check = QCheckBox("Ativo")
         self.status_check.setChecked(True)
-        form_layout.addRow("Status:", self.status_check)
+        form_layout.addRow(optional_label("Status:"), self.status_check)
 
         layout.addLayout(form_layout)
 
@@ -448,27 +464,29 @@ class ColaboradorDialog(QDialog):
         }
 
         if not dados["nome"]:
-            QMessageBox.warning(self, "Atenção", "O nome é obrigatório!")
+            focus_invalid_field(self.nome_edit)
+            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Nome"))
             return
 
         if not dados['empresa']:
-            QMessageBox.warning(self, 'Atenção', 'Selecione uma empresa!')
+            focus_invalid_field(self.empresa_combo)
+            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Empresa"))
             return
 
         try:
             if self.dados_item:
                 response = api_client.atualizar_colaborador(self.dados_item["id"], dados)
                 if response:
-                    QMessageBox.information(self, "Sucesso", "Colaborador atualizado com sucesso!")
+                    QMessageBox.information(self, "Sucesso", f"Colaborador '{dados['nome']}' atualizado com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Erro ao atualizar colaborador")
+                    QMessageBox.warning(self, "Erro", "Nao foi possivel atualizar o colaborador. Revise os dados e tente novamente.")
             else:
                 response = api_client.criar_colaborador(dados)
                 if response:
-                    QMessageBox.information(self, "Sucesso", "Colaborador criado com sucesso!")
+                    QMessageBox.information(self, "Sucesso", f"Colaborador '{dados['nome']}' criado com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Erro ao criar colaborador")
+                    QMessageBox.warning(self, "Erro", "Nao foi possivel criar o colaborador. Revise os dados e tente novamente.")
         except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Erro ao salvar: {e}")
+            QMessageBox.critical(self, "Erro", f"Nao foi possivel salvar o colaborador.\n\nDetalhes: {e}")

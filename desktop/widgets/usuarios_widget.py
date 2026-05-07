@@ -5,8 +5,9 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QColor, QCursor
 from api_client import api_client
+from widgets.form_feedback import focus_invalid_field, optional_label, required_field_message, required_hint_label, required_label
 from widgets.filter_utils import is_all_option, same_filter_value, same_text
-from widgets.table_utils import configure_data_table, number_item
+from widgets.table_utils import configure_data_table, number_item, refresh_data_table_layout
 
 
 class UsuariosWidget(QWidget):
@@ -118,7 +119,21 @@ class UsuariosWidget(QWidget):
         headers = ["ID", "Código", "Nome", "Cargo", "Empresa", "Nível", "Status", "Primeiro Acesso"]
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
-        configure_data_table(self.tabela, stretch_columns=(2,))
+        configure_data_table(
+            self.tabela,
+            stretch_columns=(2,),
+            minimum_section_size=88,
+            minimum_widths={
+                0: 72,
+                1: 110,
+                2: 220,
+                3: 160,
+                4: 180,
+                5: 130,
+                6: 120,
+                7: 150,
+            },
+        )
 
         layout.addWidget(self.tabela)
 
@@ -243,6 +258,8 @@ class UsuariosWidget(QWidget):
             primeiro_acesso = "Sim" if usuario.get("primeiro_acesso", False) else "Não"
             self.tabela.setItem(row, 7, QTableWidgetItem(primeiro_acesso))
 
+        refresh_data_table_layout(self.tabela)
+
     def novo_usuario(self):
         """Abre diálogo para criar novo usuário com código automático"""
 
@@ -340,26 +357,29 @@ class UsuariosWidget(QWidget):
             confirmar_senha = confirmar_senha_edit.text()
 
             if not nova_senha:
-                QMessageBox.warning(senha_dialog, "Atenção", "Digite a nova senha!")
+                focus_invalid_field(nova_senha_edit)
+                QMessageBox.warning(senha_dialog, "Campo obrigatorio", required_field_message("Nova senha"))
                 return
 
             if len(nova_senha) < 6:
+                focus_invalid_field(nova_senha_edit)
                 QMessageBox.warning(senha_dialog, "Atenção", "A senha deve ter no mínimo 6 caracteres!")
                 return
 
             if nova_senha != confirmar_senha:
+                focus_invalid_field(confirmar_senha_edit)
                 QMessageBox.warning(senha_dialog, "Atenção", "As senhas não conferem!")
                 return
 
             try:
                 if api_client.alterar_senha_usuario(usuario_id, nova_senha):
-                    QMessageBox.information(senha_dialog, "Sucesso", f"Senha do usuário '{usuario_nome}' alterada com sucesso!")
+                    QMessageBox.information(senha_dialog, "Sucesso", f"Senha do usuario '{usuario_nome}' alterada com sucesso.")
                     senha_dialog.accept()
                     self.carregar_usuarios()
                 else:
-                    QMessageBox.warning(senha_dialog, "Erro", "Erro ao alterar senha")
+                    QMessageBox.warning(senha_dialog, "Erro", "Nao foi possivel alterar a senha. Tente novamente.")
             except Exception as e:
-                QMessageBox.critical(senha_dialog, "Erro", f"Erro ao alterar senha: {e}")
+                QMessageBox.critical(senha_dialog, "Erro", f"Nao foi possivel alterar a senha.\n\nDetalhes: {e}")
 
         btn_alterar.clicked.connect(confirmar_alteracao)
         senha_dialog.exec()
@@ -448,26 +468,27 @@ class UsuarioDialog(QDialog):
 
         form_layout = QFormLayout()
         form_layout.setSpacing(15)
+        layout.addWidget(required_hint_label())
 
         self.codigo_edit = QLineEdit()
         self.codigo_edit.setPlaceholderText("Código numérico único (ex: 1001)")
-        form_layout.addRow("Código:", self.codigo_edit)
+        form_layout.addRow(required_label("Código:"), self.codigo_edit)
 
         self.nome_edit = QLineEdit()
         self.nome_edit.setPlaceholderText("Nome completo")
-        form_layout.addRow("Nome:", self.nome_edit)
+        form_layout.addRow(required_label("Nome:"), self.nome_edit)
 
         self.cargo_combo = QComboBox()
         self.cargo_combo.setEditable(False)
         self.cargo_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_cargos_combo()
-        form_layout.addRow("Cargo:", self.cargo_combo)
+        form_layout.addRow(optional_label("Cargo:"), self.cargo_combo)
 
         self.empresa_combo = QComboBox()
         self.empresa_combo.setEditable(False)
         self.empresa_combo.setInsertPolicy(QComboBox.NoInsert)
         self.carregar_empresas_combo()
-        form_layout.addRow("Empresa:", self.empresa_combo)
+        form_layout.addRow(required_label("Empresa:"), self.empresa_combo)
 
         self.nivel_combo = QComboBox()
         self.nivel_combo.addItems(["admin", "gerente", "usuario", "solicitante"])
@@ -477,16 +498,16 @@ class UsuarioDialog(QDialog):
             "usuario: Acesso basico\n"
             "solicitante: Abre demandas e acompanha as proprias"
         )
-        form_layout.addRow("Nível de Acesso:", self.nivel_combo)
+        form_layout.addRow(required_label("Nível de Acesso:"), self.nivel_combo)
 
         self.ativo_check = QCheckBox("Usuário ativo")
         self.ativo_check.setChecked(True)
-        form_layout.addRow("", self.ativo_check)
+        form_layout.addRow(optional_label(""), self.ativo_check)
 
         if not self.dados_item:
             senha_info = QLabel("⚠️ A senha padrão será '123456'.\nO usuário deverá trocar no primeiro acesso.")
             senha_info.setStyleSheet("color: #64748b; font-size: 11px;")
-            form_layout.addRow("", senha_info)
+            form_layout.addRow(optional_label(""), senha_info)
 
         layout.addLayout(form_layout)
 
@@ -571,11 +592,18 @@ class UsuarioDialog(QDialog):
         ativo = self.ativo_check.isChecked()
 
         if not codigo:
-            QMessageBox.warning(self, "Atenção", "O código é obrigatório!")
+            focus_invalid_field(self.codigo_edit)
+            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Codigo"))
             return
 
         if not nome:
-            QMessageBox.warning(self, "Atenção", "O nome é obrigatório!")
+            focus_invalid_field(self.nome_edit)
+            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Nome"))
+            return
+
+        if not empresa:
+            focus_invalid_field(self.empresa_combo)
+            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Empresa"))
             return
 
         dados = {
@@ -594,16 +622,16 @@ class UsuarioDialog(QDialog):
             if self.dados_item:
                 response = api_client.atualizar_usuario(self.dados_item["id"], dados)
                 if response:
-                    QMessageBox.information(self, "Sucesso", "Usuário atualizado com sucesso!")
+                    QMessageBox.information(self, "Sucesso", f"Usuario '{nome}' atualizado com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Erro ao atualizar usuário")
+                    QMessageBox.warning(self, "Erro", "Nao foi possivel atualizar o usuario. Revise os dados e tente novamente.")
             else:
                 response = api_client.criar_usuario(dados)
                 if response:
-                    QMessageBox.information(self, "Sucesso", "Usuário criado com sucesso!\n\nSenha padrão: 123456")
+                    QMessageBox.information(self, "Sucesso", f"Usuario '{nome}' criado com sucesso.\n\nSenha padrao: 123456")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Erro ao criar usuário")
+                    QMessageBox.warning(self, "Erro", "Nao foi possivel criar o usuario. Revise os dados e tente novamente.")
         except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Erro ao salvar: {e}")
+            QMessageBox.critical(self, "Erro", f"Nao foi possivel salvar o usuario.\n\nDetalhes: {e}")

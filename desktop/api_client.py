@@ -274,6 +274,32 @@ class APIClient:
         except:
             return []
 
+    def listar_status_maquinas_monitoramento(self, empresa=None, departamento=None, status=None, limit=200):
+        """Lista o status de conectividade das máquinas cadastradas."""
+        params = {"limit": limit}
+        if empresa:
+            params["empresa"] = empresa
+        if departamento:
+            params["departamento"] = departamento
+        if status:
+            params["status"] = status
+
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/maquinas/monitoramento",
+                headers=self.get_headers(),
+                params=params,
+                timeout=30
+            )
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list):
+                    return data
+            return []
+        except Exception as e:
+            print(f"Erro ao monitorar máquinas: {e}")
+            return []
+
     def criar_maquina(self, maquina):
         """Cria uma nova máquina"""
         try:
@@ -1222,12 +1248,16 @@ class APIClient:
         except:
             return {"resumo": {}}
 
-    def get_status_internet(self):
+    def get_status_internet(self, empresa=None):
         """Obtém o status da internet (latência e qualidade)"""
         try:
+            params = {}
+            if empresa:
+                params["empresa"] = empresa
             response = requests.get(
                 f'{self.base_url}/api/dashboard/status-internet',
                 headers=self.get_headers(),
+                params=params,
                 timeout=10
             )
             if response.status_code == 200:
