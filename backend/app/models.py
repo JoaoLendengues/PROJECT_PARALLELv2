@@ -42,6 +42,9 @@ class Maquina(Base):
     observacoes = Column(Text)
     mac_address = Column(String(17), nullable=True) # Formato: XX:XX:XX:XX:XX:XX
     ip_address = Column(String(100), nullable=True)
+    ultimo_heartbeat_em = Column(DateTime, nullable=True)
+    ultimo_heartbeat_ip = Column(String(100), nullable=True)
+    ultimo_heartbeat_hostname = Column(String(100), nullable=True)
     criado_em = Column(DateTime, server_default=func.now())
     atualizado_em = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

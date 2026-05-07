@@ -264,6 +264,7 @@ class HomeWidget(QWidget):
         self.metric_cards = {}
         self.internet_card_data = {}
         self.technical_cards = {}
+        self.lan_cards = {}
         self.last_internet_refresh = None
         self.last_technical_refresh = None
         self._applying_theme_styles = False
@@ -287,6 +288,7 @@ class HomeWidget(QWidget):
     def set_usuario_context(self, usuario):
         self.usuario_context = usuario or {}
         self.role_value_label.setText(get_role_label(self.usuario_context.get("nivel_acesso")))
+        self._rebuild_lan_cards()
         self._rebuild_cards()
 
     def set_main_window(self, main_window):
@@ -370,6 +372,8 @@ class HomeWidget(QWidget):
 
         self.technical_panel = self._create_technical_panel()
         self.content_layout.addWidget(self.technical_panel)
+        self.lan_panel = self._create_lan_panel()
+        self.content_layout.addWidget(self.lan_panel)
         self.content_layout.addStretch()
 
         self._apply_theme_styles()
@@ -652,9 +656,59 @@ class HomeWidget(QWidget):
             "#3b82f6",
         )
 
+        lan_status = api_client.get_status_lan_to_lan(self.usuario_context.get("empresa"))
+        lan_links = lan_status.get("links") or []
+        lan_resumo = lan_status.get("resumo") or {}
+        lan_value_map = {
+            "excelente": "Excelente",
+            "bom": "Boa",
+            "regular": "Regular",
+            "ruim": "Instavel",
+            "erro": "Erro",
+            "offline": "Offline",
+        }
+        lan_tone_map = {
+            "excelente": "good",
+            "bom": "info",
+            "regular": "warn",
+            "ruim": "critical",
+            "erro": "critical",
+            "offline": "critical",
+        }
+
+        if lan_links and set(self.lan_cards.keys()) != {link.get("empresa") for link in lan_links if link.get("empresa")}:
+            self._rebuild_lan_cards()
+
+        for link in lan_links:
+            company_name = link.get("empresa")
+            if not company_name:
+                continue
+            quality = str(link.get("qualidade", "erro")).lower()
+            value = lan_value_map.get(quality, "Online" if link.get("status") == "online" else "Offline")
+            latency = link.get("latencia_ms")
+            if latency is not None:
+                meta = f"{link.get('host')}:{link.get('port')} · {latency} ms"
+            else:
+                meta = str(link.get("detalhe") or link.get("servidor") or "Sem leitura da malha.")
+            badge_text = "Tunel OK" if link.get("status") == "online" else "Sem rota"
+            self._set_lan_card_state(
+                company_name,
+                value,
+                meta,
+                badge_text,
+                lan_tone_map.get(quality, "info"),
+                link.get("cor") or "#3b82f6",
+            )
+
         self.technical_panel_subtitle.setText(
-            f"API, banco, rede local e versao atual da instalacao. Atualizado as {self.last_technical_refresh.strftime('%H:%M')}."
+            f"API, banco, rede local, malha LAN-to-LAN e versao atual da instalacao. Atualizado as {self.last_technical_refresh.strftime('%H:%M')}."
         )
+        if hasattr(self, "lan_panel_subtitle"):
+            empresa_origem = lan_status.get("empresa_origem") or self.usuario_context.get("empresa") or "unidade atual"
+            self.lan_panel_subtitle.setText(
+                f"Malha entre {empresa_origem} e as demais unidades. "
+                f"{lan_resumo.get('online', 0)} online, {lan_resumo.get('offline', 0)} offline, {lan_resumo.get('erro', 0)} com erro."
+            )
         self._refresh_technical_card_styles(palette)
 
     def _rebuild_cards(self):
@@ -934,6 +988,129 @@ class HomeWidget(QWidget):
         layout.addLayout(grid)
         return panel
 
+    def _create_lan_panel(self):
+        panel = QFrame()
+        panel.setObjectName("homeTechPanel")
+
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(22, 20, 22, 20)
+        layout.setSpacing(16)
+
+        header_layout = QVBoxLayout()
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(4)
+
+        title = QLabel("Malha LAN-to-LAN")
+        title.setObjectName("homeTechTitle")
+        header_layout.addWidget(title)
+
+        self.lan_panel_subtitle = QLabel(
+            "Conectividade entre a unidade atual e os demais firewalls Netdeep."
+        )
+        self.lan_panel_subtitle.setObjectName("homeTechSubtitle")
+        self.lan_panel_subtitle.setWordWrap(True)
+        header_layout.addWidget(self.lan_panel_subtitle)
+        layout.addLayout(header_layout)
+
+        self.lan_grid = QGridLayout()
+        self.lan_grid.setContentsMargins(0, 0, 0, 0)
+        self.lan_grid.setHorizontalSpacing(14)
+        self.lan_grid.setVerticalSpacing(14)
+        self.lan_grid.setColumnStretch(0, 1)
+        self.lan_grid.setColumnStretch(1, 1)
+        layout.addLayout(self.lan_grid)
+
+        self._rebuild_lan_cards()
+        return panel
+
+    def _lan_targets_for_context(self):
+        companies = ["PINHEIRO TAGUATINGA", "PINHEIRO SIA", "PINHEIRO INDUSTRIA"]
+        current_company = str(self.usuario_context.get("empresa") or "").strip().upper()
+        targets = [company for company in companies if not current_company or company != current_company]
+        return targets or companies
+
+    def _rebuild_lan_cards(self):
+        if not hasattr(self, "lan_grid"):
+            return
+
+        current_company = str(self.usuario_context.get("empresa") or "").strip()
+        if hasattr(self, "lan_panel_subtitle"):
+            if current_company:
+                self.lan_panel_subtitle.setText(
+                    f"Conectividade entre {current_company} e os demais firewalls Netdeep."
+                )
+            else:
+                self.lan_panel_subtitle.setText(
+                    "Conectividade entre a unidade atual e os demais firewalls Netdeep."
+                )
+
+        self._clear_layout(self.lan_grid)
+        self.lan_cards = {}
+
+        for index, company in enumerate(self._lan_targets_for_context()):
+            card = self._create_lan_card(company)
+            self.lan_grid.addWidget(card, index // 2, index % 2)
+
+    def _create_lan_card(self, company_name):
+        card = QFrame()
+        card.setObjectName("homeTechCard")
+        card.setMinimumHeight(128)
+
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(0, 0, 0, 0)
+        card_layout.setSpacing(0)
+
+        accent = QFrame()
+        accent.setObjectName("homeTechAccent")
+        accent.setFixedHeight(3)
+        card_layout.addWidget(accent)
+
+        body = QWidget()
+        body_layout = QVBoxLayout(body)
+        body_layout.setContentsMargins(18, 16, 18, 16)
+        body_layout.setSpacing(10)
+
+        top_row = QHBoxLayout()
+        top_row.setContentsMargins(0, 0, 0, 0)
+        top_row.setSpacing(10)
+
+        label = QLabel(company_name)
+        label.setObjectName("homeTechLabel")
+        top_row.addWidget(label, 0, Qt.AlignLeft)
+
+        top_row.addStretch()
+
+        badge = QLabel("Aguardando")
+        badge.setObjectName("homeTechBadge")
+        badge.setAlignment(Qt.AlignCenter)
+        top_row.addWidget(badge, 0, Qt.AlignRight)
+        body_layout.addLayout(top_row)
+
+        value = QLabel("--")
+        value.setObjectName("homeTechValue")
+        body_layout.addWidget(value)
+
+        meta = QLabel("Leitura ainda nao iniciada.")
+        meta.setObjectName("homeTechMeta")
+        meta.setWordWrap(True)
+        body_layout.addWidget(meta)
+        body_layout.addStretch()
+
+        card_layout.addWidget(body)
+
+        self.lan_cards[company_name] = {
+            "card": card,
+            "accent": accent,
+            "label": label,
+            "badge": badge,
+            "value": value,
+            "meta": meta,
+            "default_accent": "#3b82f6",
+            "current_accent": "#3b82f6",
+            "badge_tone": "info",
+        }
+        return card
+
     def _create_technical_card(self, name, label_text, accent_color):
         card = QFrame()
         card.setObjectName("homeTechCard")
@@ -1005,17 +1182,29 @@ class HomeWidget(QWidget):
         card["badge_tone"] = tone or "info"
         card["current_accent"] = accent or card["default_accent"]
 
+    def _set_lan_card_state(self, card_name, value, meta, badge_text, tone, accent):
+        card = self.lan_cards.get(card_name)
+        if not card:
+            return
+
+        card["value"].setText(str(value))
+        card["meta"].setText(str(meta))
+        card["badge"].setText(str(badge_text))
+        card["badge_tone"] = tone or "info"
+        card["current_accent"] = accent or card["default_accent"]
+
     def _refresh_technical_card_styles(self, palette):
-        for card in self.technical_cards.values():
-            accent = card.get("current_accent") or card["default_accent"]
-            badge_bg, badge_fg = self._tone_colors(card.get("badge_tone"), palette)
-            card["accent"].setStyleSheet(
-                f"background-color: {accent}; border-top-left-radius: 18px; border-top-right-radius: 18px;"
-            )
-            card["badge"].setStyleSheet(self._build_badge_style(badge_bg, badge_fg))
-            card["value"].setStyleSheet(
-                f"color: {accent}; font-size: 26px; font-weight: 800; background: transparent;"
-            )
+        for card_group in (self.technical_cards, self.lan_cards):
+            for card in card_group.values():
+                accent = card.get("current_accent") or card["default_accent"]
+                badge_bg, badge_fg = self._tone_colors(card.get("badge_tone"), palette)
+                card["accent"].setStyleSheet(
+                    f"background-color: {accent}; border-top-left-radius: 18px; border-top-right-radius: 18px;"
+                )
+                card["badge"].setStyleSheet(self._build_badge_style(badge_bg, badge_fg))
+                card["value"].setStyleSheet(
+                    f"color: {accent}; font-size: 26px; font-weight: 800; background: transparent;"
+                )
 
     def _apply_metric_data(self, card_name, resumo):
         card = self.metric_cards.get(card_name)

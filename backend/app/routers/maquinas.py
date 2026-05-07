@@ -8,9 +8,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from app.database import get_db
-from app import models, schemas
+from app import auth, models, schemas
 
 router = APIRouter(prefix='/api/maquinas', tags=['Máquinas'])
+HEARTBEAT_TTL_SECONDS = 120
 
 
 def _latency_from_ping_output(output: str) -> Optional[int]:
@@ -28,9 +29,102 @@ def _latency_from_ping_output(output: str) -> Optional[int]:
         return None
 
 
+def _normalize_text(value: Optional[str]) -> str:
+    return str(value or "").strip().lower()
+
+
+def _normalize_mac(value: Optional[str]) -> str:
+    raw = re.sub(r"[^0-9a-fA-F]", "", str(value or ""))
+    return raw.upper()
+
+
+def _heartbeat_age_seconds(maquina: models.Maquina, now: datetime) -> Optional[int]:
+    if not maquina.ultimo_heartbeat_em:
+        return None
+
+    delta = now - maquina.ultimo_heartbeat_em
+    return max(0, int(delta.total_seconds()))
+
+
+def _heartbeat_is_recent(maquina: models.Maquina, now: datetime) -> bool:
+    age_seconds = _heartbeat_age_seconds(maquina, now)
+    if age_seconds is None:
+        return False
+    return age_seconds <= HEARTBEAT_TTL_SECONDS
+
+
+def _find_machine_for_heartbeat(
+    db: Session,
+    current_user: models.UsuarioSistema,
+    payload: schemas.MaquinaHeartbeatRequest,
+):
+    company = str(current_user.empresa or "").strip()
+    normalized_mac = _normalize_mac(payload.mac_address)
+    normalized_ip = _normalize_text(payload.ip_address)
+    normalized_hostname = _normalize_text(payload.hostname)
+
+    base_query = db.query(models.Maquina)
+    if company:
+        base_query = base_query.filter(models.Maquina.empresa == company)
+
+    maquinas = base_query.all()
+    fallback_maquinas = []
+    if company:
+        fallback_maquinas = db.query(models.Maquina).all()
+
+    def _pick(candidates):
+        if normalized_mac:
+            for maquina in candidates:
+                if _normalize_mac(maquina.mac_address) == normalized_mac:
+                    return maquina, "mac_address"
+        if normalized_ip:
+            for maquina in candidates:
+                if _normalize_text(maquina.ip_address) == normalized_ip:
+                    return maquina, "ip_address"
+        if normalized_hostname:
+            for maquina in candidates:
+                if _normalize_text(maquina.nome) == normalized_hostname:
+                    return maquina, "nome"
+        return None, None
+
+    maquina, matched_by = _pick(maquinas)
+    if maquina:
+        return maquina, matched_by
+
+    if fallback_maquinas:
+        return _pick(fallback_maquinas)
+
+    return None, None
+
+
 def _monitor_machine(maquina: models.Maquina) -> dict:
-    alvo = (maquina.ip_address or maquina.nome or "").strip()
     atualizado_em = datetime.now()
+    alvo = (
+        maquina.ip_address
+        or maquina.ultimo_heartbeat_ip
+        or maquina.ultimo_heartbeat_hostname
+        or maquina.nome
+        or ""
+    ).strip()
+
+    if _heartbeat_is_recent(maquina, atualizado_em):
+        age_seconds = _heartbeat_age_seconds(maquina, atualizado_em) or 0
+        source = maquina.ultimo_heartbeat_ip or maquina.ultimo_heartbeat_hostname or alvo or "aplicativo"
+        return {
+            "id": maquina.id,
+            "nome": maquina.nome,
+            "empresa": maquina.empresa,
+            "departamento": maquina.departamento,
+            "status": maquina.status,
+            "mac_address": maquina.mac_address,
+            "ip_address": maquina.ip_address,
+            "alvo_monitoramento": alvo or None,
+            "monitor_status": "online",
+            "monitor_label": "Online",
+            "latencia_ms": None,
+            "detalhe": f"Heartbeat recebido ha {age_seconds}s pelo aplicativo ({source}).",
+            "atualizado_em": atualizado_em,
+        }
 
     if not alvo:
         return {
@@ -175,6 +269,44 @@ def monitorar_maquinas(
         snapshots = list(executor.map(_monitor_machine, maquinas))
 
     return snapshots
+
+
+@router.post('/heartbeat', response_model=schemas.MaquinaHeartbeatResponse)
+def registrar_heartbeat_maquina(
+    payload: schemas.MaquinaHeartbeatRequest,
+    db: Session = Depends(get_db),
+    current_user: models.UsuarioSistema = Depends(auth.get_current_user),
+):
+    """Registra a presenca da maquina a partir do proprio desktop autenticado."""
+    heartbeat_at = datetime.now()
+    maquina, matched_by = _find_machine_for_heartbeat(db, current_user, payload)
+
+    if not maquina:
+        return {
+            "matched": False,
+            "machine_id": None,
+            "machine_name": None,
+            "matched_by": None,
+            "heartbeat_at": heartbeat_at,
+        }
+
+    maquina.ultimo_heartbeat_em = heartbeat_at
+    maquina.ultimo_heartbeat_ip = (payload.ip_address or "").strip() or None
+    maquina.ultimo_heartbeat_hostname = (payload.hostname or "").strip() or None
+
+    # Quando o match por MAC for forte, aproveitamos para manter o IP alvo atualizado.
+    if matched_by == "mac_address" and maquina.ultimo_heartbeat_ip:
+        maquina.ip_address = maquina.ultimo_heartbeat_ip
+
+    db.commit()
+
+    return {
+        "matched": True,
+        "machine_id": maquina.id,
+        "machine_name": maquina.nome,
+        "matched_by": matched_by,
+        "heartbeat_at": heartbeat_at,
+    }
 
 
 @router.get('/{maquina_id}', response_model=schemas.MaquinaResponse)

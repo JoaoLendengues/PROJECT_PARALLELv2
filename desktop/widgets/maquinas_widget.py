@@ -30,6 +30,7 @@ class MaquinasWidget(QWidget):
         self.departamentos = []
         self.empresas = []  # NOVO: lista de empresas
         self.monitoramento_status = {}
+        self.lan_status = {"links": [], "resumo": {}}
         self._loaded = False
         self._restoring_preferences = False
         self._saved_preferences = {}
@@ -217,6 +218,23 @@ class MaquinasWidget(QWidget):
     def empresa_param(self):
         return selected_company_value(self.empresa_filter)
 
+    def _empresa_normalizada(self, value):
+        return str(value or "").strip().upper()
+
+    def _empresa_origem(self):
+        return self._empresa_normalizada(self.usuario.get("empresa"))
+
+    def _rota_para_empresa(self, empresa_destino):
+        origem = self._empresa_origem()
+        destino = self._empresa_normalizada(empresa_destino)
+        if not origem or not destino or origem == destino:
+            return None
+
+        for link in self.lan_status.get("links", []):
+            if self._empresa_normalizada(link.get("empresa")) == destino:
+                return link
+        return None
+
     def _carregar_preferencias(self):
         self._saved_preferences = get_widget_preferences(self.usuario, "maquinas")
 
@@ -252,6 +270,7 @@ class MaquinasWidget(QWidget):
         self.maquinas = []
         self.dados_cache = []
         self.monitoramento_status = {}
+        self.lan_status = {"links": [], "resumo": {}}
         self.tabela.setRowCount(0)
         self.empresa_prompt.setVisible(True)
         self.monitoramento_label.setText("Selecione uma empresa para iniciar o monitoramento de rede.")
@@ -307,10 +326,12 @@ class MaquinasWidget(QWidget):
     def _carregar_status_monitoramento(self):
         if not self.empresa_pronta():
             self.monitoramento_status = {}
+            self.lan_status = {"links": [], "resumo": {}}
             self.monitoramento_label.setText("Selecione uma empresa para iniciar o monitoramento de rede.")
             return
 
         status_list = api_client.listar_status_maquinas_monitoramento(empresa=self.empresa_param())
+        self.lan_status = api_client.get_status_lan_to_lan(self.usuario.get("empresa"))
         self.monitoramento_status = {item.get("id"): item for item in status_list}
 
         if not status_list:
@@ -327,6 +348,17 @@ class MaquinasWidget(QWidget):
             resumo.append(f"{pendentes} sem alvo")
         if erros:
             resumo.append(f"{erros} com erro")
+
+        lan_resumo = self.lan_status.get("resumo") or {}
+        if lan_resumo.get("offline"):
+            resumo.append(f"{lan_resumo.get('offline')} rota(s) offline")
+        if lan_resumo.get("erro"):
+            resumo.append(f"{lan_resumo.get('erro')} rota(s) com erro")
+
+        empresa_selecionada = self._empresa_normalizada(self.empresa_param())
+        rota_empresa = self._rota_para_empresa(empresa_selecionada)
+        if rota_empresa and rota_empresa.get("status") != "online":
+            resumo.append(f"rota para {empresa_selecionada} indisponivel")
 
         self.monitoramento_label.setText("Monitoramento de rede local: " + " | ".join(resumo))
 
@@ -426,6 +458,9 @@ class MaquinasWidget(QWidget):
             "offline": QColor(239, 68, 68),
             "erro": QColor(245, 158, 11),
             "nao_configurado": QColor(148, 163, 184),
+            "sem_resposta": QColor(239, 68, 68),
+            "sem_rota": QColor(239, 68, 68),
+            "rota_com_erro": QColor(245, 158, 11),
         }
 
         for row, maquina in enumerate(maquinas):
@@ -433,11 +468,45 @@ class MaquinasWidget(QWidget):
             ip_ou_host = maquina.get("ip_address") or monitor.get("alvo_monitoramento") or "-"
             monitor_label = monitor.get("monitor_label", "Sem leitura")
             monitor_status = monitor.get("monitor_status", "nao_configurado")
-            monitor_color = monitor_colors.get(monitor_status, QColor(148, 163, 184))
             monitor_tooltip = monitor.get("detalhe") or "Aguardando leitura de rede."
             latencia_ms = monitor.get("latencia_ms")
             if latencia_ms is not None:
                 monitor_tooltip = f"{monitor_tooltip}\nLatencia: {latencia_ms} ms"
+
+            rota = self._rota_para_empresa(maquina.get("empresa"))
+            if rota:
+                rota_status = rota.get("status")
+                if rota_status == "offline":
+                    monitor_status = "sem_rota"
+                    monitor_label = "Sem rota"
+                    monitor_tooltip = (
+                        f"LAN-to-LAN indisponivel para {maquina.get('empresa')}.\n"
+                        f"{rota.get('detalhe') or rota.get('servidor') or 'Sem resposta do firewall remoto.'}"
+                    )
+                elif rota_status == "erro":
+                    monitor_status = "rota_com_erro"
+                    monitor_label = "Rota com erro"
+                    monitor_tooltip = (
+                        f"A rota para {maquina.get('empresa')} nao pode ser validada.\n"
+                        f"{rota.get('detalhe') or rota.get('servidor') or 'Falha na leitura do firewall remoto.'}"
+                    )
+                elif rota_status == "online" and monitor_status == "offline":
+                    monitor_status = "sem_resposta"
+                    monitor_label = "Sem resposta"
+                    monitor_tooltip = (
+                        f"A rota LAN-to-LAN para {maquina.get('empresa')} esta OK, "
+                        "mas o host monitorado nao respondeu.\n"
+                        f"{monitor.get('detalhe') or 'Sem resposta do equipamento.'}"
+                    )
+            elif monitor_status == "offline":
+                monitor_status = "sem_resposta"
+                monitor_label = "Sem resposta"
+                monitor_tooltip = (
+                    "A rede local respondeu, mas este host nao retornou resposta ao monitoramento.\n"
+                    f"{monitor.get('detalhe') or 'Sem resposta do equipamento.'}"
+                )
+
+            monitor_color = monitor_colors.get(monitor_status, QColor(148, 163, 184))
 
             self.tabela.setItem(row, 0, number_item(maquina.get("id", "")))
             self.tabela.setItem(row, 1, QTableWidgetItem(maquina.get("nome", "")))

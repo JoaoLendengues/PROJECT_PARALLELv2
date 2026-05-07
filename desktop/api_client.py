@@ -300,6 +300,22 @@ class APIClient:
             print(f"Erro ao monitorar máquinas: {e}")
             return []
 
+    def registrar_heartbeat_maquina(self, payload):
+        """Registra a presença da máquina atual enquanto o app está aberto."""
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/maquinas/heartbeat",
+                json=payload,
+                headers=self.get_headers(),
+                timeout=10
+            )
+            if response.status_code == 200:
+                return response.json()
+            return {"matched": False}
+        except Exception as e:
+            print(f"Erro ao registrar heartbeat da máquina: {e}")
+            return {"matched": False}
+
     def criar_maquina(self, maquina):
         """Cria uma nova máquina"""
         try:
@@ -1266,6 +1282,25 @@ class APIClient:
         except Exception as e:
             print(f'❌ Erro ao obter status da internet: {e}')
             return {'status': 'offline', 'qualidade': 'erro', 'latencia_ms': None}
+
+    def get_status_lan_to_lan(self, empresa=None):
+        """ObtÃ©m o status da malha LAN-to-LAN para a empresa atual."""
+        try:
+            params = {}
+            if empresa:
+                params["empresa"] = empresa
+            response = requests.get(
+                f"{self.base_url}/api/dashboard/status-lan-to-lan",
+                headers=self.get_headers(),
+                params=params,
+                timeout=10
+            )
+            if response.status_code == 200:
+                return response.json()
+            return {"links": [], "resumo": {"online": 0, "offline": 0, "erro": 0, "total": 0}}
+        except Exception as e:
+            print(f"âŒ Erro ao obter status LAN-to-LAN: {e}")
+            return {"links": [], "resumo": {"online": 0, "offline": 0, "erro": 0, "total": 0}}
 
     def get_health_status(self):
         """Obtém a saúde da API e do banco de dados."""

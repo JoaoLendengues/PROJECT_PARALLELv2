@@ -22,6 +22,7 @@ from widgets.notification_badge import NotificationBadge
 from access_control import get_role_label, get_screen_label, has_screen_access, normalize_access_level
 from api_client import api_client
 from core.notification_manager import notification_manager as core_mn
+from machine_identity import get_machine_identity
 from version import get_version
 
 
@@ -87,6 +88,12 @@ class MainWindow(QMainWindow):
 
         # ✅ Carregar dados em background
         self.load_background_data()
+
+        # ✅ Heartbeat da própria estação enquanto o app estiver aberto
+        self.heartbeat_timer = QTimer(self)
+        self.heartbeat_timer.timeout.connect(self.enviar_heartbeat_maquina)
+        self.heartbeat_timer.start(45000)
+        QTimer.singleShot(2000, self.enviar_heartbeat_maquina)
 
         # Abrir a primeira tela acessivel para o perfil
         self.show_default_screen()
@@ -405,3 +412,13 @@ class MainWindow(QMainWindow):
             # Fechar aplicação
             self.close()
             QApplication.quit()
+
+    def enviar_heartbeat_maquina(self):
+        """Informa ao backend que esta estação segue ativa no app."""
+        try:
+            payload = get_machine_identity(api_client.base_url)
+            if not any(payload.values()):
+                return
+            api_client.registrar_heartbeat_maquina(payload)
+        except Exception as e:
+            print(f"Erro ao enviar heartbeat da maquina: {e}")

@@ -81,6 +81,20 @@ class MaquinaMonitoramentoResponse(BaseModel):
     atualizado_em: datetime
 
 
+class MaquinaHeartbeatRequest(BaseModel):
+    hostname: Optional[str] = None
+    ip_address: Optional[str] = None
+    mac_address: Optional[str] = None
+
+
+class MaquinaHeartbeatResponse(BaseModel):
+    matched: bool
+    machine_id: Optional[int] = None
+    machine_name: Optional[str] = None
+    matched_by: Optional[str] = None
+    heartbeat_at: datetime
+
+
 class ManutencaoBase(BaseModel):
     maquina_id: int
     tipo: str # preventiva, corretiva, emergencial

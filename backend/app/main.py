@@ -33,6 +33,18 @@ def ensure_schema_compatibility():
             with engine.begin() as connection:
                 connection.execute(text("ALTER TABLE maquinas ADD COLUMN ip_address VARCHAR(100)"))
             print("Compatibilidade aplicada: coluna maquinas.ip_address criada.")
+        if "ultimo_heartbeat_em" not in maquinas_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE maquinas ADD COLUMN ultimo_heartbeat_em TIMESTAMP"))
+            print("Compatibilidade aplicada: coluna maquinas.ultimo_heartbeat_em criada.")
+        if "ultimo_heartbeat_ip" not in maquinas_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE maquinas ADD COLUMN ultimo_heartbeat_ip VARCHAR(100)"))
+            print("Compatibilidade aplicada: coluna maquinas.ultimo_heartbeat_ip criada.")
+        if "ultimo_heartbeat_hostname" not in maquinas_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE maquinas ADD COLUMN ultimo_heartbeat_hostname VARCHAR(100)"))
+            print("Compatibilidade aplicada: coluna maquinas.ultimo_heartbeat_hostname criada.")
 
 # Criar as tabelas no banco (se não existirem)
 print("📦 Criando/verificando tabelas no banco de dados...")
