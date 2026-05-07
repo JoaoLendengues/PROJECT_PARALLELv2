@@ -5,10 +5,12 @@ from PySide6.QtCore import QEvent, Qt, QTimer
 from PySide6.QtGui import QColor, QCursor, QFont, QLinearGradient, QPainter, QPainterPath, QPen, QRadialGradient
 from PySide6.QtWidgets import (
     QApplication,
+    QDialog,
     QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QScrollArea,
     QVBoxLayout,
     QWidget,
@@ -47,105 +49,109 @@ class MetricWaveDecoration(QWidget):
         self.dark_mode = bool(dark_mode)
         self.update()
 
+    def _metric_points(self, rect):
+        width = rect.width()
+        height = rect.height()
+        if self.wide:
+            return [
+                (rect.left() - width * 0.04, rect.bottom() - height * 0.18),
+                (rect.left() + width * 0.10, rect.bottom() - height * 0.10),
+                (rect.left() + width * 0.24, rect.top() + height * 0.72),
+                (rect.left() + width * 0.40, rect.top() + height * 0.58),
+                (rect.left() + width * 0.56, rect.top() + height * 0.64),
+                (rect.left() + width * 0.72, rect.top() + height * 0.28),
+                (rect.left() + width * 0.88, rect.top() + height * 0.38),
+                (rect.right() + width * 0.04, rect.top() + height * 0.30),
+            ]
+        return [
+            (rect.left() - width * 0.04, rect.bottom() - height * 0.16),
+            (rect.left() + width * 0.12, rect.bottom() - height * 0.08),
+            (rect.left() + width * 0.28, rect.top() + height * 0.72),
+            (rect.left() + width * 0.46, rect.top() + height * 0.60),
+            (rect.left() + width * 0.64, rect.top() + height * 0.66),
+            (rect.left() + width * 0.80, rect.top() + height * 0.18),
+            (rect.right() + width * 0.04, rect.top() + height * 0.26),
+        ]
+
+    def _build_smooth_path(self, points):
+        path = QPainterPath()
+        if not points:
+            return path
+        path.moveTo(*points[0])
+        for index in range(1, len(points)):
+            prev_x, prev_y = points[index - 1]
+            curr_x, curr_y = points[index]
+            control_x = (prev_x + curr_x) / 2
+            path.cubicTo(control_x, prev_y, control_x, curr_y, curr_x, curr_y)
+        return path
+
     def paintEvent(self, event):
         del event
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
         rect = self.rect().adjusted(1, 3, -1, -2)
+        color = QColor(self.accent)
         width = rect.width()
         height = rect.height()
-        color = QColor(self.accent)
 
-        fill_gradient = QLinearGradient(rect.left(), rect.top(), rect.right(), rect.bottom())
-        top_fill = QColor(color)
-        bottom_fill = QColor(color)
-        top_fill.setAlpha(12 if self.dark_mode else 18)
-        bottom_fill.setAlpha(72 if self.dark_mode else 42)
-        fill_gradient.setColorAt(0.0, top_fill)
-        fill_gradient.setColorAt(0.55, bottom_fill)
-        fill_gradient.setColorAt(1.0, QColor(color.red(), color.green(), color.blue(), 0))
+        guide_pen = QPen(QColor(color.red(), color.green(), color.blue(), 24 if self.dark_mode else 18))
+        guide_pen.setWidthF(1.0)
+        painter.setPen(guide_pen)
+        for ratio in (0.28, 0.56, 0.84):
+            y = rect.top() + height * ratio
+            painter.drawLine(rect.left(), int(y), rect.right(), int(y))
 
-        primary = QPainterPath()
-        primary.moveTo(rect.left() - width * 0.14, rect.bottom() - height * 0.18)
-        if self.wide:
-            primary.cubicTo(
-                rect.left() + width * 0.10,
-                rect.bottom() - height * 0.04,
-                rect.left() + width * 0.30,
-                rect.top() + height * 0.72,
-                rect.left() + width * 0.52,
-                rect.top() + height * 0.62,
-            )
-            primary.cubicTo(
-                rect.left() + width * 0.68,
-                rect.top() + height * 0.56,
-                rect.left() + width * 0.82,
-                rect.top() + height * 0.20,
-                rect.right() + width * 0.06,
-                rect.top() + height * 0.40,
-            )
-        else:
-            primary.cubicTo(
-                rect.left() + width * 0.12,
-                rect.bottom() - height * 0.04,
-                rect.left() + width * 0.34,
-                rect.top() + height * 0.82,
-                rect.left() + width * 0.54,
-                rect.top() + height * 0.64,
-            )
-            primary.cubicTo(
-                rect.left() + width * 0.74,
-                rect.top() + height * 0.48,
-                rect.left() + width * 0.88,
-                rect.top() + height * 0.10,
-                rect.right() + width * 0.08,
-                rect.top() + height * 0.28,
-            )
+        bar_color = QColor(color.red(), color.green(), color.blue(), 28 if self.dark_mode else 20)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(bar_color)
+        bar_width = 6 if self.wide else 5
+        bar_spacing = 14 if self.wide else 11
+        bar_left = rect.left() + 6
+        for index in range(5):
+            bar_height = height * (0.22 + (index % 3) * 0.12)
+            x = bar_left + index * bar_spacing
+            y = rect.bottom() - bar_height
+            painter.drawRoundedRect(int(x), int(y), bar_width, int(bar_height), 2, 2)
 
+        points = self._metric_points(rect)
+        primary = self._build_smooth_path(points)
         area = QPainterPath(primary)
         area.lineTo(rect.right() + 2, rect.bottom() + 2)
         area.lineTo(rect.left() - 2, rect.bottom() + 2)
         area.closeSubpath()
 
+        fill_gradient = QLinearGradient(rect.left(), rect.top(), rect.left(), rect.bottom())
+        fill_gradient.setColorAt(0.0, QColor(color.red(), color.green(), color.blue(), 88 if self.dark_mode else 64))
+        fill_gradient.setColorAt(0.45, QColor(color.red(), color.green(), color.blue(), 44 if self.dark_mode else 32))
+        fill_gradient.setColorAt(1.0, QColor(color.red(), color.green(), color.blue(), 0))
         painter.fillPath(area, fill_gradient)
 
-        main_pen = QPen(QColor(color.red(), color.green(), color.blue(), 168 if self.dark_mode else 122))
-        main_pen.setWidthF(2.2 if self.wide else 1.9)
+        ghost_points = [(x, y + height * 0.10) for x, y in points[:-1]]
+        ghost_points.append((points[-1][0], points[-1][1] + height * 0.12))
+        ghost_path = self._build_smooth_path(ghost_points)
+        ghost_pen = QPen(QColor(color.red(), color.green(), color.blue(), 62 if self.dark_mode else 48))
+        ghost_pen.setWidthF(1.1)
+        painter.setPen(ghost_pen)
+        painter.drawPath(ghost_path)
+
+        main_pen = QPen(QColor(color.red(), color.green(), color.blue(), 196 if self.dark_mode else 154))
+        main_pen.setWidthF(2.3 if self.wide else 2.0)
         painter.setPen(main_pen)
         painter.drawPath(primary)
 
-        secondary = QPainterPath()
-        secondary.moveTo(rect.left() - width * 0.10, rect.bottom() - height * 0.02)
-        secondary.cubicTo(
-            rect.left() + width * 0.20,
-            rect.bottom() - height * 0.12,
-            rect.left() + width * 0.44,
-            rect.top() + height * 0.76,
-            rect.left() + width * 0.68,
-            rect.top() + height * 0.70,
-        )
-        secondary.cubicTo(
-            rect.left() + width * 0.84,
-            rect.top() + height * 0.66,
-            rect.left() + width * 0.94,
-            rect.top() + height * 0.34,
-            rect.right() + width * 0.08,
-            rect.top() + height * 0.52,
-        )
-
-        soft_pen = QPen(QColor(color.red(), color.green(), color.blue(), 74 if self.dark_mode else 52))
-        soft_pen.setWidthF(1.2)
-        painter.setPen(soft_pen)
-        painter.drawPath(secondary)
-
-        dot_color = QColor(color)
-        dot_color.setAlpha(210 if self.dark_mode else 180)
+        last_x, last_y = points[-1]
+        glow = QRadialGradient(last_x, last_y, 12 if self.wide else 10)
+        glow.setColorAt(0.0, QColor(255, 255, 255, 220))
+        glow.setColorAt(0.25, QColor(color.red(), color.green(), color.blue(), 210))
+        glow.setColorAt(1.0, QColor(color.red(), color.green(), color.blue(), 0))
+        painter.setBrush(glow)
         painter.setPen(Qt.NoPen)
+        painter.drawEllipse(int(last_x - 10), int(last_y - 10), 20, 20)
+
+        dot_color = QColor(color.red(), color.green(), color.blue(), 230 if self.dark_mode else 205)
         painter.setBrush(dot_color)
-        dot_x = rect.right() - width * 0.12
-        dot_y = rect.top() + height * (0.28 if self.wide else 0.22)
-        painter.drawEllipse(int(dot_x), int(dot_y), 6, 6)
+        painter.drawEllipse(int(last_x - 3), int(last_y - 3), 7, 7)
 
 
 class NetworkPulseDecoration(QWidget):
@@ -289,6 +295,280 @@ class RealtimeSparkline(QWidget):
         painter.drawEllipse(int(last_x - 3), int(last_y - 3), 6, 6)
 
 
+class ConnectivityHistoryDialog(QDialog):
+    def __init__(self, home_widget, parent=None):
+        super().__init__(parent or home_widget)
+        self.home_widget = home_widget
+        self.local_graph = None
+        self.local_status_label = None
+        self.local_meta_label = None
+        self.local_analytics_label = None
+
+        self.setWindowTitle("Historico de Conectividade")
+        self.setModal(False)
+        self.resize(820, 660)
+        self.setMinimumSize(760, 610)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(22, 22, 22, 22)
+        layout.setSpacing(16)
+
+        title = QLabel("Historico de Conectividade")
+        title.setObjectName("connectivityHistoryTitle")
+        layout.addWidget(title)
+
+        subtitle = QLabel("Ultimos 60 segundos da rede local e da malha LAN-to-LAN.")
+        subtitle.setObjectName("connectivityHistorySubtitle")
+        subtitle.setWordWrap(True)
+        layout.addWidget(subtitle)
+
+        local_panel = QFrame()
+        local_panel.setObjectName("connectivityHistoryPanel")
+        local_layout = QVBoxLayout(local_panel)
+        local_layout.setContentsMargins(18, 16, 18, 16)
+        local_layout.setSpacing(10)
+
+        local_title = QLabel("Rede Local")
+        local_title.setObjectName("connectivityHistorySectionTitle")
+        local_layout.addWidget(local_title)
+
+        self.local_status_label = QLabel("Aguardando leitura...")
+        self.local_status_label.setObjectName("connectivityHistoryStatus")
+        local_layout.addWidget(self.local_status_label)
+
+        self.local_graph = RealtimeSparkline("#22c55e")
+        self.local_graph.setMinimumHeight(88)
+        self.local_graph.setMaximumHeight(88)
+        local_layout.addWidget(self.local_graph)
+
+        self.local_meta_label = QLabel("Sem dados ainda.")
+        self.local_meta_label.setObjectName("connectivityHistoryMeta")
+        self.local_meta_label.setWordWrap(True)
+        local_layout.addWidget(self.local_meta_label)
+
+        self.local_analytics_label = QLabel("Aguardando consolidacao da estabilidade.")
+        self.local_analytics_label.setObjectName("connectivityHistoryAnalytics")
+        self.local_analytics_label.setWordWrap(True)
+        local_layout.addWidget(self.local_analytics_label)
+
+        layout.addWidget(local_panel)
+
+        self.lan_panel = QFrame()
+        self.lan_panel.setObjectName("connectivityHistoryPanel")
+        self.lan_layout = QVBoxLayout(self.lan_panel)
+        self.lan_layout.setContentsMargins(18, 16, 18, 16)
+        self.lan_layout.setSpacing(12)
+
+        lan_title = QLabel("Malha LAN-to-LAN")
+        lan_title.setObjectName("connectivityHistorySectionTitle")
+        self.lan_layout.addWidget(lan_title)
+        layout.addWidget(self.lan_panel)
+
+        self.events_panel = QFrame()
+        self.events_panel.setObjectName("connectivityHistoryPanel")
+        self.events_layout = QVBoxLayout(self.events_panel)
+        self.events_layout.setContentsMargins(18, 16, 18, 16)
+        self.events_layout.setSpacing(12)
+
+        events_title = QLabel("Eventos recentes")
+        events_title.setObjectName("connectivityHistorySectionTitle")
+        self.events_layout.addWidget(events_title)
+        layout.addWidget(self.events_panel)
+
+        close_row = QHBoxLayout()
+        close_row.addStretch()
+        close_button = QPushButton("Fechar")
+        close_button.clicked.connect(self.close)
+        close_row.addWidget(close_button)
+        layout.addLayout(close_row)
+
+        self._apply_styles()
+
+    def _apply_styles(self):
+        dark_mode = self.home_widget._is_dark_theme()
+        palette = self.home_widget._theme_palette()
+        self.setStyleSheet(
+            f"""
+            QDialog {{
+                background-color: {palette['page_bg']};
+            }}
+            QLabel#connectivityHistoryTitle {{
+                color: {palette['text_primary']};
+                font-size: 24px;
+                font-weight: 800;
+                background: transparent;
+            }}
+            QLabel#connectivityHistorySubtitle {{
+                color: {palette['text_secondary']};
+                font-size: 13px;
+                background: transparent;
+            }}
+            QFrame#connectivityHistoryPanel {{
+                background-color: {palette['panel_bg']};
+                border: 1px solid {palette['border']};
+                border-radius: 18px;
+            }}
+            QLabel#connectivityHistorySectionTitle {{
+                color: {palette['text_primary']};
+                font-size: 16px;
+                font-weight: 700;
+                background: transparent;
+            }}
+            QLabel#connectivityHistoryStatus {{
+                color: {palette['text_primary']};
+                font-size: 15px;
+                font-weight: 700;
+                background: transparent;
+            }}
+            QLabel#connectivityHistoryMeta {{
+                color: {palette['text_secondary']};
+                font-size: 12px;
+                background: transparent;
+            }}
+            QLabel#connectivityHistoryAnalytics {{
+                color: {palette['text_primary']};
+                font-size: 12px;
+                font-weight: 600;
+                background: transparent;
+            }}
+            QFrame#connectivityHistoryEventRow {{
+                background-color: {palette['card_bg']};
+                border: 1px solid {palette['border']};
+                border-radius: 14px;
+            }}
+            QLabel#connectivityHistoryEventTime {{
+                color: {palette['text_muted']};
+                font-size: 11px;
+                font-weight: 700;
+                background: transparent;
+            }}
+            QLabel#connectivityHistoryEventBody {{
+                color: {palette['text_primary']};
+                font-size: 12px;
+                background: transparent;
+            }}
+            QLabel#connectivityHistoryEmpty {{
+                color: {palette['text_muted']};
+                font-size: 12px;
+                background: transparent;
+            }}
+            QPushButton {{
+                background-color: {palette['panel_bg'] if dark_mode else '#ffffff'};
+                color: {palette['text_primary']};
+                border: 1px solid {palette['border']};
+                border-radius: 10px;
+                padding: 8px 14px;
+                font-size: 13px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                border-color: {palette['border_hover']};
+                background-color: {palette['card_hover']};
+            }}
+            """
+        )
+
+    def refresh_data(self):
+        self._apply_styles()
+        palette = self.home_widget._theme_palette()
+
+        network_value = "Aguardando"
+        network_meta = "Sem leitura"
+        network_server = ""
+        network_detail = ""
+        network_accent = "#22c55e"
+        if self.home_widget.internet_card_data:
+            network_value = self.home_widget.internet_card_data["status"].text()
+            network_meta = self.home_widget.internet_card_data["latency"].text()
+            network_server = self.home_widget.internet_card_data["server"].text()
+            network_detail = self.home_widget.internet_card_data["detail"].text()
+            network_accent = self.home_widget.internet_card_data.get("current_accent", "#22c55e")
+
+        self.local_status_label.setText(network_value)
+        self.local_meta_label.setText("\n".join(part for part in (network_meta, network_server, network_detail) if part))
+        self.local_graph.set_visuals(network_accent, palette["card_bg"], self.home_widget._is_dark_theme())
+        self.local_graph.set_points(self.home_widget.network_history)
+        self.local_analytics_label.setText(
+            self.home_widget._format_connectivity_analytics(self.home_widget.network_history)
+        )
+
+        while self.lan_layout.count() > 1:
+            item = self.lan_layout.takeAt(1)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+
+        for company_name, card in self.home_widget.lan_cards.items():
+            row = QFrame()
+            row.setObjectName("connectivityHistoryPanel")
+            row_layout = QVBoxLayout(row)
+            row_layout.setContentsMargins(14, 12, 14, 12)
+            row_layout.setSpacing(8)
+
+            title = QLabel(company_name)
+            title.setObjectName("connectivityHistorySectionTitle")
+            row_layout.addWidget(title)
+
+            status_label = QLabel(card["value"].text())
+            status_label.setObjectName("connectivityHistoryStatus")
+            row_layout.addWidget(status_label)
+
+            graph = RealtimeSparkline(card.get("current_accent") or "#3b82f6")
+            graph.setMinimumHeight(72)
+            graph.setMaximumHeight(72)
+            graph.set_visuals(card.get("current_accent") or "#3b82f6", palette["card_bg"], self.home_widget._is_dark_theme())
+            graph.set_points(self.home_widget.lan_history.get(company_name, []))
+            row_layout.addWidget(graph)
+
+            meta = QLabel(card["meta"].text())
+            meta.setObjectName("connectivityHistoryMeta")
+            meta.setWordWrap(True)
+            row_layout.addWidget(meta)
+
+            analytics = QLabel(
+                self.home_widget._format_connectivity_analytics(self.home_widget.lan_history.get(company_name, []))
+            )
+            analytics.setObjectName("connectivityHistoryAnalytics")
+            analytics.setWordWrap(True)
+            row_layout.addWidget(analytics)
+
+            self.lan_layout.addWidget(row)
+
+        self.lan_layout.addStretch()
+
+        while self.events_layout.count() > 1:
+            item = self.events_layout.takeAt(1)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+
+        events = self.home_widget._recent_connectivity_events(limit=8)
+        if not events:
+            empty = QLabel("Nenhuma variacao relevante registrada nesta sessao.")
+            empty.setObjectName("connectivityHistoryEmpty")
+            empty.setWordWrap(True)
+            self.events_layout.addWidget(empty)
+            return
+
+        for event in events:
+            row = QFrame()
+            row.setObjectName("connectivityHistoryEventRow")
+            row_layout = QVBoxLayout(row)
+            row_layout.setContentsMargins(14, 12, 14, 12)
+            row_layout.setSpacing(4)
+
+            time_label = QLabel(event["time"])
+            time_label.setObjectName("connectivityHistoryEventTime")
+            row_layout.addWidget(time_label)
+
+            body_label = QLabel(f"{event['title']} - {event['detail']}")
+            body_label.setObjectName("connectivityHistoryEventBody")
+            body_label.setWordWrap(True)
+            row_layout.addWidget(body_label)
+
+            self.events_layout.addWidget(row)
+
+
 class HomeWidget(QWidget):
     CARD_CONFIGS = (
         {
@@ -360,6 +640,13 @@ class HomeWidget(QWidget):
         self.lan_cards = {}
         self.network_history = deque(maxlen=60)
         self.lan_history = {}
+        self.network_events = deque(maxlen=16)
+        self.lan_events = {}
+        self.last_network_status = {}
+        self.last_lan_status = {}
+        self.last_network_signature = None
+        self.last_lan_signatures = {}
+        self.history_dialog = None
         self.last_internet_refresh = None
         self.last_technical_refresh = None
         self._applying_theme_styles = False
@@ -565,6 +852,15 @@ class HomeWidget(QWidget):
         if self.main_window and hasattr(self.main_window, acao):
             getattr(self.main_window, acao)()
 
+    def abrir_historico_conectividade(self):
+        if self.history_dialog is None:
+            self.history_dialog = ConnectivityHistoryDialog(self, self.window())
+
+        self.history_dialog.refresh_data()
+        self.history_dialog.show()
+        self.history_dialog.raise_()
+        self.history_dialog.activateWindow()
+
     def carregar_dados(self):
         try:
             dados = api_client.get_dashboard_resumo()
@@ -589,6 +885,8 @@ class HomeWidget(QWidget):
         network_status = self.atualizar_status_internet(update_history=True)
         lan_status = self.atualizar_status_lan_to_lan(update_history=True)
         self._atualizar_subtitulo_lan(lan_status)
+        if self.history_dialog is not None and self.history_dialog.isVisible():
+            self.history_dialog.refresh_data()
 
     def atualizar_monitoramento_tecnico(self, show_feedback=False):
         network_status = self.atualizar_status_internet(show_feedback=show_feedback, update_history=True)
@@ -601,6 +899,7 @@ class HomeWidget(QWidget):
         except Exception as exc:
             print(f"Erro ao atualizar status da rede local: {exc}")
             status = {"status": "erro", "qualidade": "erro", "latencia_ms": None, "servidor": "Falha na medicao"}
+        self.last_network_status = status or {}
 
         self.last_internet_refresh = datetime.now()
         if not self.internet_card_data:
@@ -672,6 +971,7 @@ class HomeWidget(QWidget):
             self.internet_card_data["graph"].set_visuals(accent, palette["card_bg"], self._is_dark_theme())
             if update_history:
                 self.network_history.append(self._status_to_graph_value(status))
+                self._record_network_event(status)
             self.internet_card_data["graph"].set_points(self.network_history)
 
         if show_feedback:
@@ -698,6 +998,7 @@ class HomeWidget(QWidget):
         except Exception as exc:
             print(f"Erro ao atualizar malha LAN-to-LAN: {exc}")
             lan_status = {"links": [], "resumo": {"online": 0, "offline": 0, "erro": 0, "total": 0}}
+        self.last_lan_status = lan_status or {}
 
         lan_links = lan_status.get("links") or []
         lan_value_map = {
@@ -746,6 +1047,7 @@ class HomeWidget(QWidget):
                 if update_history:
                     history = self.lan_history.setdefault(company_name, deque(maxlen=60))
                     history.append(self._status_to_graph_value(link))
+                    self._record_lan_event(company_name, link)
                 card["graph"].set_points(self.lan_history.get(company_name, []))
 
         self._atualizar_subtitulo_lan(lan_status)
@@ -1089,6 +1391,11 @@ class HomeWidget(QWidget):
         cta.setObjectName("homeCardCta")
         left_col.addWidget(cta)
 
+        history_button = QPushButton("Ver historico")
+        history_button.setObjectName("homeSecondaryButton")
+        history_button.clicked.connect(self.abrir_historico_conectividade)
+        left_col.addWidget(history_button, 0, Qt.AlignLeft)
+
         right_col = QVBoxLayout()
         right_col.setContentsMargins(0, 0, 0, 0)
         right_col.setSpacing(12)
@@ -1127,6 +1434,7 @@ class HomeWidget(QWidget):
             "graph": graph,
             "updated": updated,
             "cta": cta,
+            "history_button": history_button,
             "orb": orb,
             "pulse": pulse,
         }
@@ -1240,6 +1548,8 @@ class HomeWidget(QWidget):
         self.lan_cards = {}
         target_names = self._lan_targets_for_context()
         self.lan_history = {name: self.lan_history.get(name, deque(maxlen=60)) for name in target_names}
+        self.lan_events = {name: self.lan_events.get(name, deque(maxlen=12)) for name in target_names}
+        self.last_lan_signatures = {name: self.last_lan_signatures.get(name) for name in target_names}
 
         for index, company in enumerate(target_names):
             card = self._create_lan_card(company)
@@ -1442,6 +1752,124 @@ class HomeWidget(QWidget):
         if state == "offline":
             return 0.0
         return 12.0
+
+    def _connectivity_signature(self, status):
+        quality = str(status.get("qualidade", "")).lower()
+        state = str(status.get("status", "")).lower()
+        if state == "online":
+            return state, quality
+        detail = str(status.get("detalhe") or status.get("servidor") or "").strip().lower()
+        return state, quality, detail
+
+    def _connectivity_state_text(self, status, lan=False):
+        quality = str(status.get("qualidade", "")).lower()
+        state = str(status.get("status", "")).lower()
+        latency = status.get("latencia_ms")
+        quality_map = {
+            "excelente": "Excelente",
+            "bom": "Boa",
+            "regular": "Regular",
+            "ruim": "Instavel",
+        }
+
+        if state == "online":
+            label = quality_map.get(quality, "Online")
+            if latency is not None:
+                return f"{label} ({latency} ms)"
+            return label
+
+        if state == "offline":
+            return "Sem rota" if lan else "Offline"
+        return "Rota com erro" if lan else "Falha de leitura"
+
+    def _build_connectivity_event(self, title, status, lan=False):
+        detail_parts = [self._connectivity_state_text(status, lan=lan)]
+        if lan and status.get("host"):
+            detail_parts.append(f"{status.get('host')}:{status.get('port')}")
+        elif not lan and status.get("servidor"):
+            detail_parts.append(str(status.get("servidor")))
+
+        extra_detail = str(status.get("detalhe") or "").strip()
+        if extra_detail and extra_detail not in detail_parts[-1]:
+            detail_parts.append(extra_detail)
+
+        moment = datetime.now()
+        return {
+            "timestamp": moment,
+            "time": moment.strftime("%H:%M:%S"),
+            "title": title,
+            "detail": " - ".join(part for part in detail_parts if part),
+        }
+
+    def _record_network_event(self, status):
+        signature = self._connectivity_signature(status)
+        if self.last_network_signature is None:
+            self.last_network_signature = signature
+            return
+        if signature == self.last_network_signature:
+            return
+
+        self.last_network_signature = signature
+        self.network_events.append(self._build_connectivity_event("Rede Local", status, lan=False))
+
+    def _record_lan_event(self, company_name, status):
+        signature = self._connectivity_signature(status)
+        last_signature = self.last_lan_signatures.get(company_name)
+        if last_signature is None:
+            self.last_lan_signatures[company_name] = signature
+            return
+        if signature == last_signature:
+            return
+
+        self.last_lan_signatures[company_name] = signature
+        queue = self.lan_events.setdefault(company_name, deque(maxlen=12))
+        queue.append(self._build_connectivity_event(company_name, status, lan=True))
+
+    def _connectivity_metrics(self, points):
+        values = []
+        for point in points or []:
+            try:
+                values.append(max(0.0, min(100.0, float(point))))
+            except Exception:
+                continue
+
+        if not values:
+            return {"score": 0, "availability": 0, "samples": 0, "variation": "sem leitura"}
+
+        score = int(round(sum(values) / len(values)))
+        availability = int(round((sum(1 for value in values if value >= 18.0) / len(values)) * 100))
+        spread = max(values) - min(values)
+        if spread <= 12:
+            variation = "muito baixa"
+        elif spread <= 28:
+            variation = "baixa"
+        elif spread <= 48:
+            variation = "moderada"
+        else:
+            variation = "alta"
+
+        return {
+            "score": score,
+            "availability": availability,
+            "samples": len(values),
+            "variation": variation,
+        }
+
+    def _format_connectivity_analytics(self, points):
+        metrics = self._connectivity_metrics(points)
+        if metrics["samples"] <= 0:
+            return "Aguardando amostras suficientes para consolidar a leitura."
+        return (
+            f"Estabilidade {metrics['score']}/100 - disponibilidade {metrics['availability']}% - "
+            f"oscilacao {metrics['variation']} - {metrics['samples']} amostras."
+        )
+
+    def _recent_connectivity_events(self, limit=8):
+        events = list(self.network_events)
+        for queue in self.lan_events.values():
+            events.extend(list(queue))
+        events.sort(key=lambda item: item.get("timestamp") or datetime.min, reverse=True)
+        return events[: max(0, int(limit or 0))]
 
     def _apply_metric_data(self, card_name, resumo):
         card = self.metric_cards.get(card_name)
@@ -1648,6 +2076,19 @@ class HomeWidget(QWidget):
                 QFrame#homeFeaturedCard:hover {{
                     background-color: {palette['card_hover']};
                     border: 1px solid {palette['border_hover']};
+                }}
+                QPushButton#homeSecondaryButton {{
+                    background-color: {palette['panel_bg']};
+                    color: {palette['text_primary']};
+                    border: 1px solid {palette['border']};
+                    border-radius: 10px;
+                    padding: 8px 12px;
+                    font-size: 12px;
+                    font-weight: 600;
+                }}
+                QPushButton#homeSecondaryButton:hover {{
+                    background-color: {palette['card_hover']};
+                    border-color: {palette['border_hover']};
                 }}
                 QLabel#homeCardTitle {{
                     color: {palette['text_primary']};
