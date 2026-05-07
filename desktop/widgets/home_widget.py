@@ -1,3 +1,4 @@
+from collections import deque
 from datetime import datetime
 
 from PySide6.QtCore import QEvent, Qt, QTimer
@@ -196,6 +197,98 @@ class NetworkPulseDecoration(QWidget):
         painter.drawEllipse(center, 11, 11)
 
 
+class RealtimeSparkline(QWidget):
+    def __init__(self, accent="#22c55e", parent=None):
+        super().__init__(parent)
+        self.accent = accent
+        self.dark_mode = True
+        self.card_background = "#111827"
+        self.points = deque(maxlen=60)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.setMinimumHeight(52)
+        self.setMaximumHeight(52)
+
+    def set_visuals(self, accent, card_background, dark_mode):
+        self.accent = accent or self.accent
+        self.card_background = card_background or self.card_background
+        self.dark_mode = bool(dark_mode)
+        self.update()
+
+    def set_points(self, points):
+        self.points = deque(points or [], maxlen=60)
+        self.update()
+
+    def append_point(self, value):
+        try:
+            numeric_value = max(0.0, min(100.0, float(value)))
+        except Exception:
+            numeric_value = 0.0
+        self.points.append(numeric_value)
+        self.update()
+
+    def paintEvent(self, event):
+        del event
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        rect = self.rect().adjusted(1, 3, -1, -3)
+        if rect.width() <= 4 or rect.height() <= 4:
+            return
+
+        accent = QColor(self.accent)
+        grid_pen = QPen(QColor(accent.red(), accent.green(), accent.blue(), 28 if self.dark_mode else 22))
+        grid_pen.setWidthF(1.0)
+        painter.setPen(grid_pen)
+        baseline_y = rect.bottom() - 1
+        painter.drawLine(rect.left(), baseline_y, rect.right(), baseline_y)
+
+        if len(self.points) < 2:
+            dot_color = QColor(accent.red(), accent.green(), accent.blue(), 140 if self.dark_mode else 120)
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(dot_color)
+            painter.drawEllipse(rect.left() + 2, rect.center().y() - 2, 5, 5)
+            return
+
+        def point_xy(index, value):
+            step = rect.width() / max(1, len(self.points) - 1)
+            x = rect.left() + step * index
+            y = rect.bottom() - ((value / 100.0) * rect.height())
+            return x, y
+
+        line_path = QPainterPath()
+        area_path = QPainterPath()
+        for index, value in enumerate(self.points):
+            x, y = point_xy(index, value)
+            if index == 0:
+                line_path.moveTo(x, y)
+                area_path.moveTo(x, baseline_y)
+                area_path.lineTo(x, y)
+            else:
+                line_path.lineTo(x, y)
+                area_path.lineTo(x, y)
+
+        area_path.lineTo(rect.right(), baseline_y)
+        area_path.closeSubpath()
+
+        fill = QLinearGradient(rect.left(), rect.top(), rect.left(), rect.bottom())
+        fill.setColorAt(0.0, QColor(accent.red(), accent.green(), accent.blue(), 78 if self.dark_mode else 56))
+        fill.setColorAt(1.0, QColor(accent.red(), accent.green(), accent.blue(), 0))
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(fill)
+        painter.drawPath(area_path)
+
+        line_pen = QPen(QColor(accent.red(), accent.green(), accent.blue(), 196 if self.dark_mode else 176))
+        line_pen.setWidthF(2.0)
+        painter.setPen(line_pen)
+        painter.setBrush(Qt.NoBrush)
+        painter.drawPath(line_path)
+
+        last_x, last_y = point_xy(len(self.points) - 1, self.points[-1])
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor(accent.red(), accent.green(), accent.blue(), 220))
+        painter.drawEllipse(int(last_x - 3), int(last_y - 3), 6, 6)
+
+
 class HomeWidget(QWidget):
     CARD_CONFIGS = (
         {
@@ -265,6 +358,8 @@ class HomeWidget(QWidget):
         self.internet_card_data = {}
         self.technical_cards = {}
         self.lan_cards = {}
+        self.network_history = deque(maxlen=60)
+        self.lan_history = {}
         self.last_internet_refresh = None
         self.last_technical_refresh = None
         self._applying_theme_styles = False
@@ -278,6 +373,10 @@ class HomeWidget(QWidget):
         self.timer_internet = QTimer(self)
         self.timer_internet.timeout.connect(self.atualizar_monitoramento_tecnico)
         self.timer_internet.start(30000)
+
+        self.timer_network_stream = QTimer(self)
+        self.timer_network_stream.timeout.connect(self.atualizar_conectividade_tempo_real)
+        self.timer_network_stream.start(1000)
 
         self.update_datetime()
 
@@ -362,6 +461,19 @@ class HomeWidget(QWidget):
         header_layout.addWidget(self.role_chip, 0, Qt.AlignTop)
         self.content_layout.addWidget(self.header_frame)
 
+        self.network_layout = QGridLayout()
+        self.network_layout.setContentsMargins(0, 0, 0, 0)
+        self.network_layout.setHorizontalSpacing(18)
+        self.network_layout.setVerticalSpacing(18)
+        self.network_layout.setColumnStretch(0, 3)
+        self.network_layout.setColumnStretch(1, 2)
+        self.network_featured_host = QWidget()
+        self.network_featured_layout = QVBoxLayout(self.network_featured_host)
+        self.network_featured_layout.setContentsMargins(0, 0, 0, 0)
+        self.network_featured_layout.setSpacing(0)
+        self.network_layout.addWidget(self.network_featured_host, 0, 0)
+        self.content_layout.addLayout(self.network_layout)
+
         self.cards_layout = QGridLayout()
         self.cards_layout.setContentsMargins(0, 0, 0, 0)
         self.cards_layout.setHorizontalSpacing(18)
@@ -373,7 +485,7 @@ class HomeWidget(QWidget):
         self.technical_panel = self._create_technical_panel()
         self.content_layout.addWidget(self.technical_panel)
         self.lan_panel = self._create_lan_panel()
-        self.content_layout.addWidget(self.lan_panel)
+        self.network_layout.addWidget(self.lan_panel, 0, 1)
         self.content_layout.addStretch()
 
         self._apply_theme_styles()
@@ -383,6 +495,7 @@ class HomeWidget(QWidget):
         self._apply_theme_styles()
         self.update_datetime()
         self.carregar_dados()
+        self.atualizar_conectividade_tempo_real()
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -469,11 +582,20 @@ class HomeWidget(QWidget):
 
         self.atualizar_monitoramento_tecnico()
 
-    def atualizar_monitoramento_tecnico(self, show_feedback=False):
-        network_status = self.atualizar_status_internet(show_feedback=show_feedback)
-        self.atualizar_painel_tecnico(network_status)
+    def atualizar_conectividade_tempo_real(self):
+        if not self.isVisible():
+            return
 
-    def atualizar_status_internet(self, show_feedback=False):
+        network_status = self.atualizar_status_internet(update_history=True)
+        lan_status = self.atualizar_status_lan_to_lan(update_history=True)
+        self._atualizar_subtitulo_lan(lan_status)
+
+    def atualizar_monitoramento_tecnico(self, show_feedback=False):
+        network_status = self.atualizar_status_internet(show_feedback=show_feedback, update_history=True)
+        lan_status = self.atualizar_status_lan_to_lan(update_history=True)
+        self.atualizar_painel_tecnico(network_status, lan_status)
+
+    def atualizar_status_internet(self, show_feedback=False, update_history=False):
         try:
             status = api_client.get_status_internet(self.usuario_context.get("empresa"))
         except Exception as exc:
@@ -520,7 +642,7 @@ class HomeWidget(QWidget):
             badge_text = "Falha"
             accent = "#ef4444"
 
-        updated_at = self.last_internet_refresh.strftime("%H:%M")
+        updated_at = self.last_internet_refresh.strftime("%H:%M:%S")
         self.internet_card_data["status"].setText(value_text)
         self.internet_card_data["latency"].setText(latency_text)
         self.internet_card_data["server"].setText(server)
@@ -546,6 +668,11 @@ class HomeWidget(QWidget):
         self.internet_card_data["cta"].setStyleSheet(
             f"color: {accent}; font-size: 13px; font-weight: 600; background: transparent;"
         )
+        if self.internet_card_data.get("graph"):
+            self.internet_card_data["graph"].set_visuals(accent, palette["card_bg"], self._is_dark_theme())
+            if update_history:
+                self.network_history.append(self._status_to_graph_value(status))
+            self.internet_card_data["graph"].set_points(self.network_history)
 
         if show_feedback:
             from widgets.toast_notification import notification_manager
@@ -565,7 +692,66 @@ class HomeWidget(QWidget):
 
         return status
 
-    def atualizar_painel_tecnico(self, network_status=None):
+    def atualizar_status_lan_to_lan(self, update_history=False):
+        try:
+            lan_status = api_client.get_status_lan_to_lan(self.usuario_context.get("empresa"))
+        except Exception as exc:
+            print(f"Erro ao atualizar malha LAN-to-LAN: {exc}")
+            lan_status = {"links": [], "resumo": {"online": 0, "offline": 0, "erro": 0, "total": 0}}
+
+        lan_links = lan_status.get("links") or []
+        lan_value_map = {
+            "excelente": "Excelente",
+            "bom": "Boa",
+            "regular": "Regular",
+            "ruim": "Instavel",
+            "erro": "Erro",
+            "offline": "Offline",
+        }
+        lan_tone_map = {
+            "excelente": "good",
+            "bom": "info",
+            "regular": "warn",
+            "ruim": "critical",
+            "erro": "critical",
+            "offline": "critical",
+        }
+
+        expected_names = {link.get("empresa") for link in lan_links if link.get("empresa")}
+        if expected_names and set(self.lan_cards.keys()) != expected_names:
+            self._rebuild_lan_cards()
+
+        for link in lan_links:
+            company_name = link.get("empresa")
+            if not company_name:
+                continue
+            quality = str(link.get("qualidade", "erro")).lower()
+            value = lan_value_map.get(quality, "Online" if link.get("status") == "online" else "Offline")
+            latency = link.get("latencia_ms")
+            if latency is not None:
+                meta = f"{link.get('host')}:{link.get('port')} · {latency} ms"
+            else:
+                meta = str(link.get("detalhe") or link.get("servidor") or "Sem leitura da malha.")
+            badge_text = "Tunel OK" if link.get("status") == "online" else "Sem rota"
+            self._set_lan_card_state(
+                company_name,
+                value,
+                meta,
+                badge_text,
+                lan_tone_map.get(quality, "info"),
+                link.get("cor") or "#3b82f6",
+            )
+            card = self.lan_cards.get(company_name)
+            if card and card.get("graph"):
+                if update_history:
+                    history = self.lan_history.setdefault(company_name, deque(maxlen=60))
+                    history.append(self._status_to_graph_value(link))
+                card["graph"].set_points(self.lan_history.get(company_name, []))
+
+        self._atualizar_subtitulo_lan(lan_status)
+        return lan_status
+
+    def atualizar_painel_tecnico(self, network_status=None, lan_status=None):
         palette = self._theme_palette()
         self.last_technical_refresh = datetime.now()
 
@@ -656,7 +842,8 @@ class HomeWidget(QWidget):
             "#3b82f6",
         )
 
-        lan_status = api_client.get_status_lan_to_lan(self.usuario_context.get("empresa"))
+        if lan_status is None:
+            lan_status = api_client.get_status_lan_to_lan(self.usuario_context.get("empresa"))
         lan_links = lan_status.get("links") or []
         lan_resumo = lan_status.get("resumo") or {}
         lan_value_map = {
@@ -712,6 +899,7 @@ class HomeWidget(QWidget):
         self._refresh_technical_card_styles(palette)
 
     def _rebuild_cards(self):
+        self._clear_layout(self.network_featured_layout)
         self._clear_layout(self.cards_layout)
         self.metric_cards = {}
         self.internet_card_data = {}
@@ -728,8 +916,7 @@ class HomeWidget(QWidget):
         featured = next((config for config in visible_configs if config.get("featured")), None)
         if featured:
             card = self._create_featured_network_card(featured)
-            self.cards_layout.addWidget(card, row, 0, 1, 2)
-            row += 1
+            self.network_featured_layout.addWidget(card)
 
         general_configs = [config for config in visible_configs if not config.get("featured") and not config.get("wide")]
         wide_configs = [config for config in visible_configs if config.get("wide")]
@@ -890,6 +1077,9 @@ class HomeWidget(QWidget):
         detail.setWordWrap(True)
         left_col.addWidget(detail)
 
+        graph = RealtimeSparkline(config["accent"])
+        left_col.addWidget(graph)
+
         updated = QLabel("Atualizado agora")
         updated.setObjectName("homeFeaturedUpdated")
         left_col.addWidget(updated)
@@ -934,6 +1124,7 @@ class HomeWidget(QWidget):
             "latency": latency,
             "server": server,
             "detail": detail,
+            "graph": graph,
             "updated": updated,
             "cta": cta,
             "orb": orb,
@@ -991,6 +1182,7 @@ class HomeWidget(QWidget):
     def _create_lan_panel(self):
         panel = QFrame()
         panel.setObjectName("homeTechPanel")
+        panel.setMinimumHeight(228)
 
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(22, 20, 22, 20)
@@ -1046,8 +1238,10 @@ class HomeWidget(QWidget):
 
         self._clear_layout(self.lan_grid)
         self.lan_cards = {}
+        target_names = self._lan_targets_for_context()
+        self.lan_history = {name: self.lan_history.get(name, deque(maxlen=60)) for name in target_names}
 
-        for index, company in enumerate(self._lan_targets_for_context()):
+        for index, company in enumerate(target_names):
             card = self._create_lan_card(company)
             self.lan_grid.addWidget(card, index // 2, index % 2)
 
@@ -1094,6 +1288,9 @@ class HomeWidget(QWidget):
         meta.setObjectName("homeTechMeta")
         meta.setWordWrap(True)
         body_layout.addWidget(meta)
+
+        graph = RealtimeSparkline("#3b82f6")
+        body_layout.addWidget(graph)
         body_layout.addStretch()
 
         card_layout.addWidget(body)
@@ -1105,6 +1302,7 @@ class HomeWidget(QWidget):
             "badge": badge,
             "value": value,
             "meta": meta,
+            "graph": graph,
             "default_accent": "#3b82f6",
             "current_accent": "#3b82f6",
             "badge_tone": "info",
@@ -1205,6 +1403,45 @@ class HomeWidget(QWidget):
                 card["value"].setStyleSheet(
                     f"color: {accent}; font-size: 26px; font-weight: 800; background: transparent;"
                 )
+                if card.get("graph"):
+                    card["graph"].set_visuals(accent, palette["card_bg"], self._is_dark_theme())
+
+    def _atualizar_subtitulo_lan(self, lan_status):
+        if not hasattr(self, "lan_panel_subtitle"):
+            return
+
+        lan_resumo = lan_status.get("resumo") or {}
+        empresa_origem = lan_status.get("empresa_origem") or self.usuario_context.get("empresa") or "unidade atual"
+        self.lan_panel_subtitle.setText(
+            f"Malha entre {empresa_origem} e as demais unidades. "
+            f"{lan_resumo.get('online', 0)} online, {lan_resumo.get('offline', 0)} offline, {lan_resumo.get('erro', 0)} com erro."
+        )
+
+    def _status_to_graph_value(self, status):
+        quality = str(status.get("qualidade", "")).lower()
+        state = str(status.get("status", "")).lower()
+        latency = status.get("latencia_ms")
+
+        if state == "online":
+            if latency is not None:
+                try:
+                    latency_value = max(0.0, float(latency))
+                except Exception:
+                    latency_value = 0.0
+                normalized = 100.0 - min(100.0, latency_value / 3.0)
+                return max(18.0, normalized)
+
+            quality_map = {
+                "excelente": 100.0,
+                "bom": 82.0,
+                "regular": 62.0,
+                "ruim": 38.0,
+            }
+            return quality_map.get(quality, 78.0)
+
+        if state == "offline":
+            return 0.0
+        return 12.0
 
     def _apply_metric_data(self, card_name, resumo):
         card = self.metric_cards.get(card_name)
@@ -1486,6 +1723,8 @@ class HomeWidget(QWidget):
                     f"color: {accent}; font-size: 13px; font-weight: 600; background: transparent;"
                 )
                 self.internet_card_data["pulse"].set_visuals(accent, palette["card_bg"], self._is_dark_theme())
+                if self.internet_card_data.get("graph"):
+                    self.internet_card_data["graph"].set_visuals(accent, palette["card_bg"], self._is_dark_theme())
 
             if self.technical_cards:
                 self._refresh_technical_card_styles(palette)
