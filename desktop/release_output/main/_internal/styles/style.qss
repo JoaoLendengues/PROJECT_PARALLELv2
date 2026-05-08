@@ -33,6 +33,33 @@ QLabel[class="page-title"] {
     border-right: none;
 }
 
+QScrollArea#sidebarScrollArea {
+    background-color: transparent;
+    border: none;
+}
+
+QScrollArea#sidebarScrollArea > QWidget > QWidget {
+    background-color: transparent;
+}
+
+QScrollArea#sidebarScrollArea QScrollBar:vertical {
+    border: none;
+    background-color: #243547;
+    width: 10px;
+    margin: 8px 4px 8px 0;
+    border-radius: 5px;
+}
+
+QScrollArea#sidebarScrollArea QScrollBar::handle:vertical {
+    background-color: #5a6e85;
+    border-radius: 5px;
+    min-height: 30px;
+}
+
+QScrollArea#sidebarScrollArea QScrollBar::handle:vertical:hover {
+    background-color: #7e95aa;
+}
+
 .logo {
     color: #ffffff;
     font-size: 20px;
@@ -52,7 +79,7 @@ QLabel[class="page-title"] {
     font-size: 15px;
     font-weight: 500;
     border-radius: 8px;
-    margin: 4px 12px;
+    margin: 0;
     height: 48px;
 }
 
@@ -80,7 +107,7 @@ QLabel[class="page-title"] {
     font-size: 15px;
     font-weight: 500;
     border-radius: 8px;
-    margin: 4px 12px;
+    margin: 0;
     height: 48px;
 }
 
@@ -385,6 +412,15 @@ QTabWidget::pane {
     border-radius: 12px;
     background-color: #ffffff;
     padding: 20px;
+}
+
+QScrollArea#paramTabScrollArea {
+    background-color: transparent;
+    border: none;
+}
+
+QScrollArea#paramTabScrollArea > QWidget > QWidget {
+    background-color: transparent;
 }
 
 QTabBar::tab {
