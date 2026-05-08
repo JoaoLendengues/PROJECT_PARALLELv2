@@ -4,9 +4,10 @@ import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from typing import Optional, List
+from app.audit import get_request_user, model_to_dict, registrar_log_auditoria
 from app.database import get_db
 from app import auth, models, schemas
 
@@ -323,6 +324,7 @@ def obter_maquina(maquina_id: int, db: Session = Depends(get_db)):
 @router.post('/', response_model=schemas.MaquinaResponse, status_code=201)
 def criar_maquina(
     maquina: schemas.MaquinaCreate,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """Cria uma nova máquina"""
@@ -337,8 +339,21 @@ def criar_maquina(
         raise HTTPException(status_code=400, detail='Já existe uma máquina com este nome nesta empresa')
     
     # Criar nova máquina
+    usuario_auditoria = get_request_user(request, db)
     nova_maquina = models.Maquina(**maquina.model_dump())
     db.add(nova_maquina)
+    db.flush()
+
+    registrar_log_auditoria(
+        db,
+        usuario=usuario_auditoria,
+        acao='CREATE',
+        tabela_afetada='maquinas',
+        registro_id=nova_maquina.id,
+        dados_novos=model_to_dict(nova_maquina),
+        request=request,
+    )
+
     db.commit()
     db.refresh(nova_maquina)
 
@@ -351,6 +366,7 @@ def criar_maquina(
 def atualizar_maquina(
     maquina_id: int,
     maquina: schemas.MaquinaUpdate,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """Atualiza uma máquina existente"""
@@ -360,10 +376,23 @@ def atualizar_maquina(
     if not maquina_existente:
         raise HTTPException(status_code=404, detail='Máquina não encontrada')
     
+    usuario_auditoria = get_request_user(request, db)
+    dados_anteriores = model_to_dict(maquina_existente)
     update_data = maquina.model_dump(exclude_unset=True)
 
     for field, value in update_data.items():
         setattr(maquina_existente, field, value)
+
+    registrar_log_auditoria(
+        db,
+        usuario=usuario_auditoria,
+        acao='UPDATE',
+        tabela_afetada='maquinas',
+        registro_id=maquina_existente.id,
+        dados_anteriores=dados_anteriores,
+        dados_novos=model_to_dict(maquina_existente),
+        request=request,
+    )
 
     db.commit()
     db.refresh(maquina_existente)
@@ -374,6 +403,7 @@ def atualizar_maquina(
 @router.delete('/{maquina_id}')
 def deletar_maquina(
     maquina_id: int,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """Remove uma máquina (apenas se não tiver manutenções)"""
@@ -394,6 +424,19 @@ def deletar_maquina(
             detail='Não é possível deletar máquina com manutenções registradas'
         )
     
+    usuario_auditoria = get_request_user(request, db)
+    dados_anteriores = model_to_dict(maquina)
+
+    registrar_log_auditoria(
+        db,
+        usuario=usuario_auditoria,
+        acao='DELETE',
+        tabela_afetada='maquinas',
+        registro_id=maquina.id,
+        dados_anteriores=dados_anteriores,
+        request=request,
+    )
+
     db.delete(maquina)
     db.commit()
 

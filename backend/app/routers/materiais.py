@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from typing import Optional, List
+from app.audit import get_request_user, model_to_dict, registrar_log_auditoria
 from app.database import get_db
 from app import models, schemas
 
@@ -73,6 +74,7 @@ def obter_material(material_id: int, db: Session = Depends(get_db)):
 @router.post('/', response_model=schemas.MaterialResponse, status_code=201)
 def criar_material(
     material: schemas.MaterialCreate,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     existing = db.query(models.Material).filter(
@@ -83,8 +85,21 @@ def criar_material(
     if existing:
         raise HTTPException(status_code=400, detail='Já existe um material com este nome nesta empresa')
     
+    usuario_auditoria = get_request_user(request, db)
     novo_material = models.Material(**material.model_dump())
     db.add(novo_material)
+    db.flush()
+
+    registrar_log_auditoria(
+        db,
+        usuario=usuario_auditoria,
+        acao='CREATE',
+        tabela_afetada='materiais',
+        registro_id=novo_material.id,
+        dados_novos=model_to_dict(novo_material),
+        request=request,
+    )
+
     db.commit()
     db.refresh(novo_material)
 
@@ -95,6 +110,7 @@ def criar_material(
 def atualizar_material(
     material_id: int,
     material: schemas.MaterialUpdate,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     material_existente = db.query(models.Material).filter(models.Material.id == material_id).first()
@@ -102,10 +118,23 @@ def atualizar_material(
     if not material_existente:
         raise HTTPException(status_code=404, detail='Material não encontrado')
     
+    usuario_auditoria = get_request_user(request, db)
+    dados_anteriores = model_to_dict(material_existente)
     update_data = material.model_dump(exclude_unset=True)
 
     for field, value in update_data.items():
         setattr(material_existente, field, value)
+
+    registrar_log_auditoria(
+        db,
+        usuario=usuario_auditoria,
+        acao='UPDATE',
+        tabela_afetada='materiais',
+        registro_id=material_existente.id,
+        dados_anteriores=dados_anteriores,
+        dados_novos=model_to_dict(material_existente),
+        request=request,
+    )
 
     db.commit()
     db.refresh(material_existente)
@@ -116,6 +145,7 @@ def atualizar_material(
 @router.delete('/{material_id}')
 def deletar_material(
     material_id: int,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     material = db.query(models.Material).filter(models.Material.id == material_id).first()
@@ -132,6 +162,19 @@ def deletar_material(
             detail='Não é possível deletar material com movimentações registradas'
         )
     
+    usuario_auditoria = get_request_user(request, db)
+    dados_anteriores = model_to_dict(material)
+
+    registrar_log_auditoria(
+        db,
+        usuario=usuario_auditoria,
+        acao='DELETE',
+        tabela_afetada='materiais',
+        registro_id=material.id,
+        dados_anteriores=dados_anteriores,
+        request=request,
+    )
+
     db.delete(material)
     db.commit()
 

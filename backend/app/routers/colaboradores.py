@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from typing import Optional, List
+from app.audit import model_to_dict, registrar_log_auditoria
 from app.database import get_db
 from app import models, schemas, auth
 
@@ -51,12 +52,25 @@ def obter_colaborador(
 def criar_colaborador(
     colaborador: schemas.ColaboradorCreate,
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.get_current_user)
+    current_user: models.UsuarioSistema = Depends(auth.get_current_user),
+    http_request: Request = None
 ):
     """Cria um novo colaborador"""
     
     novo_colaborador = models.Colaborador(**colaborador.model_dump())
     db.add(novo_colaborador)
+    db.flush()
+
+    registrar_log_auditoria(
+        db,
+        current_user,
+        acao="CREATE",
+        tabela_afetada="colaboradores",
+        registro_id=novo_colaborador.id,
+        dados_novos=model_to_dict(novo_colaborador),
+        request=http_request,
+    )
+
     db.commit()
     db.refresh(novo_colaborador)
     
@@ -68,7 +82,8 @@ def atualizar_colaborador(
     colaborador_id: int,
     colaborador: schemas.ColaboradorUpdate,
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.get_current_user)
+    current_user: models.UsuarioSistema = Depends(auth.get_current_user),
+    http_request: Request = None
 ):
     """Atualiza um colaborador"""
     
@@ -77,10 +92,22 @@ def atualizar_colaborador(
     if not colaborador_existente:
         raise HTTPException(status_code=404, detail="Colaborador não encontrado")
     
+    dados_anteriores = model_to_dict(colaborador_existente)
     update_data = colaborador.model_dump(exclude_unset=True)
     
     for field, value in update_data.items():
         setattr(colaborador_existente, field, value)
+
+    registrar_log_auditoria(
+        db,
+        current_user,
+        acao="UPDATE",
+        tabela_afetada="colaboradores",
+        registro_id=colaborador_existente.id,
+        dados_anteriores=dados_anteriores,
+        dados_novos=model_to_dict(colaborador_existente),
+        request=http_request,
+    )
     
     db.commit()
     db.refresh(colaborador_existente)
@@ -92,7 +119,8 @@ def atualizar_colaborador(
 def deletar_colaborador(
     colaborador_id: int,
     db: Session = Depends(get_db),
-    current_user: models.UsuarioSistema = Depends(auth.get_current_user)
+    current_user: models.UsuarioSistema = Depends(auth.get_current_user),
+    http_request: Request = None
 ):
     """Remove um colaborador"""
     
@@ -101,6 +129,18 @@ def deletar_colaborador(
     if not colaborador:
         raise HTTPException(status_code=404, detail="Colaborador não encontrado")
     
+    dados_anteriores = model_to_dict(colaborador)
+
+    registrar_log_auditoria(
+        db,
+        current_user,
+        acao="DELETE",
+        tabela_afetada="colaboradores",
+        registro_id=colaborador.id,
+        dados_anteriores=dados_anteriores,
+        request=http_request,
+    )
+
     db.delete(colaborador)
     db.commit()
     
