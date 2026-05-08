@@ -6,11 +6,11 @@ from PySide6.QtCore import (
     QEasingCurve,
     QPoint,
     QPropertyAnimation,
-    QSequentialAnimationGroup,
     Qt,
     QTimer,
 )
 from PySide6.QtGui import QColor, QCursor, QFont
+from PySide6.QtGui import QPainterPath, QRegion
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -50,10 +50,12 @@ class ToastNotification(QWidget):
         self.title = (title or "").strip() or self._default_title(tipo, prioridade)
         self.tipo = tipo
 
-        self._collapsed_width = 42
-        self._entry_width = 192
-        self._line_height = 42
-        self._entry_height = 58
+        self._collapsed_width = 34
+        self._collapsed_height = 34
+        self._mid_width = 112
+        self._mid_height = 44
+        self._entry_width = 184
+        self._entry_height = 54
         self._content_ready = False
         self._closing = False
 
@@ -204,8 +206,8 @@ class ToastNotification(QWidget):
         self.close_effect.setOpacity(0.0)
 
         self.adjustSize()
-        final_width = max(328, min(self.sizeHint().width() + 18, 438))
-        self.final_size = QPoint(final_width, 72)
+        final_width = max(332, min(self.sizeHint().width() + 24, 438))
+        self.final_size = QPoint(final_width, 68)
         self.setMinimumSize(0, 0)
         self.resize(self.final_size.x(), self.final_size.y())
 
@@ -215,7 +217,7 @@ class ToastNotification(QWidget):
             QFrame#toastShell {{
                 background: {self.palette_map['bg']};
                 border: 1px solid {self.palette_map['border']};
-                border-radius: 36px;
+                border-radius: 999px;
                 padding: 0;
             }}
             QFrame#toastIndicatorWrap {{
@@ -253,7 +255,7 @@ class ToastNotification(QWidget):
                 font-weight: 500;
                 background: transparent;
                 border: none;
-                border-radius: 13px;
+                border-radius: 999px;
                 padding: 0;
             }}
             QPushButton#toastCloseButton:hover {{
@@ -266,14 +268,29 @@ class ToastNotification(QWidget):
         self.message_label.setFont(QFont("Segoe UI", 10))
         self.indicator.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         self.close_button.setFont(QFont("Segoe UI", 16, QFont.Weight.Medium))
+        self._apply_capsule_mask()
 
     def _configure_effects(self) -> None:
         self.shell.setGraphicsEffect(None)
 
+    def _apply_capsule_mask(self) -> None:
+        rect = self.rect()
+        if rect.isNull():
+            return
+
+        radius = max(8.0, min(rect.height() / 2.0, rect.width() / 2.0))
+        path = QPainterPath()
+        path.addRoundedRect(rect.adjusted(0, 0, -1, -1), radius, radius)
+        self.setMask(QRegion(path.toFillPolygon().toPolygon()))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._apply_capsule_mask()
+
     def _set_collapsed_layout_state(self) -> None:
         self.content_frame.hide()
         self.close_button.hide()
-        self.shell_layout.setContentsMargins(12, 12, 12, 12)
+        self.shell_layout.setContentsMargins(8, 8, 8, 8)
         self.shell_layout.setSpacing(0)
         self.shell_layout.setAlignment(Qt.AlignCenter)
 
@@ -293,20 +310,13 @@ class ToastNotification(QWidget):
 
     def _setup_animations(self) -> None:
         self.opacity_anim = QPropertyAnimation(self, b"windowOpacity", self)
-        self.opacity_anim.setDuration(220)
+        self.opacity_anim.setDuration(180)
         self.opacity_anim.setEasingCurve(QEasingCurve.OutCubic)
 
-        self.geometry_anim_1 = QPropertyAnimation(self, b"geometry", self)
-        self.geometry_anim_1.setDuration(170)
-        self.geometry_anim_1.setEasingCurve(QEasingCurve.OutCubic)
-
-        self.geometry_anim_2 = QPropertyAnimation(self, b"geometry", self)
-        self.geometry_anim_2.setDuration(230)
-        self.geometry_anim_2.setEasingCurve(QEasingCurve.OutCubic)
-
-        self.geometry_anim_3 = QPropertyAnimation(self, b"geometry", self)
-        self.geometry_anim_3.setDuration(130)
-        self.geometry_anim_3.setEasingCurve(QEasingCurve.InOutCubic)
+        self.expand_anim = QPropertyAnimation(self, b"geometry", self)
+        self.expand_anim.setDuration(520)
+        self.expand_anim.setEasingCurve(QEasingCurve.Linear)
+        self.expand_anim.finished.connect(self._on_expand_finished)
 
         self.content_anim = QPropertyAnimation(self.content_effect, b"opacity", self)
         self.content_anim.setDuration(190)
@@ -316,26 +326,10 @@ class ToastNotification(QWidget):
         self.close_icon_anim.setDuration(150)
         self.close_icon_anim.setEasingCurve(QEasingCurve.OutCubic)
 
-        self.expand_group = QSequentialAnimationGroup(self)
-        self.expand_group.addAnimation(self.geometry_anim_1)
-        self.expand_group.addAnimation(self.geometry_anim_2)
-        self.expand_group.addAnimation(self.geometry_anim_3)
-        self.expand_group.finished.connect(self._on_expand_finished)
-
-        self.collapse_group = QSequentialAnimationGroup(self)
-        self.collapse_anim_1 = QPropertyAnimation(self, b"geometry", self)
-        self.collapse_anim_1.setDuration(130)
-        self.collapse_anim_1.setEasingCurve(QEasingCurve.InOutCubic)
-        self.collapse_anim_2 = QPropertyAnimation(self, b"geometry", self)
-        self.collapse_anim_2.setDuration(210)
-        self.collapse_anim_2.setEasingCurve(QEasingCurve.InOutCubic)
-        self.collapse_anim_3 = QPropertyAnimation(self, b"geometry", self)
-        self.collapse_anim_3.setDuration(140)
-        self.collapse_anim_3.setEasingCurve(QEasingCurve.InCubic)
-        self.collapse_group.addAnimation(self.collapse_anim_1)
-        self.collapse_group.addAnimation(self.collapse_anim_2)
-        self.collapse_group.addAnimation(self.collapse_anim_3)
-        self.collapse_group.finished.connect(self._close_now)
+        self.collapse_anim = QPropertyAnimation(self, b"geometry", self)
+        self.collapse_anim.setDuration(430)
+        self.collapse_anim.setEasingCurve(QEasingCurve.Linear)
+        self.collapse_anim.finished.connect(self._close_now)
 
     def _anchor_rect(self) -> QPoint:
         if self.parent_window is not None:
@@ -361,11 +355,13 @@ class ToastNotification(QWidget):
         final_rect = self._rect_from_center(anchor, self.final_size.x(), self.final_size.y())
         overshoot_rect = self._rect_from_center(anchor, self.final_size.x() + 20, self.final_size.y())
         entry_rect = self._rect_from_center(anchor, self._entry_width, self._entry_height)
-        collapsed_rect = self._rect_from_center(anchor, self._collapsed_width, self._line_height)
+        mid_rect = self._rect_from_center(anchor, self._mid_width, self._mid_height)
+        collapsed_rect = self._rect_from_center(anchor, self._collapsed_width, self._collapsed_height)
 
         self._final_rect = final_rect
         self._overshoot_rect = overshoot_rect
         self._entry_rect = entry_rect
+        self._mid_rect = mid_rect
         self._collapsed_rect = collapsed_rect
 
         self._set_collapsed_layout_state()
@@ -377,28 +373,26 @@ class ToastNotification(QWidget):
         self.raise_()
 
         self.opacity_anim.stop()
-        self.expand_group.stop()
+        self.expand_anim.stop()
         self.content_anim.stop()
         self.close_icon_anim.stop()
 
         self.opacity_anim.setStartValue(0.0)
         self.opacity_anim.setEndValue(1.0)
 
-        self.geometry_anim_1.setStartValue(collapsed_rect)
-        self.geometry_anim_1.setEndValue(entry_rect)
-        self.geometry_anim_2.setStartValue(entry_rect)
-        self.geometry_anim_2.setEndValue(overshoot_rect)
-        self.geometry_anim_3.setStartValue(overshoot_rect)
-        self.geometry_anim_3.setEndValue(final_rect)
-
+        self.expand_anim.setStartValue(collapsed_rect)
+        self.expand_anim.setKeyValueAt(0.22, mid_rect)
+        self.expand_anim.setKeyValueAt(0.56, entry_rect)
+        self.expand_anim.setKeyValueAt(0.84, overshoot_rect)
+        self.expand_anim.setEndValue(final_rect)
         self.content_anim.setStartValue(0.0)
         self.content_anim.setEndValue(1.0)
         self.close_icon_anim.setStartValue(0.0)
         self.close_icon_anim.setEndValue(1.0)
 
         self.opacity_anim.start()
-        QTimer.singleShot(self.geometry_anim_1.duration() - 10, self._set_entry_layout_state)
-        self.expand_group.start()
+        QTimer.singleShot(250, self._set_entry_layout_state)
+        self.expand_anim.start()
 
     def _on_expand_finished(self) -> None:
         self._content_ready = True
@@ -417,36 +411,35 @@ class ToastNotification(QWidget):
 
         self.content_anim.stop()
         self.close_icon_anim.stop()
-        self.expand_group.stop()
+        self.expand_anim.stop()
         self.opacity_anim.stop()
+        self.collapse_anim.stop()
 
         reverse_content = QPropertyAnimation(self.content_effect, b"opacity", self)
-        reverse_content.setDuration(90)
+        reverse_content.setDuration(100)
         reverse_content.setStartValue(self.content_effect.opacity())
         reverse_content.setEndValue(0.0)
         reverse_content.setEasingCurve(QEasingCurve.InCubic)
 
         reverse_close = QPropertyAnimation(self.close_effect, b"opacity", self)
-        reverse_close.setDuration(90)
+        reverse_close.setDuration(100)
         reverse_close.setStartValue(self.close_effect.opacity())
         reverse_close.setEndValue(0.0)
         reverse_close.setEasingCurve(QEasingCurve.InCubic)
 
         pinch_rect = self._rect_from_center(
             self._anchor_rect(),
-            max(156, self.final_size.x() - 108),
+            max(self._entry_width, self.final_size.x() - 112),
             self._entry_height,
         )
 
-        self.collapse_anim_1.setStartValue(self.geometry())
-        self.collapse_anim_1.setEndValue(pinch_rect)
-        self.collapse_anim_2.setStartValue(pinch_rect)
-        self.collapse_anim_2.setEndValue(self._entry_rect)
-        self.collapse_anim_3.setStartValue(self._entry_rect)
-        self.collapse_anim_3.setEndValue(self._collapsed_rect)
+        self.collapse_anim.setStartValue(self.geometry())
+        self.collapse_anim.setKeyValueAt(0.30, pinch_rect)
+        self.collapse_anim.setKeyValueAt(0.68, self._mid_rect)
+        self.collapse_anim.setEndValue(self._collapsed_rect)
 
         self.fade_out_anim = QPropertyAnimation(self, b"windowOpacity", self)
-        self.fade_out_anim.setDuration(160)
+        self.fade_out_anim.setDuration(180)
         self.fade_out_anim.setStartValue(self.windowOpacity())
         self.fade_out_anim.setEndValue(0.0)
         self.fade_out_anim.setEasingCurve(QEasingCurve.InCubic)
@@ -454,9 +447,8 @@ class ToastNotification(QWidget):
         reverse_content.start()
         reverse_close.start()
         QTimer.singleShot(70, self._set_entry_layout_state)
-        QTimer.singleShot(80, self.collapse_group.start)
-        QTimer.singleShot(120, self.fade_out_anim.start)
-
+        QTimer.singleShot(90, self.collapse_anim.start)
+        QTimer.singleShot(130, self.fade_out_anim.start)
 
     def _close_now(self) -> None:
         self.hide()

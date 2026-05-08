@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from html import escape
 import os
 
 import openpyxl
@@ -15,6 +16,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QMessageBox,
     QPushButton,
     QProgressBar,
@@ -65,7 +67,21 @@ class RelatoriosWidget(QWidget):
             "pedidos": False,
             "demandas": False,
         }
+        self._report_sources = {
+            "movimentacoes": [],
+            "estoque": [],
+            "pedidos": [],
+            "demandas": [],
+        }
+        self._report_visible = {
+            "movimentacoes": [],
+            "estoque": [],
+            "pedidos": [],
+            "demandas": [],
+        }
         self._summary_labels = {}
+        self._detail_labels = {}
+        self._detail_empty_messages = {}
         self.init_ui()
 
     def set_usuario(self, usuario):
@@ -148,6 +164,23 @@ class RelatoriosWidget(QWidget):
             QLabel#reportSummaryCaption {{
                 color: {colors_map['muted']};
                 font-size: 12px;
+            }}
+            QLabel#reportDetailTitle {{
+                color: {colors_map['title']};
+                font-size: 16px;
+                font-weight: 700;
+            }}
+            QLabel#reportDetailBody {{
+                color: {colors_map['muted']};
+                font-size: 12px;
+            }}
+            QLineEdit#reportSearchInput {{
+                background-color: {colors_map['card_bg']};
+                color: {colors_map['title']};
+                border: 1px solid {colors_map['card_border']};
+                border-radius: 12px;
+                padding: 10px 14px;
+                min-height: 18px;
             }}
             """
         )
@@ -278,6 +311,172 @@ class RelatoriosWidget(QWidget):
         if label is not None:
             label.setText(str(value))
 
+    def _create_search_card(self, placeholder, callback):
+        card = QFrame()
+        card.setObjectName("reportActionsCard")
+        layout = QHBoxLayout(card)
+        layout.setContentsMargins(16, 12, 16, 12)
+        layout.setSpacing(10)
+
+        title = QLabel("Busca rapida")
+        title.setObjectName("reportSummaryTitle")
+        layout.addWidget(title)
+
+        search_input = QLineEdit()
+        search_input.setObjectName("reportSearchInput")
+        search_input.setPlaceholderText(placeholder)
+        search_input.setClearButtonEnabled(True)
+        search_input.textChanged.connect(callback)
+        layout.addWidget(search_input, 1)
+        return card, search_input
+
+    def _create_detail_panel(self, key, title, empty_message):
+        card = QFrame()
+        card.setObjectName("reportActionsCard")
+        card.setMinimumWidth(320)
+        card.setMaximumWidth(380)
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(18, 16, 18, 16)
+        layout.setSpacing(10)
+
+        title_label = QLabel(title)
+        title_label.setObjectName("reportDetailTitle")
+        layout.addWidget(title_label)
+
+        body = QLabel(empty_message)
+        body.setObjectName("reportDetailBody")
+        body.setWordWrap(True)
+        body.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        body.setTextFormat(Qt.RichText)
+        body.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        layout.addWidget(body, 1)
+        layout.addStretch()
+
+        self._detail_labels[key] = body
+        self._detail_empty_messages[key] = empty_message
+        return card
+
+    def _set_detail_empty(self, key):
+        label = self._detail_labels.get(key)
+        if label is not None:
+            label.setText(self._detail_empty_messages.get(key, "Selecione um registro para ver os detalhes."))
+
+    def _build_detail_html(self, title, fields):
+        colors_map = self._theme_colors()
+        parts = [
+            f"<div style='font-size:16px;font-weight:700;color:{colors_map['title']}; margin-bottom:8px;'>{escape(str(title))}</div>"
+        ]
+        for label, value in fields:
+            text = "-" if value in (None, "", "None") else str(value)
+            text = escape(text).replace("\n", "<br>")
+            parts.append(
+                f"<div style='margin-bottom:6px;'><span style='font-weight:700;color:{colors_map['title']};'>{escape(str(label))}:</span> "
+                f"<span style='color:{colors_map['muted']};'>{text}</span></div>"
+            )
+        return "".join(parts)
+
+    def _apply_text_search(self, records, query, fields):
+        term = str(query or "").strip().lower()
+        if not term:
+            return list(records)
+
+        filtered = []
+        for record in records:
+            haystack = " ".join(str(record.get(field, "") or "") for field in fields).lower()
+            if term in haystack:
+                filtered.append(record)
+        return filtered
+
+    def _find_visible_record(self, key, record_id):
+        for record in self._report_visible.get(key, []):
+            if str(record.get("id", "")) == str(record_id):
+                return record
+        return None
+
+    def _update_detail_from_selection(self, key):
+        table = self._table_for_tipo(key)
+        if table is None or table.rowCount() == 0:
+            self._set_detail_empty(key)
+            return
+
+        selected_items = table.selectedItems()
+        if not selected_items:
+            self._set_detail_empty(key)
+            return
+
+        row = selected_items[0].row()
+        id_item = table.item(row, 0)
+        if id_item is None:
+            self._set_detail_empty(key)
+            return
+
+        record = self._find_visible_record(key, id_item.text())
+        if not record:
+            self._set_detail_empty(key)
+            return
+
+        if key == "movimentacoes":
+            html = self._build_detail_html(
+                f"Movimentacao #{record.get('id', '-')}",
+                [
+                    ("Material", record.get("material_nome")),
+                    ("Tipo", str(record.get("tipo", "")).upper()),
+                    ("Quantidade", record.get("quantidade")),
+                    ("Empresa", record.get("empresa")),
+                    ("Destinatario", record.get("destinatario")),
+                    ("Usuario", record.get("usuario_nome")),
+                    ("Data/Hora", record.get("data_hora")),
+                    ("Observacao", record.get("observacao")),
+                ],
+            )
+        elif key == "estoque":
+            html = self._build_detail_html(
+                f"Material #{record.get('id', '-')}",
+                [
+                    ("Nome", record.get("nome")),
+                    ("Descricao", record.get("descricao")),
+                    ("Quantidade", record.get("quantidade")),
+                    ("Categoria", record.get("categoria")),
+                    ("Empresa", record.get("empresa")),
+                    ("Status", str(record.get("status", "")).upper()),
+                ],
+            )
+        elif key == "pedidos":
+            html = self._build_detail_html(
+                f"Pedido #{record.get('id', '-')}",
+                [
+                    ("Material", record.get("material_nome")),
+                    ("Quantidade", record.get("quantidade")),
+                    ("Solicitante", record.get("solicitante")),
+                    ("Empresa", record.get("empresa")),
+                    ("Departamento", record.get("departamento")),
+                    ("Status", str(record.get("status", "")).upper()),
+                    ("Data solicitacao", record.get("data_solicitacao")),
+                    ("Data conclusao", record.get("data_conclusao") or "-"),
+                    ("Observacao", record.get("observacao")),
+                    ("Link", record.get("link_compra")),
+                ],
+            )
+        else:
+            html = self._build_detail_html(
+                f"Demanda #{record.get('id', '-')}",
+                [
+                    ("Titulo", record.get("titulo")),
+                    ("Descricao", record.get("descricao")),
+                    ("Solicitante", record.get("solicitante")),
+                    ("Empresa", record.get("empresa")),
+                    ("Prioridade", str(record.get("prioridade", "")).upper()),
+                    ("Status", str(record.get("status", "")).upper()),
+                    ("Data abertura", record.get("data_abertura")),
+                    ("Responsavel", record.get("responsavel")),
+                    ("Observacao", record.get("observacao")),
+                ],
+            )
+
+        label = self._detail_labels.get(key)
+        if label is not None:
+            label.setText(html)
+
     def _build_table(self, headers, stretch_columns, minimum_widths):
         table = QTableWidget()
         table.setAlternatingRowColors(True)
@@ -338,6 +537,12 @@ class RelatoriosWidget(QWidget):
         filtros_layout.addStretch()
         layout.addWidget(filtros)
 
+        mov_search_card, self.mov_search = self._create_search_card(
+            "Pesquisar por material, usuario, empresa ou observacao...",
+            self._render_movimentacoes,
+        )
+        layout.addWidget(mov_search_card)
+
         self.btn_atualizar = QPushButton("Atualizar dados")
         self.btn_atualizar.setObjectName("btnPrimary")
         self.btn_atualizar.clicked.connect(self.atualizar_movimentacoes)
@@ -354,7 +559,16 @@ class RelatoriosWidget(QWidget):
             stretch_columns=(1, 8),
             minimum_widths={0: 72, 1: 220, 2: 110, 3: 100, 4: 170, 5: 180, 6: 155, 7: 160, 8: 240},
         )
-        layout.addWidget(self.mov_tabela)
+        self.mov_tabela.itemSelectionChanged.connect(lambda: self._update_detail_from_selection("movimentacoes"))
+        mov_content = QHBoxLayout()
+        mov_content.setContentsMargins(0, 0, 0, 0)
+        mov_content.setSpacing(16)
+        mov_content.addWidget(self.mov_tabela, 1)
+        mov_content.addWidget(
+            self._create_detail_panel("movimentacoes", "Detalhes da movimentacao", "Selecione uma movimentacao para ver o resumo completo."),
+            0,
+        )
+        layout.addLayout(mov_content)
 
         self.mov_progress = QProgressBar()
         self.mov_progress.setVisible(False)
@@ -398,6 +612,12 @@ class RelatoriosWidget(QWidget):
         filtros_layout.addStretch()
         layout.addWidget(filtros)
 
+        est_search_card, self.est_search = self._create_search_card(
+            "Pesquisar por nome, categoria, empresa ou status...",
+            self._render_estoque,
+        )
+        layout.addWidget(est_search_card)
+
         self.btn_carregar_estoque = QPushButton("Atualizar dados")
         self.btn_carregar_estoque.setObjectName("btnPrimary")
         self.btn_carregar_estoque.clicked.connect(self.atualizar_estoque)
@@ -419,7 +639,16 @@ class RelatoriosWidget(QWidget):
             stretch_columns=(1, 2),
             minimum_widths={0: 72, 1: 220, 2: 280, 3: 100, 4: 160, 5: 180, 6: 120},
         )
-        layout.addWidget(self.est_tabela)
+        self.est_tabela.itemSelectionChanged.connect(lambda: self._update_detail_from_selection("estoque"))
+        est_content = QHBoxLayout()
+        est_content.setContentsMargins(0, 0, 0, 0)
+        est_content.setSpacing(16)
+        est_content.addWidget(self.est_tabela, 1)
+        est_content.addWidget(
+            self._create_detail_panel("estoque", "Detalhes do material", "Selecione um item do estoque para ver os detalhes."),
+            0,
+        )
+        layout.addLayout(est_content)
         return widget
 
     def create_tab_pedidos(self):
@@ -460,6 +689,12 @@ class RelatoriosWidget(QWidget):
         filtros_layout.addStretch()
         layout.addWidget(filtros)
 
+        ped_search_card, self.ped_search = self._create_search_card(
+            "Pesquisar por material, solicitante, empresa ou link...",
+            self._render_pedidos,
+        )
+        layout.addWidget(ped_search_card)
+
         self.btn_carregar_pedidos = QPushButton("Atualizar dados")
         self.btn_carregar_pedidos.setObjectName("btnPrimary")
         self.btn_carregar_pedidos.clicked.connect(self.atualizar_pedidos)
@@ -481,7 +716,16 @@ class RelatoriosWidget(QWidget):
             stretch_columns=(1,),
             minimum_widths={0: 72, 1: 220, 2: 90, 3: 170, 4: 170, 5: 135, 6: 150, 7: 120},
         )
-        layout.addWidget(self.ped_tabela)
+        self.ped_tabela.itemSelectionChanged.connect(lambda: self._update_detail_from_selection("pedidos"))
+        ped_content = QHBoxLayout()
+        ped_content.setContentsMargins(0, 0, 0, 0)
+        ped_content.setSpacing(16)
+        ped_content.addWidget(self.ped_tabela, 1)
+        ped_content.addWidget(
+            self._create_detail_panel("pedidos", "Detalhes do pedido", "Selecione um pedido para ver o contexto completo."),
+            0,
+        )
+        layout.addLayout(ped_content)
         return widget
 
     def create_tab_demandas(self):
@@ -527,6 +771,12 @@ class RelatoriosWidget(QWidget):
         filtros_layout.addStretch()
         layout.addWidget(filtros)
 
+        dem_search_card, self.dem_search = self._create_search_card(
+            "Pesquisar por titulo, solicitante, responsavel ou descricao...",
+            self._render_demandas,
+        )
+        layout.addWidget(dem_search_card)
+
         self.btn_carregar_demandas = QPushButton("Atualizar dados")
         self.btn_carregar_demandas.setObjectName("btnPrimary")
         self.btn_carregar_demandas.clicked.connect(self.atualizar_demandas)
@@ -548,7 +798,16 @@ class RelatoriosWidget(QWidget):
             stretch_columns=(1,),
             minimum_widths={0: 72, 1: 240, 2: 160, 3: 130, 4: 130, 5: 155, 6: 170},
         )
-        layout.addWidget(self.dem_tabela)
+        self.dem_tabela.itemSelectionChanged.connect(lambda: self._update_detail_from_selection("demandas"))
+        dem_content = QHBoxLayout()
+        dem_content.setContentsMargins(0, 0, 0, 0)
+        dem_content.setSpacing(16)
+        dem_content.addWidget(self.dem_tabela, 1)
+        dem_content.addWidget(
+            self._create_detail_panel("demandas", "Detalhes da demanda", "Selecione uma demanda para ver o resumo completo."),
+            0,
+        )
+        layout.addLayout(dem_content)
         return widget
 
     def _create_date_edit(self, value):
@@ -639,11 +898,21 @@ class RelatoriosWidget(QWidget):
                 filtradas.append(item)
 
             filtradas.sort(key=lambda x: x.get("data_hora", ""), reverse=True)
-            self.atualizar_tabela_movimentacoes(filtradas)
+            self._report_sources["movimentacoes"] = filtradas
+            self._render_movimentacoes()
         except Exception as e:
             print(f"Erro ao atualizar movimentacoes: {e}")
 
+    def _render_movimentacoes(self):
+        filtradas = self._apply_text_search(
+            self._report_sources["movimentacoes"],
+            self.mov_search.text() if hasattr(self, "mov_search") else "",
+            ("id", "material_nome", "tipo", "empresa", "destinatario", "usuario_nome", "observacao", "data_hora"),
+        )
+        self.atualizar_tabela_movimentacoes(filtradas)
+
     def atualizar_tabela_movimentacoes(self, movimentacoes):
+        self._report_visible["movimentacoes"] = list(movimentacoes)
         self.mov_tabela.setRowCount(len(movimentacoes))
         entradas = 0
         saidas = 0
@@ -680,6 +949,11 @@ class RelatoriosWidget(QWidget):
         self._set_summary_value("movimentacoes", "total", len(movimentacoes))
         self._set_summary_value("movimentacoes", "entradas", entradas)
         self._set_summary_value("movimentacoes", "saidas", saidas)
+        if movimentacoes:
+            self.mov_tabela.selectRow(0)
+            self._update_detail_from_selection("movimentacoes")
+        else:
+            self._set_detail_empty("movimentacoes")
 
     def carregar_estoque(self):
         try:
@@ -695,11 +969,21 @@ class RelatoriosWidget(QWidget):
             status = "" if is_all_option(self.est_status.currentText()) else filter_value(self.est_status.currentText())
             materiais = api_client.listar_materiais(categoria=categoria, empresa=empresa, status=status)
             materiais.sort(key=lambda x: str(x.get("nome", "")).lower())
-            self.atualizar_tabela_estoque(materiais)
+            self._report_sources["estoque"] = materiais
+            self._render_estoque()
         except Exception as e:
             print(f"Erro ao atualizar estoque: {e}")
 
+    def _render_estoque(self):
+        materiais = self._apply_text_search(
+            self._report_sources["estoque"],
+            self.est_search.text() if hasattr(self, "est_search") else "",
+            ("id", "nome", "descricao", "categoria", "empresa", "status", "quantidade"),
+        )
+        self.atualizar_tabela_estoque(materiais)
+
     def atualizar_tabela_estoque(self, materiais):
+        self._report_visible["estoque"] = list(materiais)
         self.est_tabela.setRowCount(len(materiais))
         ativos = 0
         criticos = 0
@@ -727,6 +1011,11 @@ class RelatoriosWidget(QWidget):
         self._set_summary_value("estoque", "total", len(materiais))
         self._set_summary_value("estoque", "ativos", ativos)
         self._set_summary_value("estoque", "criticos", criticos)
+        if materiais:
+            self.est_tabela.selectRow(0)
+            self._update_detail_from_selection("estoque")
+        else:
+            self._set_detail_empty("estoque")
 
     def carregar_pedidos(self):
         try:
@@ -745,11 +1034,21 @@ class RelatoriosWidget(QWidget):
             end_date = self._date_edit_to_date(self.ped_data_fim)
             filtrados = [p for p in pedidos if self._passes_period(p.get("data_solicitacao"), start_date, end_date)]
             filtrados.sort(key=lambda x: x.get("data_solicitacao", ""), reverse=True)
-            self.atualizar_tabela_pedidos(filtrados)
+            self._report_sources["pedidos"] = filtrados
+            self._render_pedidos()
         except Exception as e:
             print(f"Erro ao atualizar pedidos: {e}")
 
+    def _render_pedidos(self):
+        pedidos = self._apply_text_search(
+            self._report_sources["pedidos"],
+            self.ped_search.text() if hasattr(self, "ped_search") else "",
+            ("id", "material_nome", "solicitante", "empresa", "departamento", "status", "observacao", "link_compra"),
+        )
+        self.atualizar_tabela_pedidos(pedidos)
+
     def atualizar_tabela_pedidos(self, pedidos):
+        self._report_visible["pedidos"] = list(pedidos)
         self.ped_tabela.setRowCount(len(pedidos))
         pendentes = 0
         concluidos = 0
@@ -783,6 +1082,11 @@ class RelatoriosWidget(QWidget):
         self._set_summary_value("pedidos", "total", len(pedidos))
         self._set_summary_value("pedidos", "pendentes", pendentes)
         self._set_summary_value("pedidos", "concluidos", concluidos)
+        if pedidos:
+            self.ped_tabela.selectRow(0)
+            self._update_detail_from_selection("pedidos")
+        else:
+            self._set_detail_empty("pedidos")
 
     def carregar_demandas(self):
         try:
@@ -802,11 +1106,21 @@ class RelatoriosWidget(QWidget):
             end_date = self._date_edit_to_date(self.dem_data_fim)
             filtradas = [d for d in demandas if self._passes_period(d.get("data_abertura"), start_date, end_date)]
             filtradas.sort(key=lambda x: x.get("data_abertura", ""), reverse=True)
-            self.atualizar_tabela_demandas(filtradas)
+            self._report_sources["demandas"] = filtradas
+            self._render_demandas()
         except Exception as e:
             print(f"Erro ao atualizar demandas: {e}")
 
+    def _render_demandas(self):
+        demandas = self._apply_text_search(
+            self._report_sources["demandas"],
+            self.dem_search.text() if hasattr(self, "dem_search") else "",
+            ("id", "titulo", "descricao", "solicitante", "responsavel", "empresa", "status", "prioridade", "observacao"),
+        )
+        self.atualizar_tabela_demandas(demandas)
+
     def atualizar_tabela_demandas(self, demandas):
+        self._report_visible["demandas"] = list(demandas)
         self.dem_tabela.setRowCount(len(demandas))
         abertas = 0
         concluidas = 0
@@ -845,15 +1159,23 @@ class RelatoriosWidget(QWidget):
         self._set_summary_value("demandas", "total", len(demandas))
         self._set_summary_value("demandas", "abertas", abertas)
         self._set_summary_value("demandas", "concluidas", concluidas)
+        if demandas:
+            self.dem_tabela.selectRow(0)
+            self._update_detail_from_selection("demandas")
+        else:
+            self._set_detail_empty("demandas")
 
     def _table_for_tipo(self, tipo):
-        mapping = {
-            "movimentacoes": self.mov_tabela,
-            "estoque": self.est_tabela,
-            "pedidos": self.ped_tabela,
-            "demandas": self.dem_tabela,
+        attr_map = {
+            "movimentacoes": "mov_tabela",
+            "estoque": "est_tabela",
+            "pedidos": "ped_tabela",
+            "demandas": "dem_tabela",
         }
-        return mapping.get(tipo)
+        attr_name = attr_map.get(tipo)
+        if not attr_name:
+            return None
+        return getattr(self, attr_name, None)
 
     def _table_to_rows(self, table):
         headers = []
