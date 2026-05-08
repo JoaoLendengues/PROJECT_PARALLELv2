@@ -1,6 +1,7 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QApplication,
     QComboBox,
     QDialog,
@@ -12,7 +13,6 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
-    QWidget,
 )
 
 from api_client import api_client
@@ -44,6 +44,8 @@ class NotificationCenter(QDialog):
         layout.setContentsMargins(24, 24, 24, 24)
 
         header_layout = QHBoxLayout()
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(16)
 
         self.titulo = QLabel("Central de Notificacoes")
         self.titulo.setObjectName("notificationTitle")
@@ -57,6 +59,11 @@ class NotificationCenter(QDialog):
         header_layout.addWidget(self.badge_label)
 
         layout.addLayout(header_layout)
+
+        self.subtitulo = QLabel("Acompanhe, filtre e trate avisos do sistema em um unico lugar.")
+        self.subtitulo.setObjectName("notificationSubtitle")
+        self.subtitulo.setWordWrap(True)
+        layout.addWidget(self.subtitulo)
 
         self.filtros_card = QFrame()
         self.filtros_card.setObjectName("filterCard")
@@ -89,11 +96,12 @@ class NotificationCenter(QDialog):
         self.tabela.setHorizontalHeaderLabels(["Prioridade", "Titulo", "Mensagem", "Data"])
         self.tabela.verticalHeader().setVisible(False)
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
-        self.tabela.setSelectionMode(QTableWidget.SingleSelection)
+        self.tabela.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.tabela.setShowGrid(False)
         self.tabela.setWordWrap(True)
         self.tabela.setFocusPolicy(Qt.ClickFocus)
         self.tabela.itemDoubleClicked.connect(self._ao_duplo_clique_na_tabela)
+        self.tabela.itemSelectionChanged.connect(self._atualizar_estado_selecao)
         configure_data_table(self.tabela, stretch_columns=(2,))
         layout.addWidget(self.tabela)
 
@@ -108,9 +116,9 @@ class NotificationCenter(QDialog):
         footer_layout.addWidget(self.lbl_info)
         footer_layout.addStretch()
 
-        self.btn_marcar = QPushButton("Marcar como lida")
+        self.btn_marcar = QPushButton("Marcar selecionadas")
         self.btn_marcar.setObjectName("successButton")
-        self.btn_marcar.clicked.connect(self.marcar_selecionada_como_lida)
+        self.btn_marcar.clicked.connect(self.marcar_selecionadas_como_lidas)
         footer_layout.addWidget(self.btn_marcar)
 
         self.btn_marcar_todas = QPushButton("Marcar todas como lidas")
@@ -118,9 +126,9 @@ class NotificationCenter(QDialog):
         self.btn_marcar_todas.clicked.connect(self.marcar_todas_lidas)
         footer_layout.addWidget(self.btn_marcar_todas)
 
-        self.btn_excluir = QPushButton("Excluir")
+        self.btn_excluir = QPushButton("Excluir selecionadas")
         self.btn_excluir.setObjectName("dangerButton")
-        self.btn_excluir.clicked.connect(self.excluir_selecionada)
+        self.btn_excluir.clicked.connect(self.excluir_selecionadas)
         footer_layout.addWidget(self.btn_excluir)
 
         self.btn_atualizar = QPushButton("Atualizar")
@@ -161,6 +169,12 @@ class NotificationCenter(QDialog):
 
             QLabel#notificationTitle {{
                 color: {colors['title']};
+            }}
+
+            QLabel#notificationSubtitle {{
+                color: {colors['muted']};
+                font-size: 13px;
+                padding: 0 0 2px 0;
             }}
 
             QLabel#notificationInfo {{
@@ -387,19 +401,20 @@ class NotificationCenter(QDialog):
                 }
                 """
             )
-        else:
-            self.badge_label.setStyleSheet(
-                f"""
-                QLabel#notificationBadge {{
-                    background-color: {colors['badge_bg']};
-                    color: {colors['badge_text']};
-                    border-radius: 20px;
-                    padding: 6px 16px;
-                    font-size: 12px;
-                    font-weight: 600;
-                }}
-                """
-            )
+            return
+
+        self.badge_label.setStyleSheet(
+            f"""
+            QLabel#notificationBadge {{
+                background-color: {colors['badge_bg']};
+                color: {colors['badge_text']};
+                border-radius: 20px;
+                padding: 6px 16px;
+                font-size: 12px;
+                font-weight: 600;
+            }}
+            """
+        )
 
     def carregar_notificacoes(self):
         """Carrega as notificacoes do backend."""
@@ -459,7 +474,7 @@ class NotificationCenter(QDialog):
 
         titulo_nao_lido = QColor("#f8fafc" if dark else "#1e293b")
         titulo_lido = QColor("#94a3b8" if dark else "#64748b")
-        data_color = QColor("#94a3b8" if dark else "#94a3b8")
+        data_color = QColor("#94a3b8")
 
         for row, notif in enumerate(notificacoes):
             prioridade = notif.get("prioridade", "baixa")
@@ -519,9 +534,7 @@ class NotificationCenter(QDialog):
         self.tabela.clearFocus()
 
         self.notificacoes_atuais = notificacoes
-        total = len(notificacoes)
-        nao_lidas = len([n for n in notificacoes if n.get("status") == "nao_lida"])
-        self.lbl_info.setText(f"{total} notificacoes • {nao_lidas} nao lidas")
+        self._atualizar_estado_selecao()
 
     def obter_notificacao_selecionada(self):
         current_row = self.tabela.currentRow()
@@ -529,22 +542,60 @@ class NotificationCenter(QDialog):
             return None
         return self.notificacoes_atuais[current_row]
 
-    def marcar_selecionada_como_lida(self):
-        notificacao = self.obter_notificacao_selecionada()
-        if not notificacao:
-            notification_manager.warning("Selecione uma notificacao!", self, 2000)
+    def obter_notificacoes_selecionadas(self):
+        indices = sorted({index.row() for index in self.tabela.selectionModel().selectedRows()})
+        return [self.notificacoes_atuais[index] for index in indices if 0 <= index < len(self.notificacoes_atuais)]
+
+    def _atualizar_estado_selecao(self):
+        selecionadas = self.obter_notificacoes_selecionadas()
+        quantidade = len(selecionadas)
+        total = len(self.notificacoes_atuais)
+        nao_lidas = len([n for n in self.notificacoes_atuais if n.get("status") == "nao_lida"])
+
+        if quantidade <= 0:
+            self.btn_marcar.setText("Marcar selecionadas")
+            self.btn_excluir.setText("Excluir selecionadas")
+            self.lbl_info.setText(f"{total} notificacoes | {nao_lidas} nao lidas")
             return
 
-        if notificacao.get("status") == "lida":
-            notification_manager.info("Esta notificacao ja esta lida!", self, 2000)
+        sufixo = "notificacao" if quantidade == 1 else "notificacoes"
+        self.btn_marcar.setText(f"Marcar {quantidade} {sufixo}")
+        self.btn_excluir.setText(f"Excluir {quantidade} {sufixo}")
+        self.lbl_info.setText(f"{quantidade} selecionada(s) | {total} exibidas | {nao_lidas} nao lidas")
+
+    def marcar_selecionadas_como_lidas(self):
+        notificacoes = self.obter_notificacoes_selecionadas()
+        if not notificacoes:
+            notification_manager.warning("Selecione ao menos uma notificacao.", self, 2000)
             return
+
+        pendentes = [n for n in notificacoes if n.get("status") != "lida"]
+        if not pendentes:
+            notification_manager.info("As notificacoes selecionadas ja estao lidas.", self, 2000)
+            return
+
+        if len(pendentes) > 1:
+            confirm = QMessageBox.question(
+                self,
+                "Confirmar",
+                f"Deseja marcar {len(pendentes)} notificacoes como lidas?",
+                QMessageBox.Yes | QMessageBox.No,
+            )
+            if confirm != QMessageBox.Yes:
+                return
 
         try:
-            if api_client.marcar_notificacao_lida(notificacao.get("id")):
-                notification_manager.success("Notificacao marcada como lida!", self, 2000)
+            sucesso = True
+            for notificacao in pendentes:
+                if not api_client.marcar_notificacao_lida(notificacao.get("id")):
+                    sucesso = False
+
+            if sucesso:
+                mensagem = "Notificacao marcada como lida!" if len(pendentes) == 1 else "Notificacoes marcadas como lidas!"
+                notification_manager.success(mensagem, self, 2200)
                 self.carregar_notificacoes()
             else:
-                notification_manager.error("Erro ao marcar notificacao", self, 3000)
+                notification_manager.error("Nem todas as notificacoes puderam ser marcadas como lidas.", self, 3000)
         except Exception as e:
             print(f"Erro ao marcar notificacao: {e}")
 
@@ -571,26 +622,35 @@ class NotificationCenter(QDialog):
             except Exception as e:
                 print(f"Erro ao marcar todas as notificacoes: {e}")
 
-    def excluir_selecionada(self):
-        notificacao = self.obter_notificacao_selecionada()
-        if not notificacao:
-            notification_manager.warning("Selecione uma notificacao!", self, 2000)
+    def excluir_selecionadas(self):
+        notificacoes = self.obter_notificacoes_selecionadas()
+        if not notificacoes:
+            notification_manager.warning("Selecione ao menos uma notificacao.", self, 2000)
             return
 
+        quantidade = len(notificacoes)
         confirm = QMessageBox.question(
             self,
             "Confirmar exclusao",
-            "Deseja excluir esta notificacao?",
+            "Deseja excluir esta notificacao?"
+            if quantidade == 1
+            else f"Deseja excluir {quantidade} notificacoes selecionadas?",
             QMessageBox.Yes | QMessageBox.No,
         )
 
         if confirm == QMessageBox.Yes:
             try:
-                if api_client.deletar_notificacao(notificacao.get("id")):
-                    notification_manager.success("Notificacao excluida!", self, 2000)
+                sucesso = True
+                for notificacao in notificacoes:
+                    if not api_client.deletar_notificacao(notificacao.get("id")):
+                        sucesso = False
+
+                if sucesso:
+                    mensagem = "Notificacao excluida!" if quantidade == 1 else "Notificacoes excluidas!"
+                    notification_manager.success(mensagem, self, 2200)
                     self.carregar_notificacoes()
                 else:
-                    notification_manager.error("Erro ao excluir notificacao", self, 3000)
+                    notification_manager.error("Nem todas as notificacoes puderam ser excluidas.", self, 3000)
             except Exception as e:
                 print(f"Erro ao excluir notificacao: {e}")
 

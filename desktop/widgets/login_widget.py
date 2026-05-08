@@ -11,6 +11,7 @@ class LoginWidget(QWidget):
         self.on_login_success = on_login_success
         self.usuario_preview_codigo = ""
         self.usuario_preview_nome = ""
+        self.usuario_preview_tone = "neutral"
 
         self.lookup_timer = QTimer(self)
         self.lookup_timer.setSingleShot(True)
@@ -21,6 +22,8 @@ class LoginWidget(QWidget):
 
     def init_ui(self):
         self.setObjectName("loginRoot")
+        self.resize(580, 680)
+        self.setMinimumSize(560, 660)
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
@@ -28,26 +31,41 @@ class LoginWidget(QWidget):
 
         self.card = QFrame()
         self.card.setObjectName("loginCard")
-        self.card.setMinimumWidth(430)
-        self.card.setMaximumWidth(500)
+        self.card.setMinimumWidth(460)
+        self.card.setMaximumWidth(540)
+        self.card.setMinimumHeight(590)
 
         card_layout = QVBoxLayout(self.card)
-        card_layout.setSpacing(14)
-        card_layout.setContentsMargins(36, 34, 36, 34)
+        card_layout.setSpacing(0)
+        card_layout.setContentsMargins(40, 38, 40, 38)
+
+        self.header_frame = QFrame()
+        self.header_frame.setObjectName("loginHeader")
+        header_layout = QVBoxLayout(self.header_frame)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(8)
 
         self.logo = QLabel("Project Parallel")
         self.logo.setObjectName("loginLogo")
         self.logo.setAlignment(Qt.AlignCenter)
-        self.logo.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
-        card_layout.addWidget(self.logo)
+        self.logo.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
+        header_layout.addWidget(self.logo)
 
         self.title = QLabel("Acesso ao Sistema")
         self.title.setObjectName("loginTitle")
         self.title.setAlignment(Qt.AlignCenter)
-        self.title.setFont(QFont("Segoe UI", 16, QFont.Weight.DemiBold))
-        card_layout.addWidget(self.title)
+        self.title.setFont(QFont("Segoe UI", 17, QFont.Weight.DemiBold))
+        header_layout.addWidget(self.title)
 
-        card_layout.addSpacing(8)
+        self.subtitle = QLabel("Informe seu codigo para identificar o usuario e continuar.")
+        self.subtitle.setObjectName("loginSubtitle")
+        self.subtitle.setAlignment(Qt.AlignCenter)
+        self.subtitle.setWordWrap(True)
+        self.subtitle.setFont(QFont("Segoe UI", 11))
+        header_layout.addWidget(self.subtitle)
+
+        card_layout.addWidget(self.header_frame)
+        card_layout.addSpacing(24)
 
         self.label_codigo = QLabel("Codigo")
         self.label_codigo.setObjectName("loginFieldLabel")
@@ -57,20 +75,36 @@ class LoginWidget(QWidget):
         self.codigo_input.setObjectName("loginInput")
         self.codigo_input.setPlaceholderText("Digite seu codigo")
         self.codigo_input.setClearButtonEnabled(True)
-        self.codigo_input.setMinimumHeight(46)
+        self.codigo_input.setMinimumHeight(52)
         self.codigo_input.returnPressed.connect(self.ao_pressionar_enter)
         self.codigo_input.textChanged.connect(self.ao_mudar_codigo)
         card_layout.addWidget(self.codigo_input)
 
-        self.usuario_nome_label = QLabel("")
-        self.usuario_nome_label.setObjectName("loginUserInfo")
-        self.usuario_nome_label.setTextFormat(Qt.RichText)
-        self.usuario_nome_label.setWordWrap(True)
-        self.usuario_nome_label.setMinimumHeight(64)
-        self.usuario_nome_label.hide()
-        card_layout.addWidget(self.usuario_nome_label)
+        card_layout.addSpacing(18)
 
-        card_layout.addSpacing(10)
+        self.usuario_card = QFrame()
+        self.usuario_card.setObjectName("loginUserCard")
+        self.usuario_card.setMinimumHeight(126)
+        self.usuario_card.hide()
+        usuario_layout = QVBoxLayout(self.usuario_card)
+        usuario_layout.setContentsMargins(18, 16, 18, 16)
+        usuario_layout.setSpacing(6)
+
+        self.usuario_status_label = QLabel("")
+        self.usuario_status_label.setObjectName("loginUserCaption")
+        self.usuario_status_label.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
+        usuario_layout.addWidget(self.usuario_status_label)
+
+        self.usuario_nome_label = QLabel("")
+        self.usuario_nome_label.setObjectName("loginUserName")
+        self.usuario_nome_label.setWordWrap(True)
+        self.usuario_nome_label.setFont(QFont("Segoe UI", 20, QFont.Weight.Bold))
+        self.usuario_nome_label.setMinimumHeight(40)
+        usuario_layout.addWidget(self.usuario_nome_label)
+
+        card_layout.addWidget(self.usuario_card)
+
+        card_layout.addSpacing(42)
 
         self.label_senha = QLabel("Senha")
         self.label_senha.setObjectName("loginFieldLabel")
@@ -80,25 +114,28 @@ class LoginWidget(QWidget):
         self.senha_input.setObjectName("loginInput")
         self.senha_input.setPlaceholderText("Digite sua senha")
         self.senha_input.setEchoMode(QLineEdit.Password)
-        self.senha_input.setMinimumHeight(46)
+        self.senha_input.setMinimumHeight(52)
         self.senha_input.setEnabled(False)
         self.senha_input.returnPressed.connect(self.ao_pressionar_enter)
         self.senha_input.textChanged.connect(self.atualizar_estado_login)
         card_layout.addWidget(self.senha_input)
 
-        card_layout.addSpacing(6)
+        card_layout.addSpacing(22)
 
         self.login_btn = QPushButton("Entrar")
         self.login_btn.setObjectName("loginButton")
-        self.login_btn.setMinimumHeight(48)
+        self.login_btn.setMinimumHeight(52)
         self.login_btn.setEnabled(False)
         self.login_btn.clicked.connect(self.fazer_login)
         card_layout.addWidget(self.login_btn)
+
+        card_layout.addSpacing(12)
 
         self.status_label = QLabel("")
         self.status_label.setObjectName("loginStatus")
         self.status_label.setAlignment(Qt.AlignCenter)
         self.status_label.setWordWrap(True)
+        self.status_label.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
         card_layout.addWidget(self.status_label)
 
         layout.addWidget(self.card)
@@ -129,7 +166,18 @@ class LoginWidget(QWidget):
             QFrame#loginCard {{
                 background-color: {palette['card']};
                 border: 1px solid {palette['card_border']};
-                border-radius: 18px;
+                border-radius: 22px;
+            }}
+
+            QFrame#loginHeader {{
+                background: transparent;
+                border: none;
+            }}
+
+            QFrame#loginUserCard {{
+                background-color: {palette['user_card_bg']};
+                border: 1px solid {palette['user_card_border']};
+                border-radius: 16px;
             }}
 
             QLabel#loginLogo {{
@@ -146,38 +194,52 @@ class LoginWidget(QWidget):
                 padding: 0;
             }}
 
-            QLabel#loginFieldLabel {{
-                color: {palette['label']};
-                font-size: 13px;
+            QLabel#loginSubtitle {{
+                color: {palette['muted']};
                 background: transparent;
                 border: none;
                 padding: 0;
             }}
 
-            QLabel#loginUserInfo {{
-                color: {palette['accent']};
-                font-size: 12px;
+            QLabel#loginFieldLabel {{
+                color: {palette['label']};
+                font-size: 13px;
                 font-weight: 600;
                 background: transparent;
                 border: none;
-                padding: 0 0 2px 2px;
+                padding: 0;
+            }}
+
+            QLabel#loginUserCaption {{
+                color: {palette['muted']};
+                letter-spacing: 0;
+                background: transparent;
+                border: none;
+                padding: 0;
+            }}
+
+            QLabel#loginUserName {{
+                color: {palette['accent']};
+                background: transparent;
+                border: none;
+                padding: 0;
             }}
 
             QLabel#loginStatus {{
-                color: {palette['danger']};
-                font-size: 14px;
-                min-height: 30px;
+                color: {palette['muted']};
+                min-height: 42px;
                 background: transparent;
                 border: none;
-                padding: 6px 0 0 0;
+                padding: 0;
             }}
 
             QLineEdit#loginInput {{
                 background-color: {palette['input_bg']};
                 color: {palette['text']};
                 border: 1px solid {palette['input_border']};
-                border-radius: 10px;
-                padding: 10px 14px;
+                border-radius: 14px;
+                padding: 12px 16px;
+                font-size: 14px;
                 selection-background-color: {palette['accent_fill']};
                 selection-color: {palette['button_text']};
             }}
@@ -196,10 +258,10 @@ class LoginWidget(QWidget):
                 background-color: {palette['button_bg']};
                 color: {palette['button_text']};
                 border: none;
-                border-radius: 10px;
-                font-size: 14px;
-                font-weight: 600;
-                padding: 10px 16px;
+                border-radius: 14px;
+                font-size: 15px;
+                font-weight: 700;
+                padding: 12px 18px;
             }}
 
             QPushButton#loginButton:hover:!disabled {{
@@ -228,11 +290,14 @@ class LoginWidget(QWidget):
                 "title": "#f8fafc",
                 "label": "#cbd5e1",
                 "text": "#e2e8f0",
+                "muted": "#8fa3ba",
                 "disabled_text": "#7b8aa0",
                 "input_bg": "#0f172a",
                 "input_border": "#334155",
                 "input_disabled": "#0c1422",
                 "input_disabled_border": "#243547",
+                "user_card_bg": "#0c1422",
+                "user_card_border": "#223047",
                 "button_bg": "#2563eb",
                 "button_hover": "#1d4ed8",
                 "button_pressed": "#1e40af",
@@ -250,11 +315,14 @@ class LoginWidget(QWidget):
             "title": "#0f172a",
             "label": "#475569",
             "text": "#0f172a",
+            "muted": "#64748b",
             "disabled_text": "#94a3b8",
             "input_bg": "#f8fafc",
             "input_border": "#d8e0e8",
             "input_disabled": "#f1f5f9",
             "input_disabled_border": "#e2e8f0",
+            "user_card_bg": "#f7fbff",
+            "user_card_border": "#d9e6ef",
             "button_bg": "#2c7da0",
             "button_hover": "#256b8b",
             "button_pressed": "#1f5a76",
@@ -268,8 +336,11 @@ class LoginWidget(QWidget):
         self.lookup_timer.stop()
         self.usuario_preview_codigo = ""
         self.usuario_preview_nome = ""
-        self.usuario_nome_label.hide()
+        self.usuario_preview_tone = "neutral"
+        self.usuario_card.hide()
+        self.usuario_status_label.setText("")
         self.usuario_nome_label.setText("")
+        self.usuario_card.setFixedHeight(126)
         self._set_status_message("")
 
         self.senha_input.clear()
@@ -295,8 +366,9 @@ class LoginWidget(QWidget):
             usuario = resultado["usuario"]
             self.usuario_preview_codigo = usuario.get("codigo", codigo)
             self.usuario_preview_nome = usuario.get("nome", "")
+            self.usuario_preview_tone = "success"
             self._set_preview_message("Usuario identificado", "success", self.usuario_preview_nome)
-            self.usuario_nome_label.show()
+            self.usuario_card.show()
             self.senha_input.setEnabled(True)
             if focus_password:
                 self.senha_input.setFocus()
@@ -305,14 +377,15 @@ class LoginWidget(QWidget):
 
         self.usuario_preview_codigo = ""
         self.usuario_preview_nome = ""
+        self.usuario_preview_tone = "error"
         preview_error = "Codigo nao encontrado"
         if resultado.get("error") and resultado["error"] != "Codigo nao encontrado":
             preview_error = "Nao foi possivel identificar o usuario agora"
             self._set_status_message(str(resultado["error"]), "error")
         else:
             self._set_status_message("")
-        self._set_preview_message(preview_error, "error")
-        self.usuario_nome_label.show()
+        self._set_preview_message(preview_error, "error", "Verifique o codigo informado")
+        self.usuario_card.show()
         self.senha_input.setEnabled(False)
         self.atualizar_estado_login()
         return False
@@ -369,22 +442,21 @@ class LoginWidget(QWidget):
             "error": "#fda4af" if self._current_theme() == "Escuro" else "#dc2626",
         }
         color = colors.get(tone, colors["neutral"])
+        self.usuario_status_label.setStyleSheet(
+            f"color: {color}; background: transparent; border: none; padding: 0;"
+        )
         self.usuario_nome_label.setStyleSheet(
-            "background: transparent; border: none; padding: 6px 0 10px 2px;"
+            f"color: {color}; background: transparent; border: none; padding: 0;"
         )
-
-        if detail:
-            self.usuario_nome_label.setText(
-                f"<div style='color:{color};'>"
-                f"<div style='font-size:13px; font-weight:600;'>{text}</div>"
-                f"<div style='font-size:22px; font-weight:800; margin-top:4px; line-height:1.2;'>{detail}</div>"
-                f"</div>"
-            )
-            return
-
-        self.usuario_nome_label.setText(
-            f"<div style='color:{color}; font-size:16px; font-weight:700;'>{text}</div>"
+        self.usuario_status_label.setText(text)
+        self.usuario_nome_label.setText(detail or "")
+        required_height = (
+            self.usuario_status_label.sizeHint().height()
+            + self.usuario_nome_label.sizeHint().height()
+            + 52
         )
+        self.usuario_card.setFixedHeight(max(126, required_height))
+        self.usuario_card.updateGeometry()
 
     def _set_status_message(self, text, tone="error"):
         colors = {

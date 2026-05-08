@@ -123,6 +123,7 @@ class NotificationManager(QObject):
                 acao=notificacao.get("acao"),
                 acao_id=notificacao.get("acao_id"),
                 notificacao_id=notificacao.get("id"),
+                title=notificacao.get("titulo"),
             )
         except Exception as e:
             print(f"Erro ao exibir toast de notificação: {e}")
@@ -229,7 +230,8 @@ class NotificationManager(QObject):
                         prioridade=prioridade,
                         acao=acao,
                         acao_id=acao_id,
-                        notificacao_id=result.get("id") if result else None
+                        notificacao_id=result.get("id") if result else None,
+                        title=titulo,
                     )
                 
                 return result
