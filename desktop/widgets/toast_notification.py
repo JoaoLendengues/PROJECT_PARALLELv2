@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 
 
 class ToastNotification(QWidget):
-    """Popup em estilo capsula no topo da aplicacao."""
+    """Popup em estilo cápsula no topo da aplicação."""
 
     def __init__(
         self,
@@ -46,7 +46,7 @@ class ToastNotification(QWidget):
         self.acao = acao
         self.acao_id = acao_id
         self.notificacao_id = notificacao_id
-        self.message = message or "Nova notificacao"
+        self.message = message or "Nova notificação"
         self.title = (title or "").strip() or self._default_title(tipo, prioridade)
         self.tipo = tipo
 
@@ -81,12 +81,12 @@ class ToastNotification(QWidget):
         if prioridade == "alta":
             return "Nova demanda alta!"
         mapping = {
-            "success": "Atualizacao",
-            "warning": "Atencao",
+            "success": "Atualização",
+            "warning": "Atenção",
             "error": "Falha no sistema",
-            "info": "Atualizacao",
+            "info": "Atualização",
         }
-        return mapping.get(tipo, "Atualizacao")
+        return mapping.get(tipo, "Atualização")
 
     def _resolve_palette(self) -> dict:
         app = QApplication.instance()

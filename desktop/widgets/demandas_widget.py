@@ -97,7 +97,7 @@ class DemandasWidget(QWidget):
         self.busca_label = QLabel("Busca:")
         filtros.addWidget(self.busca_label)
         self.pesquisa_edit = QLineEdit()
-        self.pesquisa_edit.setPlaceholderText("Pesquisar por titulo, descricao, status ou responsavel...")
+        self.pesquisa_edit.setPlaceholderText("Pesquisar por título, descrição, status ou responsável...")
         self.pesquisa_edit.setMaximumWidth(340)
         self.pesquisa_edit.textChanged.connect(self.filtrar_demandas)
         filtros.addWidget(self.pesquisa_edit)
@@ -107,7 +107,7 @@ class DemandasWidget(QWidget):
         self.status_label = QLabel("Status:")
         filtros.addWidget(self.status_label)
         self.status_filter = QComboBox()
-        self.status_filter.addItems(["Todos", "Aberto", "Em Andamento", "Concluido", "Cancelado"])
+        self.status_filter.addItems(["Todos", "Aberto", "Em Andamento", "Concluído", "Cancelado"])
         self.status_filter.currentTextChanged.connect(self.filtrar_demandas)
         filtros.addWidget(self.status_filter)
 
@@ -202,8 +202,8 @@ class DemandasWidget(QWidget):
     def _avisar_sem_permissao(self, action_key):
         QMessageBox.warning(
             self,
-            "Acesso nao permitido",
-            f"Voce nao tem permissao para {get_action_label(action_key)}.",
+            "Acesso não permitido",
+            f"Você não tem permissão para {get_action_label(action_key)}.",
         )
 
     def _empresa_contexto_solicitante(self):
@@ -222,11 +222,11 @@ class DemandasWidget(QWidget):
 
     def _configurar_colunas_tabela(self):
         if self._modo_solicitante:
-            headers = ["ID", "Titulo", "Prioridade", "Urgencia", "Status", "Data Abertura"]
+            headers = ["ID", "Título", "Prioridade", "Urgência", "Status", "Data Abertura"]
         else:
             headers = [
                 "ID",
-                "Titulo",
+                "Título",
                 "Solicitante",
                 "Prioridade",
                 "Urgencia",
@@ -263,7 +263,7 @@ class DemandasWidget(QWidget):
             self.titulo_label.setText("Minhas Demandas")
             self.empresa_label.setVisible(False)
             self.empresa_filter.setVisible(False)
-            self.empresa_prompt.setText("Abra uma nova demanda e acompanhe abaixo apenas os chamados enviados por voce.")
+            self.empresa_prompt.setText("Abra uma nova demanda e acompanhe abaixo apenas os chamados enviados por você.")
         else:
             self.titulo_label.setText("Demandas / Chamados TI")
             self.empresa_label.setVisible(True)
@@ -348,7 +348,7 @@ class DemandasWidget(QWidget):
                 if self.demandas:
                     self.empresa_prompt.setText("Nenhuma demanda encontrada com os filtros atuais.")
                 else:
-                    self.empresa_prompt.setText("Voce ainda nao abriu nenhuma demanda.")
+                    self.empresa_prompt.setText("Você ainda não abriu nenhuma demanda.")
                 self.empresa_prompt.setVisible(True)
             return
 
@@ -490,7 +490,7 @@ class DemandasWidget(QWidget):
     def ver_demanda(self):
         demanda = self._demanda_selecionada()
         if not demanda:
-            QMessageBox.warning(self, "Atencao", "Selecione uma demanda para visualizar.")
+            QMessageBox.warning(self, "Atenção", "Selecione uma demanda para visualizar.")
             return
 
         dialog = DemandaDialog(
@@ -510,14 +510,14 @@ class DemandasWidget(QWidget):
 
         demanda = self._demanda_selecionada()
         if not demanda:
-            QMessageBox.warning(self, "Atencao", "Selecione uma demanda para assumir.")
+            QMessageBox.warning(self, "Atenção", "Selecione uma demanda para assumir.")
             return
 
         titulo = demanda.get("titulo", "")
         confirm = QMessageBox.question(
             self,
             "Assumir demanda",
-            f"Deseja assumir a demanda '{titulo}' para voce?",
+            f"Deseja assumir a demanda '{titulo}' para você?",
             QMessageBox.Yes | QMessageBox.No,
         )
         if confirm != QMessageBox.Yes:
@@ -528,7 +528,7 @@ class DemandasWidget(QWidget):
                 QMessageBox.information(self, "Sucesso", "Demanda assumida com sucesso!")
                 self.carregar_demandas()
             else:
-                QMessageBox.warning(self, "Erro", "Nao foi possivel assumir a demanda.")
+                QMessageBox.warning(self, "Erro", "Não foi possível assumir a demanda.")
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao assumir demanda: {e}")
 
@@ -539,7 +539,7 @@ class DemandasWidget(QWidget):
 
         demanda = self._demanda_selecionada()
         if not demanda:
-            QMessageBox.warning(self, "Atencao", "Selecione uma demanda para editar.")
+            QMessageBox.warning(self, "Atenção", "Selecione uma demanda para editar.")
             return
 
         dialog = DemandaDialog(
@@ -559,12 +559,12 @@ class DemandasWidget(QWidget):
 
         demanda = self._demanda_selecionada()
         if not demanda:
-            QMessageBox.warning(self, "Atencao", "Selecione uma demanda para concluir.")
+            QMessageBox.warning(self, "Atenção", "Selecione uma demanda para concluir.")
             return
 
         confirm = QMessageBox.question(
             self,
-            "Confirmar conclusao",
+            "Confirmar conclusão",
             f"Deseja concluir a demanda '{demanda.get('titulo', '')}'?",
             QMessageBox.Yes | QMessageBox.No,
         )
@@ -573,7 +573,7 @@ class DemandasWidget(QWidget):
 
         try:
             if api_client.concluir_demanda(demanda["id"]):
-                QMessageBox.information(self, "Sucesso", "Demanda concluida com sucesso!")
+                QMessageBox.information(self, "Sucesso", "Demanda concluída com sucesso!")
                 self.carregar_demandas()
             else:
                 QMessageBox.warning(self, "Erro", "Erro ao concluir demanda.")
@@ -587,7 +587,7 @@ class DemandasWidget(QWidget):
 
         demanda = self._demanda_selecionada()
         if not demanda:
-            QMessageBox.warning(self, "Atencao", "Selecione uma demanda para cancelar.")
+            QMessageBox.warning(self, "Atenção", "Selecione uma demanda para cancelar.")
             return
 
         confirm = QMessageBox.question(
@@ -615,12 +615,12 @@ class DemandasWidget(QWidget):
 
         demanda = self._demanda_selecionada()
         if not demanda:
-            QMessageBox.warning(self, "Atencao", "Selecione uma demanda para deletar.")
+            QMessageBox.warning(self, "Atenção", "Selecione uma demanda para deletar.")
             return
 
         confirm = QMessageBox.question(
             self,
-            "Confirmar exclusao",
+            "Confirmar exclusão",
             f"Tem certeza que deseja deletar a demanda '{demanda.get('titulo', '')}'?",
             QMessageBox.Yes | QMessageBox.No,
         )
@@ -686,13 +686,13 @@ class DemandaDialog(QDialog):
         layout.addWidget(required_hint_label())
 
         self.titulo_edit = QLineEdit()
-        self.titulo_edit.setPlaceholderText("Titulo da demanda")
-        self._add_row("titulo", "Titulo:", self.titulo_edit)
+        self.titulo_edit.setPlaceholderText("Título da demanda")
+        self._add_row("titulo", "Título:", self.titulo_edit)
 
         self.descricao_edit = QTextEdit()
         self.descricao_edit.setMaximumHeight(110)
         self.descricao_edit.setPlaceholderText("Descreva o problema com clareza.")
-        self._add_row("descricao", "Descricao:", self.descricao_edit)
+        self._add_row("descricao", "Descrição:", self.descricao_edit)
 
         self.solicitante_edit = QLineEdit()
         self.solicitante_edit.setPlaceholderText("Nome de quem solicitou")
@@ -877,22 +877,22 @@ class DemandaDialog(QDialog):
 
         if not dados["titulo"]:
             focus_invalid_field(self.titulo_edit)
-            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Titulo"))
+            QMessageBox.warning(self, "Campo obrigatório", required_field_message("Título"))
             return
 
         if not dados["descricao"]:
             focus_invalid_field(self.descricao_edit)
-            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Descricao"))
+            QMessageBox.warning(self, "Campo obrigatório", required_field_message("Descrição"))
             return
 
         if not dados["solicitante"]:
             focus_invalid_field(self.solicitante_edit)
-            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Solicitante"))
+            QMessageBox.warning(self, "Campo obrigatório", required_field_message("Solicitante"))
             return
 
         if not dados["empresa"]:
             focus_invalid_field(self.empresa_combo)
-            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Empresa"))
+            QMessageBox.warning(self, "Campo obrigatório", required_field_message("Empresa"))
             return
 
         try:
@@ -902,7 +902,7 @@ class DemandaDialog(QDialog):
                     QMessageBox.information(self, "Sucesso", f"Demanda '{dados['titulo']}' atualizada com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Nao foi possivel atualizar a demanda. Revise os dados e tente novamente.")
+                    QMessageBox.warning(self, "Erro", "Não foi possível atualizar a demanda. Revise os dados e tente novamente.")
             else:
                 response = api_client.criar_demanda(dados)
                 if response:
@@ -914,6 +914,6 @@ class DemandaDialog(QDialog):
                     QMessageBox.information(self, "Sucesso", mensagem)
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Nao foi possivel criar a demanda. Revise os dados e tente novamente.")
+                    QMessageBox.warning(self, "Erro", "Não foi possível criar a demanda. Revise os dados e tente novamente.")
         except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Nao foi possivel salvar a demanda.\n\nDetalhes: {e}")
+            QMessageBox.critical(self, "Erro", f"Não foi possível salvar a demanda.\n\nDetalhes: {e}")

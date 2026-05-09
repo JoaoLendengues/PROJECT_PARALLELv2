@@ -665,17 +665,17 @@ class MaterialDialog(QDialog):
                     QMessageBox.information(self, "Sucesso", f"Material '{dados['nome']}' atualizado com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Nao foi possivel atualizar o material. Revise os dados e tente novamente.")
+                    QMessageBox.warning(self, "Erro", "Não foi possível atualizar o material. Revise os dados e tente novamente.")
             else:
                 response = api_client.criar_material(dados)
                 if response:
                     QMessageBox.information(self, "Sucesso", f"Material '{dados['nome']}' criado com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Nao foi possivel criar o material. Revise os dados e tente novamente.")
+                    QMessageBox.warning(self, "Erro", "Não foi possível criar o material. Revise os dados e tente novamente.")
 
             QApplication.restoreOverrideCursor()
 
         except Exception as e:
             QApplication.restoreOverrideCursor()
-            QMessageBox.critical(self, "Erro", f"Nao foi possivel salvar o material.\n\nDetalhes: {e}")
+            QMessageBox.critical(self, "Erro", f"Não foi possível salvar o material.\n\nDetalhes: {e}")

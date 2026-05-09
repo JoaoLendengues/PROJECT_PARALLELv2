@@ -94,8 +94,8 @@ class RelatoriosWidget(QWidget):
     def _avisar_sem_permissao(self, action_key):
         QMessageBox.warning(
             self,
-            "Acesso nao permitido",
-            f"Voce nao tem permissao para {get_action_label(action_key)}.",
+            "Acesso não permitido",
+            f"Você não tem permissão para {get_action_label(action_key)}.",
         )
 
     def on_show(self):
@@ -196,7 +196,7 @@ class RelatoriosWidget(QWidget):
         header_layout.setContentsMargins(22, 20, 22, 20)
         header_layout.setSpacing(8)
 
-        title = QLabel("Relatorios do Sistema")
+        title = QLabel("Relatórios do Sistema")
         title.setObjectName("reportHeroTitle")
         header_layout.addWidget(title)
 
@@ -213,7 +213,7 @@ class RelatoriosWidget(QWidget):
         self.tabs.currentChanged.connect(self.on_tab_changed)
 
         self.tab_movimentacoes = self.create_tab_movimentacoes()
-        self.tabs.addTab(self.tab_movimentacoes, "Movimentacoes")
+        self.tabs.addTab(self.tab_movimentacoes, "Movimentações")
 
         self.tab_estoque = self.create_tab_estoque()
         self.tabs.addTab(self.tab_estoque, "Estoque")
@@ -245,7 +245,7 @@ class RelatoriosWidget(QWidget):
 
     def on_tab_changed(self, index):
         tab_text = self.tabs.tabText(index)
-        if tab_text == "Movimentacoes" and not self._loaded_tabs["movimentacoes"]:
+        if tab_text == "Movimentações" and not self._loaded_tabs["movimentacoes"]:
             self.carregar_movimentacoes()
             self.carregar_empresas_movimentacoes()
             self._loaded_tabs["movimentacoes"] = True
@@ -424,9 +424,9 @@ class RelatoriosWidget(QWidget):
                     ("Quantidade", record.get("quantidade")),
                     ("Empresa", record.get("empresa")),
                     ("Destinatario", record.get("destinatario")),
-                    ("Usuario", record.get("usuario_nome")),
+                    ("Usuário", record.get("usuario_nome")),
                     ("Data/Hora", record.get("data_hora")),
-                    ("Observacao", record.get("observacao")),
+                    ("Observação", record.get("observacao")),
                 ],
             )
         elif key == "estoque":
@@ -434,7 +434,7 @@ class RelatoriosWidget(QWidget):
                 f"Material #{record.get('id', '-')}",
                 [
                     ("Nome", record.get("nome")),
-                    ("Descricao", record.get("descricao")),
+                    ("Descrição", record.get("descricao")),
                     ("Quantidade", record.get("quantidade")),
                     ("Categoria", record.get("categoria")),
                     ("Empresa", record.get("empresa")),
@@ -452,8 +452,8 @@ class RelatoriosWidget(QWidget):
                     ("Departamento", record.get("departamento")),
                     ("Status", str(record.get("status", "")).upper()),
                     ("Data solicitacao", record.get("data_solicitacao")),
-                    ("Data conclusao", record.get("data_conclusao") or "-"),
-                    ("Observacao", record.get("observacao")),
+                    ("Data conclusão", record.get("data_conclusao") or "-"),
+                    ("Observação", record.get("observacao")),
                     ("Link", record.get("link_compra")),
                 ],
             )
@@ -461,15 +461,15 @@ class RelatoriosWidget(QWidget):
             html = self._build_detail_html(
                 f"Demanda #{record.get('id', '-')}",
                 [
-                    ("Titulo", record.get("titulo")),
-                    ("Descricao", record.get("descricao")),
+                    ("Título", record.get("titulo")),
+                    ("Descrição", record.get("descricao")),
                     ("Solicitante", record.get("solicitante")),
                     ("Empresa", record.get("empresa")),
                     ("Prioridade", str(record.get("prioridade", "")).upper()),
                     ("Status", str(record.get("status", "")).upper()),
                     ("Data abertura", record.get("data_abertura")),
-                    ("Responsavel", record.get("responsavel")),
-                    ("Observacao", record.get("observacao")),
+                    ("Responsável", record.get("responsavel")),
+                    ("Observação", record.get("observacao")),
                 ],
             )
 
@@ -507,7 +507,7 @@ class RelatoriosWidget(QWidget):
             self._create_summary_strip(
                 "movimentacoes",
                 (
-                    ("total", "Movimentacoes", "Registros encontrados"),
+                    ("total", "Movimentações", "Registros encontrados"),
                     ("entradas", "Entradas", "Fluxo de entrada"),
                     ("saidas", "Saidas", "Fluxo de saida"),
                 ),
@@ -538,7 +538,7 @@ class RelatoriosWidget(QWidget):
         layout.addWidget(filtros)
 
         mov_search_card, self.mov_search = self._create_search_card(
-            "Pesquisar por material, usuario, empresa ou observacao...",
+            "Pesquisar por material, usuário, empresa ou observação...",
             self._render_movimentacoes,
         )
         layout.addWidget(mov_search_card)
@@ -555,7 +555,7 @@ class RelatoriosWidget(QWidget):
         layout.addWidget(self._create_actions_card(self.btn_atualizar, (self.btn_exportar_excel, self.btn_exportar_pdf)))
 
         self.mov_tabela = self._build_table(
-            ["ID", "Material", "Tipo", "Quantidade", "Empresa", "Destinatario", "Data/Hora", "Usuario", "Observacao"],
+            ["ID", "Material", "Tipo", "Quantidade", "Empresa", "Destinatario", "Data/Hora", "Usuário", "Observação"],
             stretch_columns=(1, 8),
             minimum_widths={0: 72, 1: 220, 2: 110, 3: 100, 4: 170, 5: 180, 6: 155, 7: 160, 8: 240},
         )
@@ -585,7 +585,7 @@ class RelatoriosWidget(QWidget):
                 (
                     ("total", "Itens", "Materiais listados"),
                     ("ativos", "Ativos", "Disponiveis no estoque"),
-                    ("criticos", "Criticos", "Quantidade baixa ou zerada"),
+                    ("criticos", "Críticos", "Quantidade baixa ou zerada"),
                 ),
             )
         )
@@ -635,7 +635,7 @@ class RelatoriosWidget(QWidget):
         )
 
         self.est_tabela = self._build_table(
-            ["ID", "Nome", "Descricao", "Quantidade", "Categoria", "Empresa", "Status"],
+            ["ID", "Nome", "Descrição", "Quantidade", "Categoria", "Empresa", "Status"],
             stretch_columns=(1, 2),
             minimum_widths={0: 72, 1: 220, 2: 280, 3: 100, 4: 160, 5: 180, 6: 120},
         )
@@ -661,7 +661,7 @@ class RelatoriosWidget(QWidget):
                 (
                     ("total", "Pedidos", "Solicitacoes no periodo"),
                     ("pendentes", "Pendentes", "Aguardando tratativa"),
-                    ("concluidos", "Concluidos", "Pedidos finalizados"),
+                    ("concluidos", "Concluídos", "Pedidos finalizados"),
                 ),
             )
         )
@@ -678,7 +678,7 @@ class RelatoriosWidget(QWidget):
         filtros_layout.addWidget(self.ped_data_fim)
         filtros_layout.addWidget(QLabel("Status:"))
         self.ped_status = QComboBox()
-        self.ped_status.addItems(["Todos", "Pendente", "Aprovado", "Concluido", "Cancelado"])
+        self.ped_status.addItems(["Todos", "Pendente", "Aprovado", "Concluído", "Cancelado"])
         self.ped_status.setObjectName("configCombo")
         filtros_layout.addWidget(self.ped_status)
         filtros_layout.addWidget(QLabel("Empresa:"))
@@ -712,7 +712,7 @@ class RelatoriosWidget(QWidget):
         )
 
         self.ped_tabela = self._build_table(
-            ["ID", "Material", "Qtd", "Solicitante", "Empresa", "Data Solic.", "Data Conclusao", "Status"],
+            ["ID", "Material", "Qtd", "Solicitante", "Empresa", "Data Solic.", "Data Conclusão", "Status"],
             stretch_columns=(1,),
             minimum_widths={0: 72, 1: 220, 2: 90, 3: 170, 4: 170, 5: 135, 6: 150, 7: 120},
         )
@@ -738,7 +738,7 @@ class RelatoriosWidget(QWidget):
                 (
                     ("total", "Demandas", "Chamados no periodo"),
                     ("abertas", "Abertas", "Aguardando tratativa"),
-                    ("concluidas", "Concluidas", "Demandas resolvidas"),
+                    ("concluidas", "Concluídas", "Demandas resolvidas"),
                 ),
             )
         )
@@ -755,7 +755,7 @@ class RelatoriosWidget(QWidget):
         filtros_layout.addWidget(self.dem_data_fim)
         filtros_layout.addWidget(QLabel("Status:"))
         self.dem_status = QComboBox()
-        self.dem_status.addItems(["Todos", "Aberto", "Em Andamento", "Concluido", "Cancelado"])
+        self.dem_status.addItems(["Todos", "Aberto", "Em Andamento", "Concluído", "Cancelado"])
         self.dem_status.setObjectName("configCombo")
         filtros_layout.addWidget(self.dem_status)
         filtros_layout.addWidget(QLabel("Prioridade:"))
@@ -772,7 +772,7 @@ class RelatoriosWidget(QWidget):
         layout.addWidget(filtros)
 
         dem_search_card, self.dem_search = self._create_search_card(
-            "Pesquisar por titulo, solicitante, responsavel ou descricao...",
+            "Pesquisar por título, solicitante, responsável ou descrição...",
             self._render_demandas,
         )
         layout.addWidget(dem_search_card)
@@ -794,7 +794,7 @@ class RelatoriosWidget(QWidget):
         )
 
         self.dem_tabela = self._build_table(
-            ["ID", "Titulo", "Solicitante", "Prioridade", "Status", "Data Abertura", "Responsavel"],
+            ["ID", "Título", "Solicitante", "Prioridade", "Status", "Data Abertura", "Responsável"],
             stretch_columns=(1,),
             minimum_widths={0: 72, 1: 240, 2: 160, 3: 130, 4: 130, 5: 155, 6: 170},
         )

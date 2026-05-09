@@ -1,5 +1,5 @@
 {
-    "version": "1.2.0",
-    "release_date": "2026-05-08",
-    "changelog": "Grande atualizacao com controle de acesso por perfil, acessibilidade refinada, dashboard moderno com monitoramento de rede e malha LAN-to-LAN, fluxo de demandas para solicitantes, links em pedidos, auditoria ampliada, relatorios refinados e nova experiencia de notificacoes."
+    "version": "1.2.1",
+    "release_date": "2026-05-09",
+    "changelog": "Atualização de ponte para clientes na versão 1.1.12, com correções no atualizador, revisão ampla de acentuação e pontuação dos textos do sistema e refinamentos de estabilidade da interface."
 }

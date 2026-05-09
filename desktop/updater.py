@@ -52,7 +52,7 @@ def _find_installer_asset(assets):
 
 
 class UpdateChecker(QThread):
-    """Verifica se ha atualizacoes disponiveis no GitHub Releases."""
+    """Verifica se há atualizações disponíveis no GitHub Releases."""
 
     update_available = Signal(dict)
     no_update = Signal()
@@ -87,11 +87,13 @@ class UpdateChecker(QThread):
             assets = data.get("assets", [])
             installer_asset = _find_installer_asset(assets)
             portable_asset = _find_portable_asset(assets)
-            selected_asset = installer_asset or portable_asset
+            # Prefer the portable package so legacy clients from 1.1.12 can
+            # bridge safely without depending on the silent installer path.
+            selected_asset = portable_asset or installer_asset
 
             if not selected_asset:
                 self.error.emit(
-                    "A release mais recente nao possui um instalador nem um ZIP compativel."
+                    "A release mais recente não possui um instalador nem um ZIP compatível."
                 )
                 return
 
@@ -101,7 +103,7 @@ class UpdateChecker(QThread):
                     "download_url": selected_asset.get("browser_download_url"),
                     "asset_name": selected_asset.get("name", ""),
                     "asset_kind": "installer" if selected_asset == installer_asset else "portable",
-                    "changelog": data.get("body", "Nova versao disponivel."),
+                    "changelog": data.get("body", "Nova versão disponível."),
                     "release_date": data.get("published_at", ""),
                     "release_name": data.get("name", ""),
                 }
@@ -111,7 +113,7 @@ class UpdateChecker(QThread):
 
 
 class UpdateDownloader(QThread):
-    """Baixa o pacote da atualizacao."""
+    """Baixa o pacote da atualização."""
 
     progress = Signal(int)
     finished = Signal(str)
@@ -212,7 +214,7 @@ class UpdateInstaller:
             if not getattr(sys, "frozen", False):
                 return (
                     False,
-                    "A atualizacao automatica do beta funciona apenas no executavel instalado.",
+                    "A atualização automática do beta funciona apenas no executável instalado.",
                 )
 
             app_dir = Path(sys.executable).resolve().parent
@@ -233,7 +235,7 @@ class UpdateInstaller:
                 payload_dir = UpdateInstaller._find_payload_dir(staging_dir)
                 if payload_dir is None:
                     shutil.rmtree(staging_dir, ignore_errors=True)
-                    return False, "O ZIP da release nao contem o build empacotado esperado."
+                    return False, "O ZIP da release não contém o build empacotado esperado."
 
                 script_path = UpdateInstaller._write_portable_update_script(
                     app_dir=app_dir,
@@ -246,7 +248,7 @@ class UpdateInstaller:
 
             return (
                 True,
-                "Atualizacao pronta. O sistema sera fechado para concluir a instalacao "
+                "Atualização pronta. O sistema será fechado para concluir a instalação "
                 f"e reabrir em seguida.\n\nBackup: {backup_dir}",
             )
         except Exception as error:

@@ -77,7 +77,7 @@ class ManutencoesWidget(QWidget):
 
         filtros.addWidget(QLabel("Busca:"))
         self.pesquisa_edit = QLineEdit()
-        self.pesquisa_edit.setPlaceholderText("Pesquisar por maquina, tipo, descricao, responsavel...")
+        self.pesquisa_edit.setPlaceholderText("Pesquisar por máquina, tipo, descrição, responsável...")
         self.pesquisa_edit.setMaximumWidth(340)
         self.pesquisa_edit.textChanged.connect(self.filtrar_manutencoes)
         filtros.addWidget(self.pesquisa_edit)
@@ -700,13 +700,13 @@ class ManutencaoDialog(QDialog):
         # Validar campos obrigatórios
         if not maquina_id:
             focus_invalid_field(self.maquina_combo)
-            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Maquina"))
+            QMessageBox.warning(self, "Campo obrigatório", required_field_message("Máquina"))
             return
 
         descricao = self.descricao_edit.toPlainText().strip()
         if not descricao:
             focus_invalid_field(self.descricao_edit)
-            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Descricao"))
+            QMessageBox.warning(self, "Campo obrigatório", required_field_message("Descrição"))
             return
 
         dados = {
@@ -730,19 +730,19 @@ class ManutencaoDialog(QDialog):
                 # Atualizar
                 response = api_client.atualizar_manutencao(self.dados_item["id"], dados)
                 if response:
-                    maquina_nome = self.maquina_combo.currentText().split(" - ")[0].strip() or "manutencao"
+                    maquina_nome = self.maquina_combo.currentText().split(" - ")[0].strip() or "manutenção"
                     QMessageBox.information(self, "Sucesso", f"Manutencao de '{maquina_nome}' atualizada com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Nao foi possivel atualizar a manutencao. Revise os dados e tente novamente.")
+                    QMessageBox.warning(self, "Erro", "Não foi possível atualizar a manutenção. Revise os dados e tente novamente.")
             else:
                 # Criar
                 response = api_client.criar_manutencao(dados)
                 if response:
-                    maquina_nome = self.maquina_combo.currentText().split(" - ")[0].strip() or "manutencao"
+                    maquina_nome = self.maquina_combo.currentText().split(" - ")[0].strip() or "manutenção"
                     QMessageBox.information(self, "Sucesso", f"Manutencao de '{maquina_nome}' criada com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Nao foi possivel criar a manutencao. Revise os dados e tente novamente.")
+                    QMessageBox.warning(self, "Erro", "Não foi possível criar a manutenção. Revise os dados e tente novamente.")
         except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Nao foi possivel salvar a manutencao.\n\nDetalhes: {e}")
+            QMessageBox.critical(self, "Erro", f"Não foi possível salvar a manutenção.\n\nDetalhes: {e}")

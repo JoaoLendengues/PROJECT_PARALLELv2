@@ -82,7 +82,7 @@ class MovimentacoesWidget(QWidget):
 
         filtros.addWidget(QLabel("Busca:"))
         self.pesquisa_edit = QLineEdit()
-        self.pesquisa_edit.setPlaceholderText("Pesquisar por material, colaborador, observacao...")
+        self.pesquisa_edit.setPlaceholderText("Pesquisar por material, colaborador, observação...")
         self.pesquisa_edit.setMaximumWidth(320)
         self.pesquisa_edit.textChanged.connect(self.filtrar_movimentacoes)
         filtros.addWidget(self.pesquisa_edit)
@@ -636,7 +636,7 @@ class MovimentacaoDialog(QDialog):
             return False
 
         if not api_client.confirmar_senha_atual(senha):
-            QMessageBox.warning(self, "Senha incorreta", "Nao foi possivel confirmar a senha informada.")
+            QMessageBox.warning(self, "Senha incorreta", "Não foi possível confirmar a senha informada.")
             return False
 
         return True
@@ -696,6 +696,6 @@ class MovimentacaoDialog(QDialog):
                 QMessageBox.information(self, "Sucesso", f"Movimentacao de {tipo} para '{material_nome}' registrada com sucesso.")
                 self.accept()
             else:
-                QMessageBox.warning(self, "Erro", "Nao foi possivel registrar a movimentacao. Revise os dados e tente novamente.")
+                QMessageBox.warning(self, "Erro", "Não foi possível registrar a movimentação. Revise os dados e tente novamente.")
         except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Nao foi possivel salvar a movimentacao.\n\nDetalhes: {e}")
+            QMessageBox.critical(self, "Erro", f"Não foi possível salvar a movimentação.\n\nDetalhes: {e}")

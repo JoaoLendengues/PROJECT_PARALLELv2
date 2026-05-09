@@ -480,13 +480,13 @@ class ColaboradorDialog(QDialog):
                     QMessageBox.information(self, "Sucesso", f"Colaborador '{dados['nome']}' atualizado com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Nao foi possivel atualizar o colaborador. Revise os dados e tente novamente.")
+                    QMessageBox.warning(self, "Erro", "Não foi possível atualizar o colaborador. Revise os dados e tente novamente.")
             else:
                 response = api_client.criar_colaborador(dados)
                 if response:
                     QMessageBox.information(self, "Sucesso", f"Colaborador '{dados['nome']}' criado com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Nao foi possivel criar o colaborador. Revise os dados e tente novamente.")
+                    QMessageBox.warning(self, "Erro", "Não foi possível criar o colaborador. Revise os dados e tente novamente.")
         except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Nao foi possivel salvar o colaborador.\n\nDetalhes: {e}")
+            QMessageBox.critical(self, "Erro", f"Não foi possível salvar o colaborador.\n\nDetalhes: {e}")

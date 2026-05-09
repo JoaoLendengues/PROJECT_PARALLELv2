@@ -304,7 +304,7 @@ class ConnectivityHistoryDialog(QDialog):
         self.local_meta_label = None
         self.local_analytics_label = None
 
-        self.setWindowTitle("Historico de Conectividade")
+        self.setWindowTitle("Histórico de Conectividade")
         self.setModal(False)
         self.resize(820, 660)
         self.setMinimumSize(760, 610)
@@ -313,7 +313,7 @@ class ConnectivityHistoryDialog(QDialog):
         layout.setContentsMargins(22, 22, 22, 22)
         layout.setSpacing(16)
 
-        title = QLabel("Historico de Conectividade")
+        title = QLabel("Histórico de Conectividade")
         title.setObjectName("connectivityHistoryTitle")
         layout.addWidget(title)
 
@@ -346,7 +346,7 @@ class ConnectivityHistoryDialog(QDialog):
         self.local_meta_label.setWordWrap(True)
         local_layout.addWidget(self.local_meta_label)
 
-        self.local_analytics_label = QLabel("Aguardando consolidacao da estabilidade.")
+        self.local_analytics_label = QLabel("Aguardando consolidação da estabilidade.")
         self.local_analytics_label.setObjectName("connectivityHistoryAnalytics")
         self.local_analytics_label.setWordWrap(True)
         local_layout.addWidget(self.local_analytics_label)
@@ -544,7 +544,7 @@ class ConnectivityHistoryDialog(QDialog):
 
         events = self.home_widget._recent_connectivity_events(limit=8)
         if not events:
-            empty = QLabel("Nenhuma variacao relevante registrada nesta sessao.")
+            empty = QLabel("Nenhuma variação relevante registrada nesta sessão.")
             empty.setObjectName("connectivityHistoryEmpty")
             empty.setWordWrap(True)
             self.events_layout.addWidget(empty)
@@ -594,16 +594,16 @@ class HomeWidget(QWidget):
             "name": "maquinas",
             "screen": "maquinas",
             "eyebrow": "OPERACAO",
-            "title": "Maquinas Ativas",
+            "title": "Máquinas Ativas",
             "accent": "#10b981",
-            "cta": "Abrir maquinas",
+            "cta": "Abrir máquinas",
             "action": "show_maquinas",
         },
         {
             "name": "manutencoes",
             "screen": "manutencoes",
             "eyebrow": "SUPORTE",
-            "title": "Manutencoes Pendentes",
+            "title": "Manutenções Pendentes",
             "accent": "#f59e0b",
             "cta": "Abrir manutencoes",
             "action": "show_manutencoes",
@@ -723,7 +723,7 @@ class HomeWidget(QWidget):
         header_text_layout.addWidget(self.data_hora_label)
 
         self.context_label = QLabel(
-            "Painel principal com acompanhamento de estoque, operacao, compras, suporte e rede local."
+            "Painel principal com acompanhamento de estoque, operação, compras, suporte e rede local."
         )
         self.context_label.setObjectName("homeContext")
         self.context_label.setWordWrap(True)
@@ -741,7 +741,7 @@ class HomeWidget(QWidget):
         role_label.setObjectName("homeRoleLabel")
         role_layout.addWidget(role_label)
 
-        self.role_value_label = QLabel("Usuario")
+        self.role_value_label = QLabel("Usuário")
         self.role_value_label.setObjectName("homeRoleValue")
         role_layout.addWidget(self.role_value_label)
 
@@ -913,16 +913,16 @@ class HomeWidget(QWidget):
 
         if online:
             quality_map = {
-                "excelente": ("Excelente", "Conexao local muito estavel.", "good", "OK"),
+                "excelente": ("Excelente", "Conexão local muito estável.", "good", "OK"),
                 "bom": ("Boa", "Resposta consistente para uso diario.", "info", "ON"),
-                "regular": ("Regular", "Existe oscilacao leve na resposta.", "warn", "AT"),
+                "regular": ("Regular", "Existe oscilação leve na resposta.", "warn", "AT"),
                 "ruim": ("Instavel", "A rede esta respondendo com lentidao.", "critical", "BX"),
             }
             value_text, detail_text, tone, orb_text = quality_map.get(
-                quality, ("Online", "Conexao local disponivel.", "good", "ON")
+                quality, ("Online", "Conexão local disponível.", "good", "ON")
             )
             latency = status.get("latencia_ms")
-            latency_text = f"Latencia local: {latency} ms" if latency is not None else "Latencia local indisponivel"
+            latency_text = f"Latencia local: {latency} ms" if latency is not None else "Latência local indisponível"
             badge_text = "Online"
         elif status.get("status") == "offline":
             value_text = "Offline"
@@ -934,7 +934,7 @@ class HomeWidget(QWidget):
             accent = "#ef4444"
         else:
             value_text = "Erro"
-            detail_text = "Nao foi possivel validar a conectividade neste momento."
+            detail_text = "Não foi possível validar a conectividade neste momento."
             tone = "critical"
             orb_text = "ERR"
             latency_text = "Falha ao medir a latencia"
@@ -985,7 +985,7 @@ class HomeWidget(QWidget):
                 )
             else:
                 notification_manager.error(
-                    "Nao foi possivel confirmar a conectividade local.",
+                    "Não foi possível confirmar a conectividade local.",
                     self.window(),
                     3000,
                 )
@@ -1088,7 +1088,7 @@ class HomeWidget(QWidget):
                 f"livres {pool_status.get('checked_in', 0)}"
             )
         else:
-            db_meta = str(health.get("error") or "Nao houve resposta do banco.")
+            db_meta = str(health.get("error") or "Não houve resposta do banco.")
         self._set_technical_card_state(
             "database",
             db_value,
@@ -1134,7 +1134,7 @@ class HomeWidget(QWidget):
         )
 
         release_date = get_release_date()
-        app_meta = f"Release {release_date}" if release_date else "Instalacao local atual"
+        app_meta = f"Release {release_date}" if release_date else "Instalação local atual"
         self._set_technical_card_state(
             "app",
             f"v{get_version()}",
@@ -1457,7 +1457,7 @@ class HomeWidget(QWidget):
         header_layout.addWidget(title)
 
         self.technical_panel_subtitle = QLabel(
-            "API, banco, rede local e versao atual da instalacao."
+            "API, banco, rede local e versão atual da instalação."
         )
         self.technical_panel_subtitle.setObjectName("homeTechSubtitle")
         self.technical_panel_subtitle.setWordWrap(True)
@@ -1476,7 +1476,7 @@ class HomeWidget(QWidget):
             ("api", "API", "#22c55e"),
             ("database", "Banco", "#10b981"),
             ("network", "Rede", "#3b82f6"),
-            ("app", "Aplicacao", "#8b5cf6"),
+            ("app", "Aplicação", "#8b5cf6"),
         )
 
         self.technical_cards = {}
@@ -1918,23 +1918,23 @@ class HomeWidget(QWidget):
 
         if card_name == "maquinas":
             if value <= 0:
-                return "Sem operacao", "critical", "Nao ha maquinas ativas no momento."
+                return "Sem operação", "critical", "Não há máquinas ativas no momento."
             if value == 1:
-                return "Em operacao", "good", "1 maquina ativa e liberada para uso."
-            return "Em operacao", "good", f"{value} maquinas ativas em acompanhamento."
+                return "Em operação", "good", "1 máquina ativa e liberada para uso."
+            return "Em operação", "good", f"{value} máquinas ativas em acompanhamento."
 
         if card_name == "manutencoes":
             if value <= 0:
-                return "Em dia", "good", "Nao existem manutencoes pendentes nesta leitura."
+                return "Em dia", "good", "Não existem manutenções pendentes nesta leitura."
             if value == 1:
-                return "Atencao", "warn", "1 manutencao pendente aguardando tratativa."
-            return "Atencao", "warn", f"{value} manutencoes pendentes aguardando tratativa."
+                return "Atenção", "warn", "1 manutenção pendente aguardando tratativa."
+            return "Atenção", "warn", f"{value} manutenções pendentes aguardando tratativa."
 
         if card_name == "pedidos":
             if value <= 0:
-                return "Sem fila", "good", "Nenhum pedido aguardando aprovacao no momento."
+                return "Sem fila", "good", "Nenhum pedido aguardando aprovação no momento."
             if value == 1:
-                return "Aguardando", "info", "1 pedido pendente na fila de aprovacao."
+                return "Aguardando", "info", "1 pedido pendente na fila de aprovação."
             return "Aguardando", "info", f"{value} pedidos pendentes na fila de aprovacao."
 
         if card_name == "demandas":

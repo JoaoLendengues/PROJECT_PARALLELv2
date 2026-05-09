@@ -466,21 +466,21 @@ class PedidosWidget(QWidget):
     def abrir_link_pedido(self):
         pedido = self._pedido_selecionado()
         if not pedido:
-            QMessageBox.warning(self, "Atencao", "Selecione um pedido para abrir o link.")
+            QMessageBox.warning(self, "Atenção", "Selecione um pedido para abrir o link.")
             return
 
         link_compra = str(pedido.get("link_compra") or "").strip()
         if not link_compra:
-            QMessageBox.information(self, "Sem link", "Esse pedido ainda nao possui link de compra cadastrado.")
+            QMessageBox.information(self, "Sem link", "Esse pedido ainda não possui link de compra cadastrado.")
             return
 
         url = QUrl.fromUserInput(link_compra)
         if not url.isValid():
-            QMessageBox.warning(self, "Link invalido", "O link salvo para este pedido nao pode ser aberto.")
+            QMessageBox.warning(self, "Link inválido", "O link salvo para este pedido não pode ser aberto.")
             return
 
         if not QDesktopServices.openUrl(url):
-            QMessageBox.warning(self, "Erro", "Nao foi possivel abrir o link de compra.")
+            QMessageBox.warning(self, "Erro", "Não foi possível abrir o link de compra.")
 
     def aprovar_pedido(self):
         if not self._pode("pedidos.approve"):
@@ -925,7 +925,7 @@ class PedidoDialog(QDialog):
 
         if link_compra and not link_normalizado:
             focus_invalid_field(self.link_compra_edit)
-            QMessageBox.warning(self, "Atencao", "Informe um link de compra valido.")
+            QMessageBox.warning(self, "Atenção", "Informe um link de compra válido.")
             return
 
         if not solicitante:
@@ -974,7 +974,7 @@ class PedidoDialog(QDialog):
                     QMessageBox.information(self, "Sucesso", f"Pedido de '{material_nome}' atualizado com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Nao foi possivel atualizar o pedido. Revise os dados e tente novamente.")
+                    QMessageBox.warning(self, "Erro", "Não foi possível atualizar o pedido. Revise os dados e tente novamente.")
             else:
                 # Criar
                 response = api_client.criar_pedido(dados)
@@ -984,6 +984,6 @@ class PedidoDialog(QDialog):
                     self.carregar_materiais_novos(empresa=empresa)
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Nao foi possivel criar o pedido. Revise os dados e tente novamente.")
+                    QMessageBox.warning(self, "Erro", "Não foi possível criar o pedido. Revise os dados e tente novamente.")
         except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Nao foi possivel salvar o pedido.\n\nDetalhes: {e}")
+            QMessageBox.critical(self, "Erro", f"Não foi possível salvar o pedido.\n\nDetalhes: {e}")

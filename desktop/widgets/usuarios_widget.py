@@ -373,13 +373,13 @@ class UsuariosWidget(QWidget):
 
             try:
                 if api_client.alterar_senha_usuario(usuario_id, nova_senha):
-                    QMessageBox.information(senha_dialog, "Sucesso", f"Senha do usuario '{usuario_nome}' alterada com sucesso.")
+                    QMessageBox.information(senha_dialog, "Sucesso", f"Senha do usuário '{usuario_nome}' alterada com sucesso.")
                     senha_dialog.accept()
                     self.carregar_usuarios()
                 else:
-                    QMessageBox.warning(senha_dialog, "Erro", "Nao foi possivel alterar a senha. Tente novamente.")
+                    QMessageBox.warning(senha_dialog, "Erro", "Não foi possível alterar a senha. Tente novamente.")
             except Exception as e:
-                QMessageBox.critical(senha_dialog, "Erro", f"Nao foi possivel alterar a senha.\n\nDetalhes: {e}")
+                QMessageBox.critical(senha_dialog, "Erro", f"Não foi possível alterar a senha.\n\nDetalhes: {e}")
 
         btn_alterar.clicked.connect(confirmar_alteracao)
         senha_dialog.exec()
@@ -494,9 +494,9 @@ class UsuarioDialog(QDialog):
         self.nivel_combo.addItems(["admin", "gerente", "usuario", "solicitante"])
         self.nivel_combo.setToolTip(
             "admin: Acesso total\n"
-            "gerente: Pode gerir operacao e demandas\n"
-            "usuario: Acesso basico\n"
-            "solicitante: Abre demandas e acompanha as proprias"
+            "gerente: Pode gerir operação e demandas\n"
+            "usuario: Acesso básico\n"
+            "solicitante: Abre demandas e acompanha as próprias"
         )
         form_layout.addRow(required_label("Nível de Acesso:"), self.nivel_combo)
 
@@ -625,13 +625,13 @@ class UsuarioDialog(QDialog):
                     QMessageBox.information(self, "Sucesso", f"Usuario '{nome}' atualizado com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Nao foi possivel atualizar o usuario. Revise os dados e tente novamente.")
+                    QMessageBox.warning(self, "Erro", "Não foi possível atualizar o usuário. Revise os dados e tente novamente.")
             else:
                 response = api_client.criar_usuario(dados)
                 if response:
                     QMessageBox.information(self, "Sucesso", f"Usuario '{nome}' criado com sucesso.\n\nSenha padrao: 123456")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Nao foi possivel criar o usuario. Revise os dados e tente novamente.")
+                    QMessageBox.warning(self, "Erro", "Não foi possível criar o usuário. Revise os dados e tente novamente.")
         except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Nao foi possivel salvar o usuario.\n\nDetalhes: {e}")
+            QMessageBox.critical(self, "Erro", f"Não foi possível salvar o usuário.\n\nDetalhes: {e}")

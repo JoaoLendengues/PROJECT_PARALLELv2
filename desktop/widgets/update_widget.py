@@ -31,7 +31,7 @@ class UpdateWidget(QWidget):
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(20)
 
-        titulo = QLabel("Atualizacoes")
+        titulo = QLabel("Atualizações")
         titulo.setProperty("class", "page-title")
         layout.addWidget(titulo)
 
@@ -39,11 +39,11 @@ class UpdateWidget(QWidget):
         card.setObjectName("infoCard")
         card_layout = QVBoxLayout(card)
 
-        self.version_label = QLabel(f"Versao atual: v{self.current_version}")
+        self.version_label = QLabel(f"Versão atual: v{self.current_version}")
         self.version_label.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         card_layout.addWidget(self.version_label)
 
-        self.status_label = QLabel("Verificando atualizacoes...")
+        self.status_label = QLabel("Verificando atualizações...")
         self.status_label.setStyleSheet("color: #64748b;")
         card_layout.addWidget(self.status_label)
 
@@ -91,7 +91,7 @@ class UpdateWidget(QWidget):
 
     def on_update_available(self, update_info):
         self.update_info = update_info
-        self.status_label.setText(f"Nova versao {update_info['version']} disponivel.")
+        self.status_label.setText(f"Nova versão {update_info['version']} disponível.")
         self.status_label.setStyleSheet("color: #2a9d8f;")
 
         self.changelog_label.setVisible(True)
@@ -102,7 +102,7 @@ class UpdateWidget(QWidget):
         self.check_btn.setEnabled(True)
 
     def on_no_update(self):
-        self.status_label.setText("Voce ja tem a versao mais recente.")
+        self.status_label.setText("Você já tem a versão mais recente.")
         self.status_label.setStyleSheet("color: #2a9d8f;")
         self.check_btn.setEnabled(True)
 
@@ -118,8 +118,8 @@ class UpdateWidget(QWidget):
         confirm = QMessageBox.question(
             self,
             "Confirmar",
-            f"Instalar a versao {self.update_info['version']}?\n\n"
-            "O sistema sera fechado para concluir a atualizacao.",
+            f"Instalar a versão {self.update_info['version']}?\n\n"
+            "O sistema será fechado para concluir a atualização.",
             QMessageBox.Yes | QMessageBox.No,
         )
 
@@ -144,7 +144,7 @@ class UpdateWidget(QWidget):
 
     def on_download_finished(self, file_path):
         self.progress_bar.setVisible(False)
-        self.status_label.setText("Preparando atualizacao...")
+        self.status_label.setText("Preparando atualização...")
 
         success, message = UpdateInstaller.install_update(file_path)
 

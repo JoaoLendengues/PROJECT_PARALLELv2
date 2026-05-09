@@ -367,7 +367,7 @@ class LoginWidget(QWidget):
             self.usuario_preview_codigo = usuario.get("codigo", codigo)
             self.usuario_preview_nome = usuario.get("nome", "")
             self.usuario_preview_tone = "success"
-            self._set_preview_message("Usuario identificado", "success", self.usuario_preview_nome)
+            self._set_preview_message("Usuário identificado", "success", self.usuario_preview_nome)
             self.usuario_card.show()
             self.senha_input.setEnabled(True)
             if focus_password:
@@ -380,7 +380,7 @@ class LoginWidget(QWidget):
         self.usuario_preview_tone = "error"
         preview_error = "Codigo nao encontrado"
         if resultado.get("error") and resultado["error"] != "Codigo nao encontrado":
-            preview_error = "Nao foi possivel identificar o usuario agora"
+            preview_error = "Não foi possível identificar o usuário agora"
             self._set_status_message(str(resultado["error"]), "error")
         else:
             self._set_status_message("")
@@ -398,7 +398,7 @@ class LoginWidget(QWidget):
         if self.sender() is self.codigo_input:
             if self.buscar_usuario_por_codigo(focus_password=True):
                 return
-            self._set_status_message("Informe um codigo valido para continuar.", "error")
+            self._set_status_message("Informe um código válido para continuar.", "error")
             return
 
         self.fazer_login()
@@ -412,7 +412,7 @@ class LoginWidget(QWidget):
             return
 
         if not self.usuario_preview_codigo:
-            self._set_status_message("Informe um codigo valido para continuar.", "error")
+            self._set_status_message("Informe um código válido para continuar.", "error")
             return
 
         self.login_btn.setEnabled(False)

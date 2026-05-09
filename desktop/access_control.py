@@ -17,8 +17,8 @@ TI_CARGO_KEYWORDS = (
 
 ROLE_LABELS = {
     ROLE_ADMIN: "Administrador",
-    ROLE_MANAGER: "Gerencia",
-    ROLE_USER: "Usuario",
+    ROLE_MANAGER: "Gerência",
+    ROLE_USER: "Usuário",
     ROLE_REQUESTER: "Solicitante",
 }
 
@@ -38,17 +38,17 @@ ROLE_ALIASES = {
 SCREEN_LABELS = {
     "home": "Home",
     "materiais": "Materiais",
-    "maquinas": "Maquinas",
-    "movimentacoes": "Movimentacoes",
-    "manutencoes": "Manutencoes",
+    "maquinas": "Máquinas",
+    "movimentacoes": "Movimentações",
+    "manutencoes": "Manutenções",
     "pedidos": "Pedidos",
     "colaboradores": "Colaboradores",
     "demandas": "Demandas",
-    "relatorios": "Relatorios",
-    "usuarios": "Usuarios",
-    "parametros": "Parametros",
-    "updates": "Atualizacoes",
-    "notificacoes": "Notificacoes",
+    "relatorios": "Relatórios",
+    "usuarios": "Usuários",
+    "parametros": "Parâmetros",
+    "updates": "Atualizações",
+    "notificacoes": "Notificações",
 }
 
 SCREEN_PERMISSIONS = {
@@ -101,16 +101,16 @@ ACTION_LABELS = {
     "materiais.create": "criar materiais",
     "materiais.edit": "editar materiais",
     "materiais.delete": "deletar materiais",
-    "maquinas.create": "criar maquinas",
-    "maquinas.edit": "editar maquinas",
-    "maquinas.delete": "deletar maquinas",
+    "maquinas.create": "criar máquinas",
+    "maquinas.edit": "editar máquinas",
+    "maquinas.delete": "deletar máquinas",
     "colaboradores.create": "criar colaboradores",
     "colaboradores.edit": "editar colaboradores",
     "colaboradores.delete": "deletar colaboradores",
-    "manutencoes.create": "criar manutencoes",
-    "manutencoes.edit": "editar manutencoes",
-    "manutencoes.complete": "concluir manutencoes",
-    "manutencoes.delete": "deletar manutencoes",
+    "manutencoes.create": "criar manutenções",
+    "manutencoes.edit": "editar manutenções",
+    "manutencoes.complete": "concluir manutenções",
+    "manutencoes.delete": "deletar manutenções",
     "pedidos.create": "criar pedidos",
     "pedidos.edit": "editar pedidos",
     "pedidos.approve": "aprovar pedidos",
@@ -123,8 +123,8 @@ ACTION_LABELS = {
     "demandas.complete": "concluir demandas",
     "demandas.cancel": "cancelar demandas",
     "demandas.delete": "deletar demandas",
-    "relatorios.export": "exportar relatorios",
-    "movimentacoes.deletar": "deletar movimentacoes",
+    "relatorios.export": "exportar relatórios",
+    "movimentacoes.deletar": "deletar movimentações",
 }
 
 
@@ -173,4 +173,4 @@ def has_action_access(usuario, action_key):
 
 
 def get_action_label(action_key):
-    return ACTION_LABELS.get(action_key, "executar esta acao")
+    return ACTION_LABELS.get(action_key, "executar esta ação")

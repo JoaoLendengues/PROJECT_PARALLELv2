@@ -59,7 +59,7 @@ class ParametrosWidget(QWidget):
         layout.setSpacing(20)
         layout.setContentsMargins(24, 24, 24, 24)
 
-        titulo = QLabel("Parametros do Sistema")
+        titulo = QLabel("Parâmetros do Sistema")
         titulo.setProperty("class", "page-title")
         layout.addWidget(titulo)
 
@@ -67,13 +67,13 @@ class ParametrosWidget(QWidget):
         tabs.setObjectName("paramTabs")
 
         tab_geral = self.create_tab_geral()
-        tabs.addTab(tab_geral, "Configuracoes Gerais")
+        tabs.addTab(tab_geral, "Configurações Gerais")
 
         tab_acessibilidade = self.create_tab_acessibilidade()
         tabs.addTab(tab_acessibilidade, "Acessibilidade")
 
         tab_notificacoes = self.create_tab_notificacoes()
-        tabs.addTab(tab_notificacoes, "Notificacoes")
+        tabs.addTab(tab_notificacoes, "Notificações")
 
         tab_empresas = self.create_tab_empresas()
         tabs.addTab(tab_empresas, "Empresas")
@@ -98,7 +98,7 @@ class ParametrosWidget(QWidget):
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
 
-        self.btn_salvar = QPushButton("Salvar Configuracoes")
+        self.btn_salvar = QPushButton("Salvar Configurações")
         self.btn_salvar.setObjectName("btnPrimary")
         self.btn_salvar.clicked.connect(self.salvar_configuracoes)
         btn_layout.addWidget(self.btn_salvar)
@@ -116,7 +116,7 @@ class ParametrosWidget(QWidget):
         layout = QVBoxLayout(widget)
         layout.setSpacing(20)
 
-        grupo_sistema = QGroupBox("Configuracoes do Sistema")
+        grupo_sistema = QGroupBox("Configurações do Sistema")
         grupo_sistema.setObjectName("configGroup")
         form_sistema = QFormLayout(grupo_sistema)
         form_sistema.setContentsMargins(20, 20, 20, 20)
@@ -128,11 +128,11 @@ class ParametrosWidget(QWidget):
 
         self.empresa_padrao = QComboBox()
         self.empresa_padrao.setObjectName("configCombo")
-        form_sistema.addRow("Empresa Padrao:", self.empresa_padrao)
+        form_sistema.addRow("Empresa Padrão:", self.empresa_padrao)
 
         layout.addWidget(grupo_sistema)
 
-        grupo_estoque = QGroupBox("Configuracoes de Estoque")
+        grupo_estoque = QGroupBox("Configurações de Estoque")
         grupo_estoque.setObjectName("configGroup")
         form_estoque = QFormLayout(grupo_estoque)
         form_estoque.setContentsMargins(20, 20, 20, 20)
@@ -149,28 +149,28 @@ class ParametrosWidget(QWidget):
         self.alerta_estoque_critico.setRange(0, 100)
         self.alerta_estoque_critico.setValue(2)
         self.alerta_estoque_critico.setSuffix(" unidades")
-        form_estoque.addRow("Alerta de Estoque Critico:", self.alerta_estoque_critico)
+        form_estoque.addRow("Alerta de Estoque Crítico:", self.alerta_estoque_critico)
 
         layout.addWidget(grupo_estoque)
 
-        grupo_backup = QGroupBox("Configuracoes de Backup")
+        grupo_backup = QGroupBox("Configurações de Backup")
         grupo_backup.setObjectName("configGroup")
         form_backup = QFormLayout(grupo_backup)
         form_backup.setContentsMargins(20, 20, 20, 20)
 
-        self.backup_automatico = QCheckBox("Realizar backup automatico")
+        self.backup_automatico = QCheckBox("Realizar backup automático")
         self.backup_automatico.setObjectName("configCheckbox")
         self.backup_automatico.setChecked(True)
         form_backup.addRow("", self.backup_automatico)
 
         self.frequencia_backup = QComboBox()
         self.frequencia_backup.setObjectName("configCombo")
-        self.frequencia_backup.addItems(["Diario", "Semanal", "Mensal"])
-        form_backup.addRow("Frequencia:", self.frequencia_backup)
+        self.frequencia_backup.addItems(["Diário", "Semanal", "Mensal"])
+        form_backup.addRow("Frequência:", self.frequencia_backup)
 
         self.horario_backup = QTimeEdit()
         self.horario_backup.setTime(QTime(2, 0))
-        form_backup.addRow("Horario:", self.horario_backup)
+        form_backup.addRow("Horário:", self.horario_backup)
 
         self.dias_retencao = QSpinBox()
         self.dias_retencao.setRange(7, 365)
@@ -222,13 +222,13 @@ class ParametrosWidget(QWidget):
         self.escala_interface.addItems(options["escala_interface"])
         form_acessibilidade.addRow("Escala da interface:", self.escala_interface)
 
-        self.navegacao_teclado = QCheckBox("Destacar foco e priorizar navegacao por teclado")
+        self.navegacao_teclado = QCheckBox("Destacar foco e priorizar navegação por teclado")
         self.navegacao_teclado.setObjectName("configCheckbox")
         layout_navegacao = QHBoxLayout()
         layout_navegacao.setContentsMargins(0, 0, 0, 0)
         layout_navegacao.addWidget(self.navegacao_teclado)
         layout_navegacao.addStretch()
-        form_acessibilidade.addRow("Navegacao por teclado:", layout_navegacao)
+        form_acessibilidade.addRow("Navegação por teclado:", layout_navegacao)
 
         self.tema_interface.currentTextChanged.connect(self.previsualizar_acessibilidade)
         self.tamanho_fonte.currentTextChanged.connect(self.previsualizar_acessibilidade)
@@ -236,7 +236,7 @@ class ParametrosWidget(QWidget):
         self.navegacao_teclado.toggled.connect(self.previsualizar_acessibilidade)
 
         dica = QLabel(
-            "As alteracoes sao aplicadas em tempo real. Use 90% e 100% para telas compactas, e 150% ou 175% para monitores maiores. Salve para manter apos reiniciar o sistema."
+            "As alterações são aplicadas em tempo real. Use 90% e 100% para telas compactas, e 150% ou 175% para monitores maiores. Salve para manter após reiniciar o sistema."
         )
         dica.setWordWrap(True)
         dica.setStyleSheet("color: #64748b;")
@@ -247,11 +247,11 @@ class ParametrosWidget(QWidget):
 
         botoes_layout = QHBoxLayout()
         botoes_layout.addStretch()
-        btn_automatico = QPushButton("Usar recomendacao da maquina")
+        btn_automatico = QPushButton("Usar recomendação da máquina")
         btn_automatico.setObjectName("btnSecondary")
         btn_automatico.clicked.connect(self.aplicar_escala_automatica)
         botoes_layout.addWidget(btn_automatico)
-        btn_restaurar = QPushButton("Restaurar padrao")
+        btn_restaurar = QPushButton("Restaurar padrão")
         btn_restaurar.setObjectName("btnSecondary")
         btn_restaurar.clicked.connect(self.restaurar_acessibilidade_padrao)
         botoes_layout.addWidget(btn_restaurar)
@@ -267,7 +267,7 @@ class ParametrosWidget(QWidget):
         return self._wrap_tab_scroll_area(content)
 
     def _create_accessibility_context_group(self):
-        grupo_contexto = QGroupBox("Leitura da maquina")
+        grupo_contexto = QGroupBox("Leitura da máquina")
         grupo_contexto.setObjectName("configGroup")
         layout = QFormLayout(grupo_contexto)
         layout.setContentsMargins(20, 20, 20, 20)
@@ -279,26 +279,26 @@ class ParametrosWidget(QWidget):
         self.recomendacao_tela_valor = QLabel("-")
         self.recomendacao_tela_valor.setWordWrap(True)
 
-        layout.addRow("Resolucao detectada:", self.resolucao_valor)
+        layout.addRow("Resolução detectada:", self.resolucao_valor)
         layout.addRow("Escala aplicada:", self.escala_aplicada_valor)
-        layout.addRow("DPI logico:", self.dpi_valor)
+        layout.addRow("DPI lógico:", self.dpi_valor)
         layout.addRow("Leitura sugerida:", self.recomendacao_tela_valor)
 
         return grupo_contexto
 
     def _create_accessibility_preview_group(self):
-        grupo_preview = QGroupBox("Pre-visualizacao")
+        grupo_preview = QGroupBox("Pré-visualização")
         grupo_preview.setObjectName("configGroup")
         layout = QVBoxLayout(grupo_preview)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(14)
 
-        titulo = QLabel("Visualizacao das configuracoes")
+        titulo = QLabel("Visualização das configurações")
         titulo.setStyleSheet("font-size: 18px; font-weight: 600; margin-bottom: 0px;")
         layout.addWidget(titulo)
 
         descricao = QLabel(
-            "Use esta area para validar contraste, leitura e foco antes de salvar."
+            "Use esta área para validar contraste, leitura e foco antes de salvar."
         )
         descricao.setWordWrap(True)
         layout.addWidget(descricao)
@@ -311,7 +311,7 @@ class ParametrosWidget(QWidget):
         linha_campos.addWidget(self.preview_busca)
 
         self.preview_combo = QComboBox()
-        self.preview_combo.addItems(["Opcao A", "Opcao B", "Opcao C"])
+        self.preview_combo.addItems(["Opção A", "Opção B", "Opção C"])
         linha_campos.addWidget(self.preview_combo)
 
         layout.addLayout(linha_campos)
@@ -330,9 +330,9 @@ class ParametrosWidget(QWidget):
         self.preview_tabela.setFocusPolicy(Qt.NoFocus)
         self.preview_tabela.setMinimumHeight(110)
         self.preview_tabela.setItem(0, 0, QTableWidgetItem("Departamento"))
-        self.preview_tabela.setItem(0, 1, QTableWidgetItem("Administrativo e Operacoes"))
-        self.preview_tabela.setItem(1, 0, QTableWidgetItem("Observacao"))
-        self.preview_tabela.setItem(1, 1, QTableWidgetItem("Texto de referencia para validar leitura, espaco e contraste."))
+        self.preview_tabela.setItem(0, 1, QTableWidgetItem("Administrativo e Operações"))
+        self.preview_tabela.setItem(1, 0, QTableWidgetItem("Observação"))
+        self.preview_tabela.setItem(1, 1, QTableWidgetItem("Texto de referência para validar leitura, espaço e contraste."))
         self.preview_tabela.resizeRowsToContents()
         layout.addWidget(self.preview_tabela)
 
@@ -360,7 +360,7 @@ class ParametrosWidget(QWidget):
             self._loading_configuracoes = False
 
         self.previsualizar_acessibilidade()
-        notification_manager.info("Escala automatica aplicada para esta maquina.", self.window(), 2500)
+        notification_manager.info("Escala automática aplicada para esta máquina.", self.window(), 2500)
 
     def restaurar_acessibilidade_padrao(self):
         self._loading_configuracoes = True
@@ -374,7 +374,7 @@ class ParametrosWidget(QWidget):
 
         self.previsualizar_acessibilidade()
         self._refresh_resolution_hint()
-        notification_manager.info("Acessibilidade restaurada para o padrao.", self.window(), 2500)
+        notification_manager.info("Acessibilidade restaurada para o padrão.", self.window(), 2500)
 
     def create_tab_backup(self):
         """Aba de gerenciamento de backup"""
@@ -393,7 +393,7 @@ class ParametrosWidget(QWidget):
         btn_executar_backup.clicked.connect(self.executar_backup_manual)
         manual_layout.addWidget(btn_executar_backup)
 
-        lbl_info = QLabel("O backup sera salvo na pasta 'backups' do servidor e compactado em formato .gz")
+        lbl_info = QLabel("O backup será salvo na pasta 'backups' do servidor e compactado em formato .gz")
         lbl_info.setStyleSheet("color: #64748b; font-size: 11px; margin-top: 10px;")
         manual_layout.addWidget(lbl_info)
 
@@ -449,17 +449,17 @@ class ParametrosWidget(QWidget):
             QApplication.restoreOverrideCursor()
 
             if success:
-                notification_manager.success(f"Ã¢Å“â€¦ Backup realizado com sucesso!\nArquivo: {result.get('arquivo', 'desconhecido')}", self.window(), 5000)
+                notification_manager.success(f"Backup realizado com sucesso!\nArquivo: {result.get('arquivo', 'desconhecido')}", self.window(), 5000)
                 self.carregar_lista_backups()
             else:
-                notification_manager.error("Ã¢ÂÅ’ Erro ao realizar backup", self.window(), 4000)
+                notification_manager.error("Erro ao realizar backup", self.window(), 4000)
 
         except Exception as e:
             QApplication.restoreOverrideCursor()
             notification_manager.error(f"Erro: {e}", self.window(), 4000)
 
     def carregar_lista_backups(self):
-        """Carrega a lista de backups disponÃƒÂ­veis"""
+        """Carrega a lista de backups disponíveis"""
         try:
             backups = api_client.listar_backups()
             self.tabela_backups.setRowCount(len(backups))
@@ -472,13 +472,13 @@ class ParametrosWidget(QWidget):
             self.tabela_backups.resizeColumnsToContents()
 
         except Exception as e:
-            print(f"Ã¢ÂÅ’ Erro ao carregar lista de backups: {e}")
+            print(f"Erro ao carregar lista de backups: {e}")
 
     def restaurar_backup_selecionado(self):
         """Restaura o backup selecionado"""
         current_row = self.tabela_backups.currentRow()
         if current_row < 0:
-            QMessageBox.warning(self, "Atencao", "Selecione um backup para restaurar")
+            QMessageBox.warning(self, "Atenção", "Selecione um backup para restaurar")
             return
 
         backup_nome = self.tabela_backups.item(current_row, 0).text()
@@ -486,11 +486,11 @@ class ParametrosWidget(QWidget):
 
         confirm = QMessageBox.question(
             self,
-            "Confirmar restauraÃƒÂ§ÃƒÂ£o",
+            "Confirmar restauração",
             f"Tem certeza que deseja restaurar o backup '{backup_nome}'?\n\n"
-            f"Ã°Å¸â€œâ€¦ Data: {backup_data}\n\n"
-            f"Ã¢Å¡Â Ã¯Â¸Â ATENÃƒâ€¡ÃƒÆ’O: Esta aÃƒÂ§ÃƒÂ£o irÃƒÂ¡ SUBSTITUIR todos os dados atuais pelos dados do backup.\n"
-            f"Ã¢Å¡Â Ã¯Â¸Â Esta aÃƒÂ§ÃƒÂ£o nÃƒÂ£o pode ser desfeita!",
+            f"Data: {backup_data}\n\n"
+            f"ATENÇÃO: Esta ação irá SUBSTITUIR todos os dados atuais pelos dados do backup.\n"
+            f"Esta ação não pode ser desfeita!",
             QMessageBox.Yes | QMessageBox.No
         )
 
@@ -501,17 +501,17 @@ class ParametrosWidget(QWidget):
                 QApplication.restoreOverrideCursor()
 
                 if success:
-                    notification_manager.success("Ã¢Å“â€¦ Backup restaurado com sucesso! O sistema serÃƒÂ¡ reiniciado.", self.window(), 5000)
+                    notification_manager.success("Backup restaurado com sucesso! O sistema será reiniciado.", self.window(), 5000)
                     QTimer.singleShot(2000, self.reiniciar_aplicacao)
                 else:
-                    notification_manager.error(f"Ã¢ÂÅ’ Erro ao restaurar backup: {result.get('detail', 'Erro desconhecido') if result else 'Erro'}", self.window(), 5000)
+                    notification_manager.error(f"Erro ao restaurar backup: {result.get('detail', 'Erro desconhecido') if result else 'Erro'}", self.window(), 5000)
             except Exception as e:
                 QApplication.restoreOverrideCursor()
                 notification_manager.error(f"Erro: {e}", self.window(), 4000)
 
     def reiniciar_aplicacao(self):
-        """Reinicia a aplicaÃƒÂ§ÃƒÂ£o apÃƒÂ³s restauraÃƒÂ§ÃƒÂ£o"""
-        QMessageBox.information(self, "Reiniciando", "O sistema serÃƒÂ¡ reiniciado para aplicar as alteraÃƒÂ§ÃƒÂµes.")
+        """Reinicia a aplicação após restauração"""
+        QMessageBox.information(self, "Reiniciando", "O sistema será reiniciado para aplicar as alterações.")
         if getattr(sys, "frozen", False):
             subprocess.Popen([sys.executable])
         else:
@@ -526,7 +526,7 @@ class ParametrosWidget(QWidget):
         layout = QVBoxLayout(widget)
         layout.setSpacing(20)
 
-        grupo_notificacoes = QGroupBox("Configuracoes de Notificacoes")
+        grupo_notificacoes = QGroupBox("Configurações de Notificações")
         grupo_notificacoes.setObjectName("configGroup")
         form_notificacoes = QFormLayout(grupo_notificacoes)
         form_notificacoes.setContentsMargins(20, 20, 20, 20)
@@ -539,14 +539,14 @@ class ParametrosWidget(QWidget):
         self.notif_estoque_critico = QCheckBox("Notificar quando estoque estiver critico")
         self.notif_estoque_critico.setObjectName("configCheckbox")
         self.notif_estoque_critico.setChecked(True)
-        form_notificacoes.addRow("Critico:", self.notif_estoque_critico)
+        form_notificacoes.addRow("Crítico:", self.notif_estoque_critico)
 
         self.notif_manutencao = QCheckBox("Notificar sobre manutencoes pendentes")
         self.notif_manutencao.setObjectName("configCheckbox")
         self.notif_manutencao.setChecked(True)
-        form_notificacoes.addRow("Manutencoes:", self.notif_manutencao)
+        form_notificacoes.addRow("Manutenções:", self.notif_manutencao)
 
-        self.notif_pedidos = QCheckBox("Notificar sobre pedidos pendentes de aprovacao")
+        self.notif_pedidos = QCheckBox("Notificar sobre pedidos pendentes de aprovação")
         self.notif_pedidos.setObjectName("configCheckbox")
         self.notif_pedidos.setChecked(True)
         form_notificacoes.addRow("Pedidos:", self.notif_pedidos)
@@ -559,17 +559,17 @@ class ParametrosWidget(QWidget):
         self.notif_movimentacoes = QCheckBox("Notificar sobre movimentacoes de alto valor")
         self.notif_movimentacoes.setObjectName("configCheckbox")
         self.notif_movimentacoes.setChecked(False)
-        form_notificacoes.addRow("Movimentacoes:", self.notif_movimentacoes)
+        form_notificacoes.addRow("Movimentações:", self.notif_movimentacoes)
 
         self.valor_alto = QSpinBox()
         self.valor_alto.setRange(0, 100000)
         self.valor_alto.setValue(5000)
         self.valor_alto.setSuffix(" R$")
-        form_notificacoes.addRow("Valor minimo para notificacao:", self.valor_alto)
+        form_notificacoes.addRow("Valor mínimo para notificação:", self.valor_alto)
 
         layout.addWidget(grupo_notificacoes)
 
-        grupo_alertas = QGroupBox("Configuracoes de Alerta")
+        grupo_alertas = QGroupBox("Configurações de Alerta")
         grupo_alertas.setObjectName("configGroup")
         form_alertas = QFormLayout(grupo_alertas)
         form_alertas.setContentsMargins(20, 20, 20, 20)
@@ -585,16 +585,16 @@ class ParametrosWidget(QWidget):
 
         self.tempo_notificacao = QComboBox()
         self.tempo_notificacao.addItems(["3 segundos", "5 segundos", "10 segundos", "30 segundos"])
-        form_alertas.addRow("Duracao da notificacao:", self.tempo_notificacao)
+        form_alertas.addRow("Duração da notificação:", self.tempo_notificacao)
 
         layout.addWidget(grupo_alertas)
 
-        grupo_silencio = QGroupBox("Modo Nao Perturbe")
+        grupo_silencio = QGroupBox("Modo Não Perturbe")
         grupo_silencio.setObjectName("configGroup")
         form_silencio = QFormLayout(grupo_silencio)
         form_silencio.setContentsMargins(20, 20, 20, 20)
 
-        self.modo_nao_perturbe = QCheckBox("Silenciar notificacoes visuais e sonoras nao criticas")
+        self.modo_nao_perturbe = QCheckBox("Silenciar notificações visuais e sonoras não críticas")
         self.modo_nao_perturbe.setObjectName("configCheckbox")
         self.modo_nao_perturbe.setChecked(False)
         form_silencio.addRow("", self.modo_nao_perturbe)
@@ -821,12 +821,12 @@ class ParametrosWidget(QWidget):
         self.status_banco = QLabel("Banco de Dados: Verificando...")
         info_layout.addWidget(self.status_banco)
 
-        self.api_versao = QLabel("Versao da API: Verificando...")
+        self.api_versao = QLabel("Versão da API: Verificando...")
         info_layout.addWidget(self.api_versao)
 
         layout.addWidget(info_frame)
 
-        btn_testar = QPushButton("Testar Conexao")
+        btn_testar = QPushButton("Testar Conexão")
         btn_testar.clicked.connect(self.carregar_info_servidor)
         layout.addWidget(btn_testar)
 
@@ -854,9 +854,9 @@ class ParametrosWidget(QWidget):
             if not self.empresas:
                 self.empresas = ["Matriz", "Filial 1", "Filial 2", "Filial 3"]
             if not self.departamentos:
-                self.departamentos = ["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "LogÃƒÂ­stica"]
+                self.departamentos = ["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logística"]
             if not self.categorias:
-                self.categorias = ["PerifÃƒÂ©ricos", "Hardware", "Armazenamento", "Monitores", "Cabos", "Redes", "ConsumÃƒÂ­veis", "Softwares"]
+                self.categorias = ["Periféricos", "Hardware", "Armazenamento", "Monitores", "Cabos", "Redes", "Consumíveis", "Softwares"]
 
             self.carregar_tabela_empresas()
             self.carregar_tabela_departamentos()
@@ -921,10 +921,10 @@ class ParametrosWidget(QWidget):
     def carregar_tabela_cargos(self):
         """Carrega a tabela de cargos do backend"""
         try:
-            print("Ã°Å¸â€Â Carregando cargos...")
+            print("Carregando cargos...")
             cargos = api_client.get_cargos_completo()
             self.cargos_detalhados = cargos or []
-            print(f"Ã°Å¸â€Â Cargos recebidos: {len(cargos) if cargos else 0}")
+            print(f"Cargos recebidos: {len(cargos) if cargos else 0}")
 
             if not self.cargos_detalhados:
                 self.tabela_cargos.setRowCount(0)
@@ -940,9 +940,9 @@ class ParametrosWidget(QWidget):
             self.tabela_cargos.setSortingEnabled(sorting_enabled)
 
             self.tabela_cargos.resizeColumnsToContents()
-            print(f"Ã¢Å“â€¦ Cargos carregados: {len(cargos)}")
+            print(f"Cargos carregados: {len(cargos)}")
         except Exception as e:
-            print(f"Ã¢ÂÅ’ Erro ao carregar cargos: {e}")
+            print(f"Erro ao carregar cargos: {e}")
             import traceback
             traceback.print_exc()
 
@@ -1007,9 +1007,9 @@ class ParametrosWidget(QWidget):
 
         descricao_edit = QTextEdit()
         descricao_edit.setMaximumHeight(80)
-        descricao_edit.setPlaceholderText("Descricao do item (opcional)")
+        descricao_edit.setPlaceholderText("Descrição do item (opcional)")
         descricao_edit.setPlainText(descricao_inicial or "")
-        form_layout.addRow("Descricao:", descricao_edit)
+        form_layout.addRow("Descrição:", descricao_edit)
 
         ativo_check = QCheckBox("Manter item ativo")
         ativo_check.setChecked(ativo)
@@ -1033,12 +1033,12 @@ class ParametrosWidget(QWidget):
     def _obter_texto_coluna(self, tabela, coluna, mensagem_vazia):
         row = tabela.currentRow()
         if row < 0:
-            QMessageBox.warning(self, "Atencao", mensagem_vazia)
+            QMessageBox.warning(self, "Atenção", mensagem_vazia)
             return None
 
         item = tabela.item(row, coluna)
         if item is None:
-            QMessageBox.warning(self, "Erro", "Nao foi possivel identificar o item selecionado.")
+            QMessageBox.warning(self, "Erro", "Não foi possível identificar o item selecionado.")
             return None
 
         return item.text().strip()
@@ -1085,11 +1085,11 @@ class ParametrosWidget(QWidget):
         if dialog.exec():
             nome = nome_edit.text().strip()
             if not nome:
-                QMessageBox.warning(self, "Atencao", "Digite o nome da empresa!")
+                QMessageBox.warning(self, "Atenção", "Digite o nome da empresa!")
                 return
 
             if nome in self.empresas:
-                QMessageBox.warning(self, "Atencao", f"Empresa '{nome}' ja existe!")
+                QMessageBox.warning(self, "Atenção", f"Empresa '{nome}' já existe!")
                 return
 
             QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
@@ -1116,11 +1116,11 @@ class ParametrosWidget(QWidget):
             return
 
         if not novo_nome:
-            QMessageBox.warning(self, "Atencao", "Digite o nome da empresa!")
+            QMessageBox.warning(self, "Atenção", "Digite o nome da empresa!")
             return
 
         if novo_nome != empresa_atual and novo_nome in self.empresas:
-            QMessageBox.warning(self, "Atencao", f"Empresa '{novo_nome}' ja existe!")
+            QMessageBox.warning(self, "Atenção", f"Empresa '{novo_nome}' já existe!")
             return
 
         QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
@@ -1149,9 +1149,9 @@ class ParametrosWidget(QWidget):
 
         confirm = QMessageBox.question(
             self,
-            "Confirmar exclusÃƒÂ£o",
+            "Confirmar exclusão",
             f"Tem certeza que deseja remover a empresa '{empresa}'?\n\n"
-            f"Esta aÃƒÂ§ÃƒÂ£o nÃƒÂ£o poderÃƒÂ¡ ser desfeita e sÃƒÂ³ serÃƒÂ¡ permitida se nenhum material ou mÃƒÂ¡quina estiver usando esta empresa.",
+            f"Esta ação não poderá ser desfeita e só será permitida se nenhum material ou máquina estiver usando esta empresa.",
             QMessageBox.Yes | QMessageBox.No
         )
 
@@ -1164,7 +1164,7 @@ class ParametrosWidget(QWidget):
                 notification_manager.success(f"Empresa '{empresa}' removida com sucesso!", self.window(), 3000)
                 self.carregar_listas()
             else:
-                QMessageBox.warning(self, "Erro", "Erro ao remover empresa. Verifique se nÃƒÂ£o estÃƒÂ¡ sendo usada.")
+                QMessageBox.warning(self, "Erro", "Erro ao remover empresa. Verifique se não está sendo usada.")
 
     # =====================================================
     # CRUD DEPARTAMENTOS
@@ -1196,8 +1196,8 @@ class ParametrosWidget(QWidget):
 
         descricao_edit = QTextEdit()
         descricao_edit.setMaximumHeight(80)
-        descricao_edit.setPlaceholderText("DescriÃƒÂ§ÃƒÂ£o do departamento (opcional)")
-        form_layout.addRow("DescriÃƒÂ§ÃƒÂ£o:", descricao_edit)
+        descricao_edit.setPlaceholderText("Descrição do departamento (opcional)")
+        form_layout.addRow("Descrição:", descricao_edit)
 
         layout.addLayout(form_layout)
 
@@ -1209,7 +1209,7 @@ class ParametrosWidget(QWidget):
         if dialog.exec():
             nome = nome_edit.text().strip()
             if not nome:
-                QMessageBox.warning(self, "Atencao", "Digite o nome do departamento!")
+                QMessageBox.warning(self, "Atenção", "Digite o nome do departamento!")
                 return
 
             descricao = descricao_edit.toPlainText().strip() or None
@@ -1254,7 +1254,7 @@ class ParametrosWidget(QWidget):
             return
 
         if not dados["nome"]:
-            QMessageBox.warning(self, "Atencao", "Digite o nome do departamento!")
+            QMessageBox.warning(self, "Atenção", "Digite o nome do departamento!")
             return
 
         QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
@@ -1281,7 +1281,7 @@ class ParametrosWidget(QWidget):
         """Remove o departamento selecionado via backend"""
         row = self.tabela_departamentos.currentRow()
         if row < 0:
-            QMessageBox.warning(self, "Atencao", "Selecione um departamento para remover")
+            QMessageBox.warning(self, "Atenção", "Selecione um departamento para remover")
             return
 
         dept_id = int(self.tabela_departamentos.item(row, 0).text())
@@ -1289,9 +1289,9 @@ class ParametrosWidget(QWidget):
 
         confirm = QMessageBox.question(
             self,
-            "Confirmar exclusÃƒÂ£o",
+            "Confirmar exclusão",
             f"Tem certeza que deseja remover o departamento '{dept_nome}'?\n\n"
-            f"Ã¢Å¡Â Ã¯Â¸Â Esta aÃƒÂ§ÃƒÂ£o nÃƒÂ£o poderÃƒÂ¡ ser desfeita e sÃƒÂ³ serÃƒÂ¡ permitida se nenhuma mÃƒÂ¡quina ou colaborador estiver usando este departamento.",
+            f"Esta ação não poderá ser desfeita e só será permitida se nenhuma máquina ou colaborador estiver usando este departamento.",
             QMessageBox.Yes | QMessageBox.No
         )
 
@@ -1305,7 +1305,7 @@ class ParametrosWidget(QWidget):
                 self.carregar_tabela_departamentos()
                 self.carregar_listas()
             else:
-                QMessageBox.warning(self, "Erro", "Erro ao remover departamento. Verifique se nÃƒÂ£o estÃƒÂ¡ sendo usado.")
+                QMessageBox.warning(self, "Erro", "Erro ao remover departamento. Verifique se não está sendo usado.")
 
     # =====================================================
     # CRUD CATEGORIAS
@@ -1340,11 +1340,11 @@ class ParametrosWidget(QWidget):
         if dialog.exec():
             nome = nome_edit.text().strip()
             if not nome:
-                QMessageBox.warning(self, "Atencao", "Digite o nome da categoria!")
+                QMessageBox.warning(self, "Atenção", "Digite o nome da categoria!")
                 return
 
             if nome in self.categorias:
-                QMessageBox.warning(self, "Atencao", f"Categoria '{nome}' ja existe!")
+                QMessageBox.warning(self, "Atenção", f"Categoria '{nome}' já existe!")
                 return
 
             QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
@@ -1371,11 +1371,11 @@ class ParametrosWidget(QWidget):
             return
 
         if not novo_nome:
-            QMessageBox.warning(self, "Atencao", "Digite o nome da categoria!")
+            QMessageBox.warning(self, "Atenção", "Digite o nome da categoria!")
             return
 
         if novo_nome != categoria_atual and novo_nome in self.categorias:
-            QMessageBox.warning(self, "Atencao", f"Categoria '{novo_nome}' ja existe!")
+            QMessageBox.warning(self, "Atenção", f"Categoria '{novo_nome}' já existe!")
             return
 
         QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
@@ -1404,9 +1404,9 @@ class ParametrosWidget(QWidget):
 
         confirm = QMessageBox.question(
             self,
-            "Confirmar exclusÃƒÂ£o",
+            "Confirmar exclusão",
             f"Tem certeza que deseja remover a categoria '{categoria}'?\n\n"
-            f"Esta aÃƒÂ§ÃƒÂ£o nÃƒÂ£o poderÃƒÂ¡ ser desfeita e sÃƒÂ³ serÃƒÂ¡ permitida se nenhum material estiver usando esta categoria.",
+            f"Esta ação não poderá ser desfeita e só será permitida se nenhum material estiver usando esta categoria.",
             QMessageBox.Yes | QMessageBox.No
         )
 
@@ -1419,7 +1419,7 @@ class ParametrosWidget(QWidget):
                 notification_manager.success(f"Categoria '{categoria}' removida com sucesso!", self.window(), 3000)
                 self.carregar_listas()
             else:
-                QMessageBox.warning(self, "Erro", "Erro ao remover categoria. Verifique se nÃƒÂ£o estÃƒÂ¡ sendo usada.")
+                QMessageBox.warning(self, "Erro", "Erro ao remover categoria. Verifique se não está sendo usada.")
 
     # =====================================================
     # CRUD CARGOS
@@ -1452,8 +1452,8 @@ class ParametrosWidget(QWidget):
 
         descricao_edit = QTextEdit()
         descricao_edit.setMaximumHeight(80)
-        descricao_edit.setPlaceholderText("DescriÃƒÂ§ÃƒÂ£o do cargo (opcional)")
-        form_layout.addRow("DescriÃƒÂ§ÃƒÂ£o:", descricao_edit)
+        descricao_edit.setPlaceholderText("Descrição do cargo (opcional)")
+        form_layout.addRow("Descrição:", descricao_edit)
 
         layout.addLayout(form_layout)
 
@@ -1465,7 +1465,7 @@ class ParametrosWidget(QWidget):
         if dialog.exec():
             nome = nome_edit.text().strip()
             if not nome:
-                QMessageBox.warning(self, "Atencao", "Digite o nome do cargo!")
+                QMessageBox.warning(self, "Atenção", "Digite o nome do cargo!")
                 return
 
             descricao = descricao_edit.toPlainText().strip() or None
@@ -1509,7 +1509,7 @@ class ParametrosWidget(QWidget):
             return
 
         if not dados["nome"]:
-            QMessageBox.warning(self, "Atencao", "Digite o nome do cargo!")
+            QMessageBox.warning(self, "Atenção", "Digite o nome do cargo!")
             return
 
         QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
@@ -1535,7 +1535,7 @@ class ParametrosWidget(QWidget):
         """Remove o cargo selecionado via backend"""
         row = self.tabela_cargos.currentRow()
         if row < 0:
-            QMessageBox.warning(self, "Atencao", "Selecione um cargo para remover")
+            QMessageBox.warning(self, "Atenção", "Selecione um cargo para remover")
             return
 
         cargo_id = int(self.tabela_cargos.item(row, 0).text())
@@ -1543,9 +1543,9 @@ class ParametrosWidget(QWidget):
 
         confirm = QMessageBox.question(
             self,
-            "Confirmar exclusÃƒÂ£o",
+            "Confirmar exclusão",
             f"Tem certeza que deseja remover o cargo '{cargo_nome}'?\n\n"
-            f"Ã¢Å¡Â Ã¯Â¸Â Esta aÃƒÂ§ÃƒÂ£o nÃƒÂ£o poderÃƒÂ¡ ser desfeita e sÃƒÂ³ serÃƒÂ¡ permitida se nenhum colaborador ou usuÃƒÂ¡rio estiver usando este cargo.",
+            f"Esta ação não poderá ser desfeita e só será permitida se nenhum colaborador ou usuário estiver usando este cargo.",
             QMessageBox.Yes | QMessageBox.No
         )
 
@@ -1558,7 +1558,7 @@ class ParametrosWidget(QWidget):
                 notification_manager.success(f"Cargo '{cargo_nome}' removido com sucesso!", self.window(), 3000)
                 self.carregar_tabela_cargos()
             else:
-                QMessageBox.warning(self, "Erro", "Erro ao remover cargo. Verifique se nÃƒÂ£o estÃƒÂ¡ sendo usado.")
+                QMessageBox.warning(self, "Erro", "Erro ao remover cargo. Verifique se não está sendo usado.")
 
     # =====================================================
     # MÃƒâ€°TODOS EXISTENTES
@@ -1583,15 +1583,15 @@ class ParametrosWidget(QWidget):
                 self.status_api.setText("Status da API: Online")
                 self.status_api.setStyleSheet("color: #2a9d8f;")
                 data = response.json()
-                self.api_versao.setText(f"Versao da API: {data.get('status', 'Desconhecido')}")
+                self.api_versao.setText(f"Versão da API: {data.get('status', 'Desconhecido')}")
             else:
                 self.status_api.setText("Status da API: Offline")
                 self.status_api.setStyleSheet("color: #e76f51;")
-                self.api_versao.setText("Versao da API: Nao disponivel")
+                self.api_versao.setText("Versão da API: Não disponível")
         except:
             self.status_api.setText("Status da API: Offline")
             self.status_api.setStyleSheet("color: #e76f51;")
-            self.api_versao.setText("Versao da API: Nao disponivel")
+            self.api_versao.setText("Versão da API: Não disponível")
 
         try:
             response = requests.get(health_url, timeout=5)
@@ -1606,9 +1606,10 @@ class ParametrosWidget(QWidget):
             self.status_banco.setStyleSheet("color: #e76f51;")
 
     def testar_notificacao(self):
-        """Testa a notificaÃƒÂ§ÃƒÂ£o"""
+        """Testa a notificação"""
         notification_manager.info(
-            "Esta ÃƒÂ© uma notificaÃƒÂ§ÃƒÂ£o de teste!\n\nSe vocÃƒÂª estÃƒÂ¡ vendo isso, as notificaÃƒÂ§ÃƒÂµes estÃƒÂ£o funcionando.",
+            "Esta é uma notificação de teste!\n\n"
+            "Se você está vendo isso, as notificações estão funcionando.",
             self.window(),
             5000
         )
@@ -1647,12 +1648,12 @@ class ParametrosWidget(QWidget):
         applied = context["scale_aplicada"]
         if mode == "Automatica":
             texto = (
-                f"Resolucao detectada nesta maquina: {width}x{height}. "
-                f"Escala automatica sugerida e aplicada: {applied}."
+                f"Resolução detectada nesta máquina: {width}x{height}. "
+                f"Escala automática sugerida e aplicada: {applied}."
             )
         else:
             texto = (
-                f"Resolucao detectada nesta maquina: {width}x{height}. "
+                f"Resolução detectada nesta máquina: {width}x{height}. "
                 f"Escala manual selecionada: {mode}."
             )
         self.resolucao_detectada_label.setText(texto)
@@ -1661,11 +1662,11 @@ class ParametrosWidget(QWidget):
         self.dpi_valor.setText(str(dpi))
 
         if applied in {"90%", "100%"}:
-            recomendacao = "Layout mais compacto, indicado para telas menores ou com menos altura util."
+            recomendacao = "Layout mais compacto, indicado para telas menores ou com menos altura útil."
         elif applied in {"110%", "125%"}:
-            recomendacao = "Equilibrio entre leitura e densidade de informacao para a maioria das maquinas."
+            recomendacao = "Equilíbrio entre leitura e densidade de informação para a maioria das máquinas."
         else:
-            recomendacao = "Leitura mais confortavel, indicada para monitores grandes ou uso mais distante da tela."
+            recomendacao = "Leitura mais confortável, indicada para monitores grandes ou uso mais distante da tela."
         self.recomendacao_tela_valor.setText(recomendacao)
 
     def previsualizar_acessibilidade(self, *_args):
@@ -1753,7 +1754,7 @@ class ParametrosWidget(QWidget):
 
                 self._refresh_resolution_hint()
                 apply_accessibility_config(config)
-                print("Configuracoes carregadas com sucesso")
+                print("Configurações carregadas com sucesso")
 
         except Exception as e:
             print(f"Erro ao carregar configuracoes: {e}")
@@ -1799,7 +1800,7 @@ class ParametrosWidget(QWidget):
             if success:
                 apply_accessibility_config(accessibility_config)
                 save_local_accessibility_config(accessibility_config)
-                notification_manager.success("Configuracoes salvas com sucesso!", self.window(), 3000)
+                notification_manager.success("Configurações salvas com sucesso!", self.window(), 3000)
                 api_client.reconfigurar_backup()
                 from core.notification_manager import notification_manager as core_notification_manager
                 core_notification_manager.carregar_configuracoes()

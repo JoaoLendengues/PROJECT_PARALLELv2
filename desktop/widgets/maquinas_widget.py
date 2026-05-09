@@ -335,7 +335,7 @@ class MaquinasWidget(QWidget):
         self.monitoramento_status = {item.get("id"): item for item in status_list}
 
         if not status_list:
-            self.monitoramento_label.setText("Nenhuma maquina encontrada para monitoramento nesta selecao.")
+            self.monitoramento_label.setText("Nenhuma máquina encontrada para monitoramento nesta seleção.")
             return
 
         online = sum(1 for item in status_list if item.get("monitor_status") == "online")
@@ -373,9 +373,9 @@ class MaquinasWidget(QWidget):
                 notification_manager.success("Monitoramento das maquinas atualizado.", self.window(), 2500)
         except Exception as e:
             print(f"Erro ao atualizar monitoramento das maquinas: {e}")
-            self.monitoramento_label.setText("Nao foi possivel atualizar o monitoramento de rede nesta tentativa.")
+            self.monitoramento_label.setText("Não foi possível atualizar o monitoramento de rede nesta tentativa.")
             if show_feedback:
-                notification_manager.error("Nao foi possivel atualizar o monitoramento das maquinas.", self.window(), 3000)
+                notification_manager.error("Não foi possível atualizar o monitoramento das máquinas.", self.window(), 3000)
 
     def filtrar_maquinas(self):
         if not self.empresa_pronta():
@@ -761,7 +761,7 @@ class MaquinaDialog(QDialog):
 
         if not dados["nome"]:
             focus_invalid_field(self.nome_edit)
-            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Nome da Maquina"))
+            QMessageBox.warning(self, "Campo obrigatorio", required_field_message("Nome da Máquina"))
             return
 
         if not dados["empresa"]:
@@ -783,17 +783,17 @@ class MaquinaDialog(QDialog):
                     QMessageBox.information(self, "Sucesso", f"Maquina '{dados['nome']}' atualizada com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Nao foi possivel atualizar a maquina. Revise os dados e tente novamente.")
+                    QMessageBox.warning(self, "Erro", "Não foi possível atualizar a máquina. Revise os dados e tente novamente.")
             else:
                 response = api_client.criar_maquina(dados)
                 if response and response.get("id"):
                     QMessageBox.information(self, "Sucesso", f"Maquina '{dados['nome']}' criada com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Nao foi possivel criar a maquina. Revise os dados e tente novamente.")
+                    QMessageBox.warning(self, "Erro", "Não foi possível criar a máquina. Revise os dados e tente novamente.")
 
             QApplication.restoreOverrideCursor()
 
         except Exception as e:
             QApplication.restoreOverrideCursor()
-            QMessageBox.critical(self, "Erro", f"Nao foi possivel salvar a maquina.\n\nDetalhes: {e}")
+            QMessageBox.critical(self, "Erro", f"Não foi possível salvar a máquina.\n\nDetalhes: {e}")
