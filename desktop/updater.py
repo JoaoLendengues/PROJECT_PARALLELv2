@@ -306,12 +306,14 @@ class UpdateInstaller:
         script_path = Path(tempfile.gettempdir()) / (
             f"project_parallel_apply_update_{datetime.now().strftime('%Y%m%d_%H%M%S')}.ps1"
         )
+        app_dir_safe = UpdateInstaller._to_cmd_safe_path(app_dir)
+        installer_file_safe = UpdateInstaller._to_cmd_safe_path(installer_file)
 
         script_content = "\n".join(
             [
                 "$ErrorActionPreference = 'Stop'",
-                f"$AppDir = '{app_dir}'",
-                f"$InstallerFile = '{installer_file}'",
+                f"$AppDir = '{app_dir_safe}'",
+                f"$InstallerFile = '{installer_file_safe}'",
                 f"$ProcessIdToWait = {process_id}",
                 "$LogFile = Join-Path $AppDir 'update.log'",
                 "$InstallerDir = Split-Path -Parent $InstallerFile",
@@ -326,8 +328,16 @@ class UpdateInstaller:
                 "Set-Content -Path $LogFile -Value '' -Encoding UTF8",
                 "Write-UpdateLog 'Iniciando atualizacao pelo setup'",
                 "",
+                "$waitCount = 0",
                 "while (Get-Process -Id $ProcessIdToWait -ErrorAction SilentlyContinue) {",
-                "    Start-Sleep -Seconds 1",
+                "    Start-Sleep -Milliseconds 500",
+                "    $waitCount += 1",
+                "    if ($waitCount -ge 40) {",
+                "        Write-UpdateLog 'Processo principal ainda ativo apos 20 segundos. Forcando encerramento.'",
+                "        Stop-Process -Id $ProcessIdToWait -Force -ErrorAction SilentlyContinue",
+                "        Start-Sleep -Seconds 2",
+                "        break",
+                "    }",
                 "}",
                 "",
                 "Write-UpdateLog 'Processo principal encerrado'",
@@ -363,7 +373,13 @@ class UpdateInstaller:
                 "}",
                 "",
                 "Write-UpdateLog 'Instalacao concluida. Reiniciando aplicativo'",
-                "Start-Process -FilePath (Join-Path $AppDir 'main.exe') -WorkingDirectory $AppDir",
+                "try {",
+                "    Start-Process -FilePath (Join-Path $AppDir 'main.exe') -WorkingDirectory $AppDir",
+                "    Write-UpdateLog 'Aplicativo reiniciado com sucesso'",
+                "} catch {",
+                "    Write-UpdateLog \"Falha ao reiniciar aplicativo: $($_.Exception.Message)\"",
+                "    exit 1",
+                "}",
                 "if (Test-Path $InstallerDir) {",
                 "    Remove-Item $InstallerDir -Recurse -Force -ErrorAction SilentlyContinue",
                 "}",
@@ -382,13 +398,16 @@ class UpdateInstaller:
         script_path = Path(tempfile.gettempdir()) / (
             f"project_parallel_apply_update_{datetime.now().strftime('%Y%m%d_%H%M%S')}.ps1"
         )
+        app_dir_safe = UpdateInstaller._to_cmd_safe_path(app_dir)
+        staging_dir_safe = UpdateInstaller._to_cmd_safe_path(staging_dir)
+        payload_dir_safe = UpdateInstaller._to_cmd_safe_path(payload_dir)
 
         script_content = "\n".join(
             [
                 "$ErrorActionPreference = 'Stop'",
-                f"$AppDir = '{app_dir}'",
-                f"$StagingDir = '{staging_dir}'",
-                f"$PayloadDir = '{payload_dir}'",
+                f"$AppDir = '{app_dir_safe}'",
+                f"$StagingDir = '{staging_dir_safe}'",
+                f"$PayloadDir = '{payload_dir_safe}'",
                 f"$ProcessIdToWait = {process_id}",
                 "$LogFile = Join-Path $AppDir 'update.log'",
                 "$ProtectedFiles = @('.env', 'config.ini', 'database.db')",
@@ -404,8 +423,16 @@ class UpdateInstaller:
                 "Set-Content -Path $LogFile -Value '' -Encoding UTF8",
                 "Write-UpdateLog 'Iniciando atualizacao'",
                 "",
+                "$waitCount = 0",
                 "while (Get-Process -Id $ProcessIdToWait -ErrorAction SilentlyContinue) {",
-                "    Start-Sleep -Seconds 1",
+                "    Start-Sleep -Milliseconds 500",
+                "    $waitCount += 1",
+                "    if ($waitCount -ge 40) {",
+                "        Write-UpdateLog 'Processo principal ainda ativo apos 20 segundos. Forcando encerramento.'",
+                "        Stop-Process -Id $ProcessIdToWait -Force -ErrorAction SilentlyContinue",
+                "        Start-Sleep -Seconds 2",
+                "        break",
+                "    }",
                 "}",
                 "",
                 "Write-UpdateLog 'Processo principal encerrado'",
@@ -432,8 +459,13 @@ class UpdateInstaller:
                 "}",
                 "",
                 "Write-UpdateLog 'Arquivos copiados com sucesso'",
-                "Start-Process -FilePath (Join-Path $AppDir 'main.exe') -WorkingDirectory $AppDir",
-                "Write-UpdateLog 'Aplicativo reiniciado'",
+                "try {",
+                "    Start-Process -FilePath (Join-Path $AppDir 'main.exe') -WorkingDirectory $AppDir",
+                "    Write-UpdateLog 'Aplicativo reiniciado'",
+                "} catch {",
+                "    Write-UpdateLog \"Falha ao reiniciar aplicativo: $($_.Exception.Message)\"",
+                "    exit 1",
+                "}",
                 "if (Test-Path $StagingDir) {",
                 "    Remove-Item $StagingDir -Recurse -Force -ErrorAction SilentlyContinue",
                 "}",

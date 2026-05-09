@@ -3,7 +3,7 @@
 #define MyAppURL "https://github.com/JoaoLendengues/PROJECT_PARALLELv2"
 
 #ifndef MyAppVersion
-  #define MyAppVersion "1.2.1"
+  #define MyAppVersion "1.2.2"
 #endif
 
 #ifndef BuildRoot
