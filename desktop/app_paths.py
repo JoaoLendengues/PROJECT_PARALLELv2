@@ -51,3 +51,18 @@ def get_accessibility_config_path() -> Path:
 def get_user_preferences_path() -> Path:
     """Retorna o arquivo local usado para persistir preferencias por usuario."""
     return get_user_config_dir() / "user_preferences.json"
+
+
+def get_update_state_path() -> Path:
+    """Retorna o arquivo local que persiste o estado da atualizacao automatica."""
+    return get_user_config_dir() / "update_state.json"
+
+
+def get_update_log_path() -> Path:
+    """Retorna o arquivo local de log do processo de atualizacao."""
+    return get_user_config_dir() / "update.log"
+
+
+def get_update_staging_dir() -> Path:
+    """Retorna a pasta local usada para staging das atualizacoes baixadas."""
+    return get_user_config_dir() / "updates"

@@ -15,6 +15,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 DESKTOP_DIR = ROOT_DIR / "desktop"
 VERSION_FILE = DESKTOP_DIR / "version.json"
 SPEC_FILE = DESKTOP_DIR / "main.spec"
+HELPER_SPEC_FILE = DESKTOP_DIR / "update_helper.spec"
 DIST_ROOT = DESKTOP_DIR / "output"
 BUILD_DIR = DESKTOP_DIR / "build"
 INSTALLER_SCRIPT = ROOT_DIR / "installer_script.iss"
@@ -85,6 +86,30 @@ def build_desktop(dist_root, build_dir):
         )
 
     return executable_path
+
+
+def build_update_helper(dist_dir, build_dir):
+    helper_command = [
+        sys.executable,
+        "-m",
+        "PyInstaller",
+        str(HELPER_SPEC_FILE),
+        "--noconfirm",
+        "--clean",
+        "--distpath",
+        str(dist_dir),
+        "--workpath",
+        str(build_dir / "update_helper"),
+    ]
+    run_command(helper_command, cwd=ROOT_DIR)
+
+    helper_path = dist_dir / "update_helper.exe"
+    if not helper_path.exists():
+        raise FileNotFoundError(
+            f"Build concluido sem encontrar o helper esperado em {helper_path}"
+        )
+
+    return helper_path
 
 
 def create_portable_zip(version, dist_dir, artifacts_dir):
@@ -204,6 +229,8 @@ def main():
         raise FileNotFoundError(
             f"Voce usou --skip-build, mas nao existe um build valido em {dist_dir}."
         )
+
+    build_update_helper(dist_dir, build_dir)
 
     portable_zip = create_portable_zip(version, dist_dir, artifacts_dir)
     installer_path = None if args.skip_installer else build_installer(version, dist_dir, artifacts_dir)

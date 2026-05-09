@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+import json
 from datetime import datetime
 from pathlib import Path
 
@@ -12,6 +13,7 @@ import requests
 from PySide6.QtCore import QThread, Signal
 
 from version import CURRENT_VERSION
+from app_paths import get_update_log_path, get_update_state_path
 
 
 def _parse_version(version: str) -> tuple[int, ...]:
@@ -49,6 +51,60 @@ def _find_installer_asset(assets):
                 return asset
 
     return exe_assets[0]
+
+
+def _load_update_state():
+    state_path = get_update_state_path()
+    if not state_path.exists():
+        return {}
+
+    try:
+        return json.loads(state_path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _save_update_state(state: dict):
+    state_path = get_update_state_path()
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def finalize_pending_update():
+    """Confirma o estado de uma atualização pendente no próximo startup."""
+    state = _load_update_state()
+    if not state:
+        return None
+
+    status = state.get("status")
+    target_version = str(state.get("target_version", "")).strip()
+
+    if status == "applied" and target_version == CURRENT_VERSION:
+        state["status"] = "completed"
+        state["completed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        _save_update_state(state)
+        return {
+            "status": "completed",
+            "message": f"Atualização concluída com sucesso para a versão {CURRENT_VERSION}.",
+        }
+
+    if status in {"pending", "applying"} and target_version and target_version != CURRENT_VERSION:
+        state["status"] = "failed"
+        state["failed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        state.setdefault(
+            "last_error",
+            "A atualização anterior não concluiu antes da reabertura do aplicativo.",
+        )
+        _save_update_state(state)
+        return {
+            "status": "failed",
+            "message": (
+                f"A atualização para a versão {target_version} não foi concluída. "
+                f"Consulte o log em {get_update_log_path()}."
+            ),
+        }
+
+    return None
 
 
 class UpdateChecker(QThread):
@@ -219,6 +275,9 @@ class UpdateInstaller:
 
             app_dir = Path(sys.executable).resolve().parent
             backup_dir = UpdateInstaller._create_backup(app_dir)
+            log_path = get_update_log_path()
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.write_text("", encoding="utf-8")
 
             update_path = Path(update_file)
             if update_path.suffix.lower() == ".exe":
@@ -237,11 +296,30 @@ class UpdateInstaller:
                     shutil.rmtree(staging_dir, ignore_errors=True)
                     return False, "O ZIP da release não contém o build empacotado esperado."
 
-                script_path = UpdateInstaller._write_portable_update_script(
+                validation_error = UpdateInstaller._validate_payload(payload_dir)
+                if validation_error:
+                    shutil.rmtree(staging_dir, ignore_errors=True)
+                    return False, validation_error
+
+                target_version = UpdateInstaller._extract_version_from_asset(update_path.name)
+                UpdateInstaller._write_pending_state(
+                    target_version=target_version,
+                    backup_dir=backup_dir,
+                    asset_name=update_path.name,
+                )
+                UpdateInstaller._launch_update_helper(
                     app_dir=app_dir,
                     staging_dir=staging_dir,
                     payload_dir=payload_dir,
+                    backup_dir=Path(backup_dir),
                     process_id=os.getpid(),
+                    target_version=target_version,
+                )
+
+                return (
+                    True,
+                    "Atualização pronta. O sistema será fechado para concluir a instalação "
+                    f"e reabrir em seguida.\n\nBackup: {backup_dir}",
                 )
 
             UpdateInstaller._launch_update_script(script_path)
@@ -259,7 +337,7 @@ class UpdateInstaller:
         backup_dir = app_dir / "backup" / datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_dir.mkdir(parents=True, exist_ok=True)
 
-        for item_name in ("main.exe", "_internal"):
+        for item_name in ("main.exe", "_internal", "update_helper.exe"):
             source = app_dir / item_name
             destination = backup_dir / item_name
 
@@ -280,6 +358,88 @@ class UpdateInstaller:
             if (root_path / "main.exe").exists() and (root_path / "_internal").exists():
                 return root_path
         return None
+
+    @staticmethod
+    def _validate_payload(payload_dir: Path):
+        required_entries = ("main.exe", "_internal", "update_helper.exe")
+        missing_entries = [entry for entry in required_entries if not (payload_dir / entry).exists()]
+        if missing_entries:
+            return (
+                "O pacote da atualização está incompleto. "
+                f"Itens ausentes: {', '.join(missing_entries)}."
+            )
+        return None
+
+    @staticmethod
+    def _extract_version_from_asset(asset_name: str) -> str:
+        match = re.search(r"v?(\d+(?:\.\d+)+)", asset_name or "")
+        if match:
+            return match.group(1)
+        return CURRENT_VERSION
+
+    @staticmethod
+    def _write_pending_state(target_version: str, backup_dir: str, asset_name: str):
+        state = {
+            "status": "pending",
+            "from_version": CURRENT_VERSION,
+            "target_version": target_version,
+            "asset_name": asset_name,
+            "backup_dir": backup_dir,
+            "started_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        _save_update_state(state)
+
+    @staticmethod
+    def _helper_executable_path(app_dir: Path) -> Path:
+        return app_dir / "update_helper.exe"
+
+    @staticmethod
+    def _launch_update_helper(
+        app_dir: Path,
+        staging_dir: Path,
+        payload_dir: Path,
+        backup_dir: Path,
+        process_id: int,
+        target_version: str,
+    ):
+        helper_source = UpdateInstaller._helper_executable_path(app_dir)
+        if not helper_source.exists():
+            raise FileNotFoundError(
+                f"O helper de atualização não foi encontrado em {helper_source}."
+            )
+
+        helper_runtime_dir = Path(tempfile.mkdtemp(prefix="project_parallel_helper_"))
+        helper_runtime = helper_runtime_dir / "update_helper.exe"
+        shutil.copy2(helper_source, helper_runtime)
+
+        state_path = get_update_state_path()
+        log_path = get_update_log_path()
+
+        command = [
+            str(helper_runtime),
+            "--app-dir",
+            str(app_dir),
+            "--payload-dir",
+            str(payload_dir),
+            "--staging-dir",
+            str(staging_dir),
+            "--backup-dir",
+            str(backup_dir),
+            "--wait-pid",
+            str(process_id),
+            "--target-version",
+            str(target_version),
+            "--state-path",
+            str(state_path),
+            "--log-path",
+            str(log_path),
+        ]
+
+        flags = 0
+        for flag_name in ("CREATE_NEW_PROCESS_GROUP", "DETACHED_PROCESS", "CREATE_NO_WINDOW"):
+            flags |= getattr(subprocess, flag_name, 0)
+
+        subprocess.Popen(command, creationflags=flags, close_fds=True)
 
     @staticmethod
     def _launch_update_script(script_path: Path):

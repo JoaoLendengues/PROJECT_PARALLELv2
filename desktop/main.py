@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 from widgets.main_window import MainWindow
 from widgets.login_widget import LoginWidget
-from updater import UpdateChecker
+from updater import UpdateChecker, finalize_pending_update
 from widgets.toast_notification import notification_manager
 from app_paths import get_env_file_path, get_resource_path
 from api_client import api_client
@@ -20,11 +20,13 @@ load_dotenv(get_env_file_path())
 # Variáveis globais
 _app = None
 _current_window = None
+_update_startup_result = None
 
 
 def show_login():
     """Exibe a tela de login"""
     global _current_window
+    global _update_startup_result
     
     if _current_window:
         _current_window.close()
@@ -50,6 +52,25 @@ def on_login_success(usuario):
 
     _current_window = MainWindow(usuario)
     _current_window.showMaximized()
+
+    if _update_startup_result:
+        try:
+            if _update_startup_result.get("status") == "completed":
+                notification_manager.success(
+                    _update_startup_result.get("message", "Atualização concluída com sucesso."),
+                    _current_window,
+                    5000,
+                )
+            elif _update_startup_result.get("status") == "failed":
+                notification_manager.error(
+                    _update_startup_result.get("message", "A atualização anterior não foi concluída."),
+                    _current_window,
+                    8000,
+                )
+        except Exception as e:
+            print(f"Erro ao exibir status da atualização: {e}")
+        finally:
+            _update_startup_result = None
 
     if accessibility_config:
         try:
@@ -96,6 +117,7 @@ def verificar_atualizacoes():
 
 def main():
     global _app
+    global _update_startup_result
     
     _app = QApplication(sys.argv)
     _app.setStyle('Windows')
@@ -175,7 +197,12 @@ def main():
         _app.setStyleSheet(global_style)
 
     initialize_accessibility(_app, base_style, global_style)
-    
+
+    try:
+        _update_startup_result = finalize_pending_update()
+    except Exception as e:
+        print(f"Erro ao finalizar estado da atualização: {e}")
+
     show_login()
     
     sys.exit(_app.exec())
