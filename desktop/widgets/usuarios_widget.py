@@ -135,6 +135,24 @@ class UsuariosWidget(QWidget):
             },
         )
 
+        visible_headers = ["Código", "Nome", "Cargo", "Empresa", "Nível", "Status", "Primeiro Acesso"]
+        self.tabela.setColumnCount(len(visible_headers))
+        self.tabela.setHorizontalHeaderLabels(visible_headers)
+        configure_data_table(
+            self.tabela,
+            stretch_columns=(1,),
+            minimum_section_size=88,
+            minimum_widths={
+                0: 110,
+                1: 220,
+                2: 160,
+                3: 180,
+                4: 130,
+                5: 120,
+                6: 150,
+            },
+        )
+
         layout.addWidget(self.tabela)
 
         # Botões de ação
@@ -231,11 +249,12 @@ class UsuariosWidget(QWidget):
         self.tabela.setRowCount(len(usuarios))
 
         for row, usuario in enumerate(usuarios):
-            self.tabela.setItem(row, 0, number_item(usuario.get("id", "")))
-            self.tabela.setItem(row, 1, QTableWidgetItem(usuario.get("codigo", "")))
-            self.tabela.setItem(row, 2, QTableWidgetItem(usuario.get("nome", "")))
-            self.tabela.setItem(row, 3, QTableWidgetItem(usuario.get("cargo", "-")))
-            self.tabela.setItem(row, 4, QTableWidgetItem(usuario.get("empresa", "-")))
+            codigo_item = QTableWidgetItem(usuario.get("codigo", ""))
+            codigo_item.setData(Qt.UserRole, usuario.get("id"))
+            self.tabela.setItem(row, 0, codigo_item)
+            self.tabela.setItem(row, 1, QTableWidgetItem(usuario.get("nome", "")))
+            self.tabela.setItem(row, 2, QTableWidgetItem(usuario.get("cargo", "-")))
+            self.tabela.setItem(row, 3, QTableWidgetItem(usuario.get("empresa", "-")))
 
             nivel_item = QTableWidgetItem(usuario.get("nivel_acesso", "usuario").upper())
             if usuario.get("nivel_acesso") == "admin":
@@ -246,19 +265,34 @@ class UsuariosWidget(QWidget):
                 nivel_item.setForeground(QColor(99, 102, 241))
             else:
                 nivel_item.setForeground(QColor(42, 157, 143))
-            self.tabela.setItem(row, 5, nivel_item)
+            self.tabela.setItem(row, 4, nivel_item)
 
             status_item = QTableWidgetItem("Ativo" if usuario.get("ativo", True) else "Inativo")
             if not usuario.get("ativo", True):
                 status_item.setForeground(QColor(231, 111, 81))
             else:
                 status_item.setForeground(QColor(42, 157, 143))
-            self.tabela.setItem(row, 6, status_item)
+            self.tabela.setItem(row, 5, status_item)
 
             primeiro_acesso = "Sim" if usuario.get("primeiro_acesso", False) else "Não"
-            self.tabela.setItem(row, 7, QTableWidgetItem(primeiro_acesso))
+            self.tabela.setItem(row, 6, QTableWidgetItem(primeiro_acesso))
 
         refresh_data_table_layout(self.tabela)
+
+    def _selected_usuario_id(self):
+        current_row = self.tabela.currentRow()
+        if current_row < 0:
+            return None
+
+        codigo_item = self.tabela.item(current_row, 0)
+        if codigo_item is None:
+            return None
+
+        usuario_id = codigo_item.data(Qt.UserRole)
+        if usuario_id is None:
+            return None
+
+        return int(usuario_id)
 
     def novo_usuario(self):
         """Abre diálogo para criar novo usuário com código automático"""
@@ -284,7 +318,11 @@ class UsuariosWidget(QWidget):
             QMessageBox.warning(self, "Atenção", "Selecione um usuário para editar")
             return
 
-        usuario_id = int(self.tabela.item(current_row, 0).text())
+        usuario_id = self._selected_usuario_id()
+        if usuario_id is None:
+            QMessageBox.warning(self, "Erro", "Não foi possível identificar o usuário selecionado.")
+            return
+
         usuario = next((u for u in self.usuarios if u["id"] == usuario_id), None)
 
         if usuario:
@@ -298,9 +336,13 @@ class UsuariosWidget(QWidget):
             QMessageBox.warning(self, "Atenção", "Selecione um usuário para alterar a senha")
             return
 
-        usuario_id = int(self.tabela.item(current_row, 0).text())
-        usuario_nome = self.tabela.item(current_row, 2).text()
-        usuario_codigo = self.tabela.item(current_row, 1).text()
+        usuario_id = self._selected_usuario_id()
+        if usuario_id is None:
+            QMessageBox.warning(self, "Erro", "Não foi possível identificar o usuário selecionado.")
+            return
+
+        usuario_nome = self.tabela.item(current_row, 1).text()
+        usuario_codigo = self.tabela.item(current_row, 0).text()
 
         senha_dialog = QDialog(self)
         senha_dialog.setWindowTitle("Alterar Senha")
@@ -390,8 +432,12 @@ class UsuariosWidget(QWidget):
             QMessageBox.warning(self, "Atenção", "Selecione um usuário para resetar a senha")
             return
 
-        usuario_id = int(self.tabela.item(current_row, 0).text())
-        usuario_nome = self.tabela.item(current_row, 2).text()
+        usuario_id = self._selected_usuario_id()
+        if usuario_id is None:
+            QMessageBox.warning(self, "Erro", "Não foi possível identificar o usuário selecionado.")
+            return
+
+        usuario_nome = self.tabela.item(current_row, 1).text()
 
         confirm = QMessageBox.question(
             self,
@@ -416,8 +462,12 @@ class UsuariosWidget(QWidget):
             QMessageBox.warning(self, "Atenção", "Selecione um usuário para deletar")
             return
 
-        usuario_id = int(self.tabela.item(current_row, 0).text())
-        usuario_nome = self.tabela.item(current_row, 2).text()
+        usuario_id = self._selected_usuario_id()
+        if usuario_id is None:
+            QMessageBox.warning(self, "Erro", "Não foi possível identificar o usuário selecionado.")
+            return
+
+        usuario_nome = self.tabela.item(current_row, 1).text()
 
         confirm = QMessageBox.question(
             self,

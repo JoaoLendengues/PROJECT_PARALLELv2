@@ -1,5 +1,5 @@
 {
-    "version": "1.2.2",
+    "version": "1.2.3",
     "release_date": "2026-05-09",
-    "changelog": "Correção do fluxo de atualização automática, com timeout e encerramento forçado do processo anterior quando necessário, além de reinicialização mais robusta após aplicar o pacote portátil."
+    "changelog": "Refino da tela de usuarios com remocao da coluna de ID da grade, mantendo o codigo como principal referencia operacional."
 }
