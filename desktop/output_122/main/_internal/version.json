@@ -1,0 +1,5 @@
+{
+    "version": "1.2.2",
+    "release_date": "2026-05-09",
+    "changelog": "Correção do fluxo de atualização automática, com timeout e encerramento forçado do processo anterior quando necessário, além de reinicialização mais robusta após aplicar o pacote portátil."
+}

@@ -1,0 +1,5 @@
+{
+    "version": "1.2.3",
+    "release_date": "2026-05-09",
+    "changelog": "Refino da tela de usuarios com remocao da coluna de ID da grade, mantendo o codigo como principal referencia operacional."
+}
