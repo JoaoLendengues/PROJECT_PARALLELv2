@@ -1,72 +1,67 @@
 # Backlog do Produto
 
-Ideias registradas em 2026-04-24 e atualizadas em 2026-04-27 para evolucao futura do desktop.
+Backlog ativo do Project Parallel, revisado em 2026-05-11.
 
-## Atendimento e monitoramento
+Este arquivo concentra apenas o que ainda faz sentido como próximo trabalho, refinamento ou ideia nova. Itens já entregues foram removidos para deixar a retomada mais objetiva.
 
-- Na tela de demandas, permitir que outros usuarios possam lancar novas demandas. Notificar aos gerentes e administradores do sistema da nova insercao.
-- Monitoramento em tempo real das maquinas da mesma rede.
-- Suporte a rede compartilhada entre empresas com comunicacao LAN-to-LAN entre pontos e lojas.
+## Prioridade imediata
 
-## Parametros e administracao
+- Refinar o atualizador automático com helper externo, staging validado, estado pendente e relançamento confiável do app.
+- Concluir rollback e recuperação automática quando a atualização falhar no meio do processo.
+- Melhorar a telemetria local do updater com `update.log`, `update_state.json` e mensagens mais claras na interface.
+- Gerar uma build interna `1.2.3B` para teste do novo mecanismo de atualização.
+- Validar o fluxo `1.2.3B -> 1.2.4` antes de publicar uma nova release ampla.
 
-- Permitir edicao de parametros de empresa, cargos, departamentos e categorias.
-- Criar um botao de edicao para os itens cadastrados dentro dessas tabelas de parametros.
-- Implementar um sistema de nivel de acesso mais moderno e mais restritivo por perfil.
-- Exibir mensagem visual de "Acesso nao permitido" quando o usuario tentar abrir uma tela sem permissao.
-- Definir o comportamento de permissao em duas camadas: menu visivel por perfil e bloqueio real ao entrar na tela.
-- Criar trilha de auditoria para registrar quem criou, editou ou excluiu itens sensiveis do sistema.
-- Regras iniciais sugeridas:
-  - Administrador com acesso total ao sistema, backup, parametros, telas e relatorios.
-  - Gerencia com acesso a relatorios, movimentacoes e telas operacionais selecionadas.
-  - Usuario comum com acesso a movimentacoes e relatorios basicos.
+## Monitoramento e conectividade
 
-## Grids e widgets
+- Evoluir o monitoramento de máquinas para destacar servidores e hosts críticos.
+- Enriquecer o diagnóstico da malha LAN-to-LAN com leitura mais analítica de estabilidade e indisponibilidade acumulada.
+- Diferenciar melhor, no monitoramento, falha de máquina, falha de rota e falha de unidade.
+- Avaliar integração futura com recursos nativos do firewall Netdeep, caso valha a pena tecnicamente.
 
-- Realinhar o tamanho das colunas dos widgets para caber todo o conteudo do grid.
-- Ajustar colunas que hoje cortam informacoes, incluindo cabecalhos como "Departamentos".
-- Centralizar textos e fontes em todas as colunas.
-- Implementar ordenacao em todos os grids ao clicar no cabecalho das colunas.
-- Permitir ordenacao crescente e decrescente por codigo, nome e demais campos relevantes.
-- Reforcar a prioridade da ordenacao dos grids com base nos testes recentes de uso.
+## Atendimento e demandas
 
-## Acessibilidade e interface
+- Evoluir o fluxo do perfil `solicitante` com histórico mais rico das próprias demandas.
+- Estudar uma segunda fase de autoatendimento com widget leve ou abertura rápida de chamados.
+- Definir se o atendimento evolui para respostas ou encaminhamento dentro da própria demanda antes de virar chat completo.
 
-- Criar uma tabela ou configuracao de acessibilidade em Parametros.
-- Priorizar um MVP com tema, tamanho da fonte, escala da interface e navegacao por teclado.
-- Salvar preferencias de acessibilidade por usuario.
-- Tema previsto inicialmente: claro e escuro.
-- Tamanho da fonte previsto inicialmente: pequeno, padrao e grande.
-- Escala da interface prevista inicialmente: 100, 110, 125 e 150.
-- Navegacao por teclado prevista inicialmente: ativa ou inativa.
+## Relatórios
+
+- Fazer a rodada final de refinamento da tela de relatórios.
+- Melhorar estados vazios, agrupamento visual e leitura das tabelas.
+- Refinar a experiência de exportação com nome de arquivo mais amigável e contexto dos filtros aplicados.
+- Avaliar se vale adicionar mais indicadores de resumo por aba.
+
+## Notificações
+
+- Fazer uma segunda rodada de refinamento da central de notificações.
+- Avaliar agrupamento por tempo (`Agora`, `Hoje`, `Ontem` e `Mais antigas`).
+- Aproximar ainda mais a central do padrão visual elegante/tech usado nos pop-ups.
+- Estudar filtros rápidos extras, como `só não lidas`, `só críticas` e `só acionáveis`.
+
+## Experiência e produtividade
+
+- Salvar largura das colunas por usuário, além de filtros, busca e ordenação.
+- Avaliar salvar a última aba aberta em telas maiores, como Relatórios e Parâmetros.
+- Planejar atalhos operacionais para fluxos recorrentes, depois de estabilizar o updater.
+- Seguir a passada final de acessibilidade e consistência visual, tela por tela.
 
 ## Pedidos e compras
 
-- Implementar uma aba em Pedidos.
-- Criar um campo para insercao de links de compra.
-- Exemplos de links previstos: Mercado Livre, Amazon, Kabum e sites semelhantes.
+- Avaliar se ainda faz sentido criar uma aba extra em `Pedidos`.
+- Estudar melhorias futuras no fluxo de links de compra, como abrir histórico, copiar link e validar domínios mais comuns.
 
-## Experiencia e produtividade
+## Auditoria e segurança
 
-- Salvar preferencias por usuario, como ordenacao do grid, largura das colunas e filtros mais usados.
-- Melhorar mensagens de retorno para confirmar acoes e explicar erros com mais clareza.
-- Destacar melhor os campos obrigatorios nas telas de cadastro.
-- Implementar busca rapida dentro dos widgets por codigo, nome, status e outros campos relevantes.
-- Criar um painel tecnico discreto com status da API, banco, rede e versao atual do app.
-- Planejar atalhos operacionais para fluxos comuns depois que a navegacao por teclado estiver consolidada.
+- Fazer uma terceira rodada da auditoria ampla, cobrindo mais ações administrativas e operacionais sensíveis.
+- Revisar se existem pontos de permissão que ainda dependem mais do desktop do que do backend.
 
-## Notificacoes e atualizacao em tempo real
+## Ideias novas para avaliar
 
-- Adicionar um modo "Nao perturbe" para notificacoes.
-- Corrigir o bug em que o card de manutencoes pendentes nao atualiza em tempo real quando o status e alterado.
-
-## Movimentacoes e rastreabilidade
-
-- Exigir confirmacao por senha sempre que registrar uma nova movimentacao, seja entrada ou saida.
-- Aproveitar o sistema de logs ja existente para registrar confirmacoes e operacoes de movimentacao.
-
-## Proximo passo quando retomarmos
-
-- Quebrar cada bloco em tarefas menores.
-- Definir prioridade entre UX, seguranca de acesso e monitoramento.
-- Avaliar impacto de banco, API e desktop em cada item antes de desenvolver.
+- Criar um checklist interno de publicação de release para não repetir erros de updater e assets.
+- Criar uma tela ou painel de diagnóstico da atualização para suporte técnico.
+- Definir uma política clara de releases:
+  - release de ponte;
+  - release técnica;
+  - release funcional.
+- Avaliar um canal interno de testes antes de marcar uma versão como `Latest`.
