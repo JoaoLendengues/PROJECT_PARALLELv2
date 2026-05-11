@@ -6,6 +6,7 @@ Este arquivo concentra apenas o que ainda faz sentido como próximo trabalho, re
 
 ## Prioridade imediata
 
+- Refazer o sistema de atualizações do zero para correção de erros. Este item é crítico e tem prioridade máxima.
 - Refinar o atualizador automático com helper externo, staging validado, estado pendente e relançamento confiável do app.
 - Concluir rollback e recuperação automática quando a atualização falhar no meio do processo.
 - Melhorar a telemetria local do updater com `update.log`, `update_state.json` e mensagens mais claras na interface.
@@ -15,7 +16,9 @@ Este arquivo concentra apenas o que ainda faz sentido como próximo trabalho, re
 ## Monitoramento e conectividade
 
 - Evoluir o monitoramento de máquinas para destacar servidores e hosts críticos.
+- Refinar a tela de Máquinas como um todo.
 - Enriquecer o diagnóstico da malha LAN-to-LAN com leitura mais analítica de estabilidade e indisponibilidade acumulada.
+- Adicionar monitoramento de links dedicados, juntamente com o L2L.
 - Diferenciar melhor, no monitoramento, falha de máquina, falha de rota e falha de unidade.
 - Avaliar integração futura com recursos nativos do firewall Netdeep, caso valha a pena tecnicamente.
 
@@ -39,6 +42,12 @@ Este arquivo concentra apenas o que ainda faz sentido como próximo trabalho, re
 - Aproximar ainda mais a central do padrão visual elegante/tech usado nos pop-ups.
 - Estudar filtros rápidos extras, como `só não lidas`, `só críticas` e `só acionáveis`.
 
+## Usuários, permissões e pessoas
+
+- Evoluir a liberação de usuários para um modelo mais personalizável, sem ficar restrita apenas aos níveis predefinidos.
+- Refinar a tela de colaboradores.
+- Fazer uma nova rodada de revisão das permissões para garantir coerência entre backend, desktop e experiência visual.
+
 ## Experiência e produtividade
 
 - Salvar largura das colunas por usuário, além de filtros, busca e ordenação.
@@ -56,8 +65,15 @@ Este arquivo concentra apenas o que ainda faz sentido como próximo trabalho, re
 - Fazer uma terceira rodada da auditoria ampla, cobrindo mais ações administrativas e operacionais sensíveis.
 - Revisar se existem pontos de permissão que ainda dependem mais do desktop do que do backend.
 
-## Ideias novas para avaliar
+## Produto, expansão e infraestrutura
 
+- Alterar o nome oficial do projeto e da aplicação para `Link Flow`.
+- Discutir a hospedagem da aplicação e do banco de dados no [Square Cloud](https://squarecloud.app/pt-br/home).
+- Discutir a versão mobile e a versão web do projeto.
+
+## Qualidade, desempenho e UX
+
+- Fazer uma revisão ampla de código com foco em performance, correção de bugs, qualidade de vida e experiência de usuário.
 - Criar um checklist interno de publicação de release para não repetir erros de updater e assets.
 - Criar uma tela ou painel de diagnóstico da atualização para suporte técnico.
 - Definir uma política clara de releases:
