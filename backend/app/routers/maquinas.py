@@ -39,6 +39,53 @@ def _normalize_mac(value: Optional[str]) -> str:
     return raw.upper()
 
 
+def _find_duplicate_machine(
+    db: Session,
+    *,
+    empresa: Optional[str],
+    nome: Optional[str],
+    mac_address: Optional[str],
+    ip_address: Optional[str],
+    exclude_id: Optional[int] = None,
+):
+    empresa_norm = _normalize_text(empresa)
+    nome_norm = _normalize_text(nome)
+    mac_norm = _normalize_mac(mac_address)
+    ip_norm = _normalize_text(ip_address)
+
+    query = db.query(models.Maquina)
+    if exclude_id is not None:
+        query = query.filter(models.Maquina.id != exclude_id)
+
+    for maquina in query.all():
+        if empresa_norm and _normalize_text(maquina.empresa) != empresa_norm:
+            continue
+
+        if nome_norm and _normalize_text(maquina.nome) == nome_norm:
+            return maquina, "nome"
+
+        if mac_norm and _normalize_mac(maquina.mac_address) == mac_norm:
+            return maquina, "mac_address"
+
+        if ip_norm and _normalize_text(maquina.ip_address) == ip_norm:
+            return maquina, "ip_address"
+
+    return None, None
+
+
+def _duplicate_machine_detail(field_name: str, maquina: models.Maquina) -> str:
+    labels = {
+        "nome": "nome",
+        "mac_address": "endereco MAC",
+        "ip_address": "IP/Host",
+    }
+    label = labels.get(field_name, "identificacao")
+    return (
+        f"Ja existe uma maquina nesta empresa com o mesmo {label}: "
+        f"{maquina.nome} (ID {maquina.id})."
+    )
+
+
 def _heartbeat_age_seconds(maquina: models.Maquina, now: datetime) -> Optional[int]:
     if not maquina.ultimo_heartbeat_em:
         return None
@@ -339,6 +386,17 @@ def criar_maquina(
         raise HTTPException(status_code=400, detail='Já existe uma máquina com este nome nesta empresa')
     
     # Criar nova máquina
+    duplicate, duplicate_field = _find_duplicate_machine(
+        db,
+        empresa=maquina.empresa,
+        nome=maquina.nome,
+        mac_address=maquina.mac_address,
+        ip_address=maquina.ip_address,
+    )
+
+    if duplicate:
+        raise HTTPException(status_code=400, detail=_duplicate_machine_detail(duplicate_field, duplicate))
+
     usuario_auditoria = get_request_user(request, db)
     nova_maquina = models.Maquina(**maquina.model_dump())
     db.add(nova_maquina)
@@ -379,6 +437,23 @@ def atualizar_maquina(
     usuario_auditoria = get_request_user(request, db)
     dados_anteriores = model_to_dict(maquina_existente)
     update_data = maquina.model_dump(exclude_unset=True)
+
+    empresa_destino = update_data.get("empresa", maquina_existente.empresa)
+    nome_destino = update_data.get("nome", maquina_existente.nome)
+    mac_destino = update_data.get("mac_address", maquina_existente.mac_address)
+    ip_destino = update_data.get("ip_address", maquina_existente.ip_address)
+
+    duplicate, duplicate_field = _find_duplicate_machine(
+        db,
+        empresa=empresa_destino,
+        nome=nome_destino,
+        mac_address=mac_destino,
+        ip_address=ip_destino,
+        exclude_id=maquina_existente.id,
+    )
+
+    if duplicate:
+        raise HTTPException(status_code=400, detail=_duplicate_machine_detail(duplicate_field, duplicate))
 
     for field, value in update_data.items():
         setattr(maquina_existente, field, value)

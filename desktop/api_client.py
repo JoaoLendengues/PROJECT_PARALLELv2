@@ -54,6 +54,20 @@ class APIClient:
             headers['Authorization'] = f'Bearer {self.token}'
         return headers
 
+    def _response_error_message(self, response, default_message):
+        """Extrai a mensagem de erro mais util possivel da resposta da API."""
+        try:
+            data = response.json()
+            if isinstance(data, dict):
+                detail = data.get("detail") or data.get("error") or data.get("message")
+                if detail:
+                    return str(detail)
+        except Exception:
+            pass
+
+        text = (response.text or "").strip()
+        return text or default_message
+
     # =====================================================
     # Autenticação
     # =====================================================
@@ -179,12 +193,10 @@ class APIClient:
                 # ✅ Limpar cache de materiais
                 self._clear_cache("materiais_lista")
                 return response.json()
-            else:
-                print(f"Erro ao criar material: {response.status_code}")
-                return None
+            raise Exception(self._response_error_message(response, "Nao foi possivel criar o material"))
         except Exception as e:
             print(f"Erro ao criar material: {e}")
-            return None
+            raise
 
     def atualizar_material(self, material_id, material):
         """Atualiza um material"""
@@ -199,10 +211,10 @@ class APIClient:
                 # ✅ Limpar cache
                 self._clear_cache("materiais_lista")
                 return response.json()
-            return None
+            raise Exception(self._response_error_message(response, "Nao foi possivel atualizar o material"))
         except Exception as e:
             print(f"Erro ao atualizar material: {e}")
-            return None
+            raise
 
     def deletar_material(self, material_id):
         """Deleta um material"""
@@ -215,9 +227,11 @@ class APIClient:
             if response.status_code == 200:
                 # ✅ Limpar cache
                 self._clear_cache("materiais_lista")
-            return response.status_code == 200
-        except:
-            return False
+                return True
+            raise Exception(self._response_error_message(response, "Nao foi possivel deletar o material"))
+        except Exception as e:
+            print(f"Erro ao deletar material: {e}")
+            raise
 
     def listar_categorias(self, use_cache=True):
         """Lista categorias de materiais com cache"""
@@ -328,9 +342,10 @@ class APIClient:
             if response.status_code == 201:
                 self._clear_cache("maquinas_lista")
                 return response.json()
-            return None
-        except:
-            return None
+            raise Exception(self._response_error_message(response, "Nao foi possivel criar a maquina"))
+        except Exception as e:
+            print(f"Erro ao criar maquina: {e}")
+            raise
 
     def atualizar_maquina(self, maquina_id, maquina):
         """Atualiza uma máquina"""
@@ -344,9 +359,10 @@ class APIClient:
             if response.status_code == 200:
                 self._clear_cache("maquinas_lista")
                 return response.json()
-            return None
-        except:
-            return None
+            raise Exception(self._response_error_message(response, "Nao foi possivel atualizar a maquina"))
+        except Exception as e:
+            print(f"Erro ao atualizar maquina: {e}")
+            raise
 
     def deletar_maquina(self, maquina_id):
         """Deleta uma máquina"""
@@ -358,9 +374,11 @@ class APIClient:
             )
             if response.status_code == 200:
                 self._clear_cache("maquinas_lista")
-            return response.status_code == 200
-        except:
-            return False
+                return True
+            raise Exception(self._response_error_message(response, "Nao foi possivel deletar a maquina"))
+        except Exception as e:
+            print(f"Erro ao deletar maquina: {e}")
+            raise
 
     def listar_departamentos(self):
         """Lista departamentos"""

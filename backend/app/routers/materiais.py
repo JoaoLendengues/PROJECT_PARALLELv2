@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from app.audit import get_request_user, model_to_dict, registrar_log_auditoria
@@ -162,6 +163,16 @@ def deletar_material(
             detail='Não é possível deletar material com movimentações registradas'
         )
     
+    pedidos = db.query(models.Pedido).filter(
+        models.Pedido.material_id == material_id
+    ).first()
+
+    if pedidos:
+        raise HTTPException(
+            status_code=400,
+            detail='Material vinculado a pedidos registrados'
+        )
+
     usuario_auditoria = get_request_user(request, db)
     dados_anteriores = model_to_dict(material)
 
@@ -175,8 +186,15 @@ def deletar_material(
         request=request,
     )
 
-    db.delete(material)
-    db.commit()
+    try:
+        db.delete(material)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail='Material vinculado a outros registros do sistema'
+        )
 
     return {'message': 'Material deletado com sucesso'}
 
