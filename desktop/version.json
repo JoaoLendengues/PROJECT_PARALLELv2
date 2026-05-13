@@ -1,5 +1,5 @@
 {
-    "version": "1.2.4",
+    "version": "1.2.5",
     "release_date": "2026-05-13",
-    "changelog": "Refinamento tecnico do atualizador automatico com helper externo, staging, logs e recuperacao de falhas."
+    "changelog": "Salva a última aba aberta por usuário nas telas de Relatórios e Parâmetros."
 }

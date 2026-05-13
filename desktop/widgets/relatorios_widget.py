@@ -33,6 +33,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 
 from access_control import get_action_label, has_action_access
 from api_client import api_client
+from user_preferences import get_widget_preferences, save_widget_preferences
 from widgets.filter_utils import filter_value, is_all_option
 from widgets.table_utils import configure_data_table, refresh_data_table_layout
 
@@ -61,6 +62,7 @@ class RelatoriosWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.usuario = {}
+        self._restoring_tab_state = False
         self._loaded_tabs = {
             "movimentacoes": False,
             "estoque": False,
@@ -87,6 +89,7 @@ class RelatoriosWidget(QWidget):
     def set_usuario(self, usuario):
         self.usuario = usuario or {}
         self.aplicar_permissoes()
+        self._restore_saved_tab()
 
     def _pode(self, action_key):
         return has_action_access(self.usuario, action_key)
@@ -227,6 +230,30 @@ class RelatoriosWidget(QWidget):
         layout.addWidget(self.tabs)
         self.aplicar_permissoes()
 
+    def _restore_saved_tab(self):
+        preferences = get_widget_preferences(self.usuario, "relatorios")
+        active_tab = preferences.get("active_tab")
+        if not isinstance(active_tab, str):
+            return
+
+        for index in range(self.tabs.count()):
+            if self.tabs.tabText(index) == active_tab:
+                self._restoring_tab_state = True
+                try:
+                    self.tabs.setCurrentIndex(index)
+                finally:
+                    self._restoring_tab_state = False
+                return
+
+    def _save_active_tab(self):
+        current_index = self.tabs.currentIndex()
+        if current_index < 0:
+            return
+
+        preferences = get_widget_preferences(self.usuario, "relatorios")
+        preferences["active_tab"] = self.tabs.tabText(current_index)
+        save_widget_preferences(self.usuario, "relatorios", preferences)
+
     def aplicar_permissoes(self):
         pode_exportar = self._pode("relatorios.export")
         for attr_name in (
@@ -244,6 +271,8 @@ class RelatoriosWidget(QWidget):
                 btn.setVisible(pode_exportar)
 
     def on_tab_changed(self, index):
+        if not self._restoring_tab_state:
+            self._save_active_tab()
         tab_text = self.tabs.tabText(index)
         if tab_text == "Movimentações" and not self._loaded_tabs["movimentacoes"]:
             self.carregar_movimentacoes()

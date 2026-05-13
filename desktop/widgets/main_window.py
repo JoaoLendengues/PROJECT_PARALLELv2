@@ -239,6 +239,7 @@ class MainWindow(QMainWindow):
             self.colaboradores_widget,
             self.demandas_widget,
             self.relatorios_widget,
+            self.parametros_widget,
         ):
             if hasattr(widget, "set_usuario"):
                 widget.set_usuario(self.usuario)

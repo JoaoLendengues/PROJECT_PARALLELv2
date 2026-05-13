@@ -18,6 +18,7 @@ from accessibility_manager import (
 )
 from widgets.toast_notification import notification_manager
 from widgets.table_utils import configure_data_table, number_item
+from user_preferences import get_widget_preferences, save_widget_preferences
 import socket
 import requests
 from datetime import datetime
@@ -30,6 +31,8 @@ import unicodedata
 class ParametrosWidget(QWidget):
     def __init__(self):
         super().__init__()
+        self.usuario = {}
+        self._restoring_tab_state = False
         # Inicializar listas vazias (serÃƒÂ£o carregadas do backend)
         self.empresas = []
         self.departamentos = []
@@ -54,6 +57,10 @@ class ParametrosWidget(QWidget):
             self.carregar_lista_backups()
             self._loaded = True
 
+    def set_usuario(self, usuario):
+        self.usuario = usuario or {}
+        self._restore_saved_tab()
+
     def init_ui(self):
         layout = QVBoxLayout(self)
         layout.setSpacing(20)
@@ -63,37 +70,38 @@ class ParametrosWidget(QWidget):
         titulo.setProperty("class", "page-title")
         layout.addWidget(titulo)
 
-        tabs = QTabWidget()
-        tabs.setObjectName("paramTabs")
+        self.tabs = QTabWidget()
+        self.tabs.setObjectName("paramTabs")
+        self.tabs.currentChanged.connect(self.on_tab_changed)
 
         tab_geral = self.create_tab_geral()
-        tabs.addTab(tab_geral, "Configurações Gerais")
+        self.tabs.addTab(tab_geral, "Configurações Gerais")
 
         tab_acessibilidade = self.create_tab_acessibilidade()
-        tabs.addTab(tab_acessibilidade, "Acessibilidade")
+        self.tabs.addTab(tab_acessibilidade, "Acessibilidade")
 
         tab_notificacoes = self.create_tab_notificacoes()
-        tabs.addTab(tab_notificacoes, "Notificações")
+        self.tabs.addTab(tab_notificacoes, "Notificações")
 
         tab_empresas = self.create_tab_empresas()
-        tabs.addTab(tab_empresas, "Empresas")
+        self.tabs.addTab(tab_empresas, "Empresas")
 
         tab_departamentos = self.create_tab_departamentos()
-        tabs.addTab(tab_departamentos, "Departamentos")
+        self.tabs.addTab(tab_departamentos, "Departamentos")
 
         tab_categorias = self.create_tab_categorias()
-        tabs.addTab(tab_categorias, "Categorias")
+        self.tabs.addTab(tab_categorias, "Categorias")
 
         tab_cargos = self.create_tab_cargos()
-        tabs.addTab(tab_cargos, "Cargos")
+        self.tabs.addTab(tab_cargos, "Cargos")
 
         tab_backup = self.create_tab_backup()
-        tabs.addTab(tab_backup, "Backup")
+        self.tabs.addTab(tab_backup, "Backup")
 
         tab_servidor = self.create_tab_servidor()
-        tabs.addTab(tab_servidor, "Servidor")
+        self.tabs.addTab(tab_servidor, "Servidor")
 
-        layout.addWidget(tabs)
+        layout.addWidget(self.tabs)
 
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
@@ -109,6 +117,42 @@ class ParametrosWidget(QWidget):
         btn_layout.addWidget(self.btn_cancelar)
 
         layout.addLayout(btn_layout)
+
+    def _restore_saved_tab(self):
+        if not hasattr(self, "tabs"):
+            return
+
+        preferences = get_widget_preferences(self.usuario, "parametros")
+        active_tab = preferences.get("active_tab")
+        if not isinstance(active_tab, str):
+            return
+
+        for index in range(self.tabs.count()):
+            if self.tabs.tabText(index) == active_tab:
+                self._restoring_tab_state = True
+                try:
+                    self.tabs.setCurrentIndex(index)
+                finally:
+                    self._restoring_tab_state = False
+                return
+
+    def _save_active_tab(self):
+        if not hasattr(self, "tabs"):
+            return
+
+        current_index = self.tabs.currentIndex()
+        if current_index < 0:
+            return
+
+        preferences = get_widget_preferences(self.usuario, "parametros")
+        preferences["active_tab"] = self.tabs.tabText(current_index)
+        save_widget_preferences(self.usuario, "parametros", preferences)
+
+    def on_tab_changed(self, index):
+        if index < 0:
+            return
+        if not self._restoring_tab_state:
+            self._save_active_tab()
 
     def create_tab_geral(self):
         """Aba de configuracoes gerais"""
