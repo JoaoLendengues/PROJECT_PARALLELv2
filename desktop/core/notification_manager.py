@@ -1,6 +1,7 @@
 import threading
 from datetime import datetime
 from PySide6.QtCore import QObject, Signal, QTimer
+from PySide6.QtWidgets import QApplication
 from api_client import api_client
 
 
@@ -41,6 +42,13 @@ class NotificationManager(QObject):
     def set_parent(self, parent):
         """Define a janela principal para exibir toasts"""
         self._parent = parent
+        self.iniciar_verificacao_periodica()
+        try:
+            from widgets.toast_notification import notification_manager as toast_manager
+            toast_manager.set_parent(parent)
+        except Exception as e:
+            print(f"Erro ao vincular parent do toast manager: {e}")
+        QTimer.singleShot(1200, self.verificar_novas_notificacoes)
     
     def carregar_configuracoes(self):
         """Carrega as configurações de notificação do backend"""
@@ -58,9 +66,18 @@ class NotificationManager(QObject):
     
     def iniciar_verificacao_periodica(self):
         """Inicia a verificação periódica de novas notificações"""
-        self._timer_verificacao = QTimer()
-        self._timer_verificacao.timeout.connect(self.verificar_novas_notificacoes)
-        self._timer_verificacao.start(30000)  # 30 segundos
+        app = QApplication.instance()
+        if app is None:
+            return False
+
+        if self._timer_verificacao is None:
+            self._timer_verificacao = QTimer(self)
+            self._timer_verificacao.timeout.connect(self.verificar_novas_notificacoes)
+
+        if not self._timer_verificacao.isActive():
+            self._timer_verificacao.start(30000)  # 30 segundos
+
+        return True
     
     def verificar_novas_notificacoes(self):
         """Verifica se há novas notificações no backend"""
