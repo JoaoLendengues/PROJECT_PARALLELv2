@@ -78,10 +78,11 @@ def finalize_pending_update():
 
     status = state.get("status")
     target_version = str(state.get("target_version", "")).strip()
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     if status == "applied" and target_version == CURRENT_VERSION:
         state["status"] = "completed"
-        state["completed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        state["completed_at"] = timestamp
         _save_update_state(state)
         return {
             "status": "completed",
@@ -90,7 +91,7 @@ def finalize_pending_update():
 
     if status in {"pending", "applying"} and target_version and target_version != CURRENT_VERSION:
         state["status"] = "failed"
-        state["failed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        state["failed_at"] = timestamp
         state.setdefault(
             "last_error",
             "A atualização anterior não concluiu antes da reabertura do aplicativo.",
@@ -102,6 +103,26 @@ def finalize_pending_update():
                 f"A atualização para a versão {target_version} não foi concluída. "
                 f"Consulte o log em {get_update_log_path()}."
             ),
+        }
+
+    if status == "failed" and not state.get("startup_notified_at"):
+        state["startup_notified_at"] = timestamp
+        _save_update_state(state)
+
+        last_error = state.get("last_error") or "Falha ao aplicar a atualização."
+        rollback_applied = state.get("rollback_applied")
+        rollback_note = ""
+        if rollback_applied is True:
+            rollback_note = " O sistema foi restaurado a partir do backup."
+        elif rollback_applied is False:
+            rollback_note = " O rollback não pôde ser concluído automaticamente."
+
+        return {
+            "status": "failed",
+            "message": (
+                f"A atualização para a versão {target_version or 'informada'} falhou. "
+                f"{last_error}.{rollback_note} Consulte o log em {get_update_log_path()}."
+            ).replace("..", "."),
         }
 
     return None
@@ -222,6 +243,13 @@ class UpdateInstaller:
     PROTECTED_DIRS = ("backup", "logs", "temp_update", "__pycache__")
 
     @staticmethod
+    def _append_update_log(log_path: Path, message: str):
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("a", encoding="utf-8") as log_file:
+            log_file.write(f"[{timestamp}] {message}\n")
+
+    @staticmethod
     def _get_short_path(path: Path):
         """Retorna um caminho curto do Windows para uso em scripts CMD."""
         try:
@@ -278,30 +306,52 @@ class UpdateInstaller:
             log_path = get_update_log_path()
             log_path.parent.mkdir(parents=True, exist_ok=True)
             log_path.write_text("", encoding="utf-8")
+            UpdateInstaller._append_update_log(
+                log_path,
+                f"Iniciando atualização a partir do arquivo {update_file}.",
+            )
 
             update_path = Path(update_file)
             if update_path.suffix.lower() == ".exe":
+                UpdateInstaller._append_update_log(log_path, "Modo de atualização por instalador detectado.")
                 script_path = UpdateInstaller._write_installer_update_script(
                     app_dir=app_dir,
                     installer_file=update_path,
                     process_id=os.getpid(),
                 )
             else:
+                UpdateInstaller._append_update_log(log_path, "Modo de atualização portátil detectado.")
                 staging_dir = Path(tempfile.mkdtemp(prefix="project_parallel_stage_"))
                 with zipfile.ZipFile(update_path, "r") as archive:
                     archive.extractall(staging_dir)
+                UpdateInstaller._append_update_log(
+                    log_path,
+                    f"Pacote extraído para staging em {staging_dir}.",
+                )
 
                 payload_dir = UpdateInstaller._find_payload_dir(staging_dir)
                 if payload_dir is None:
+                    UpdateInstaller._append_update_log(
+                        log_path,
+                        "Falha ao localizar um payload válido dentro do ZIP baixado.",
+                    )
                     shutil.rmtree(staging_dir, ignore_errors=True)
                     return False, "O ZIP da release não contém o build empacotado esperado."
 
                 validation_error = UpdateInstaller._validate_payload(payload_dir)
                 if validation_error:
+                    UpdateInstaller._append_update_log(
+                        log_path,
+                        f"Falha de validação do payload: {validation_error}",
+                    )
                     shutil.rmtree(staging_dir, ignore_errors=True)
                     return False, validation_error
 
                 target_version = UpdateInstaller._extract_version_from_asset(update_path.name)
+                UpdateInstaller._append_update_log(
+                    log_path,
+                    f"Payload validado com sucesso para a versão alvo {target_version}.",
+                )
                 UpdateInstaller._write_pending_state(
                     target_version=target_version,
                     backup_dir=backup_dir,
@@ -315,6 +365,10 @@ class UpdateInstaller:
                     process_id=os.getpid(),
                     target_version=target_version,
                 )
+                UpdateInstaller._append_update_log(
+                    log_path,
+                    "Helper de atualização iniciado com sucesso. A aplicação principal será encerrada.",
+                )
 
                 return (
                     True,
@@ -323,6 +377,10 @@ class UpdateInstaller:
                 )
 
             UpdateInstaller._launch_update_script(script_path)
+            UpdateInstaller._append_update_log(
+                log_path,
+                "Script silencioso de atualização iniciado com sucesso.",
+            )
 
             return (
                 True,
@@ -330,6 +388,13 @@ class UpdateInstaller:
                 f"e reabrir em seguida.\n\nBackup: {backup_dir}",
             )
         except Exception as error:
+            try:
+                UpdateInstaller._append_update_log(
+                    get_update_log_path(),
+                    f"Falha antes da aplicação da atualização: {error}",
+                )
+            except Exception:
+                pass
             return False, str(error)
 
     @staticmethod
@@ -386,6 +451,9 @@ class UpdateInstaller:
             "asset_name": asset_name,
             "backup_dir": backup_dir,
             "started_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "startup_notified_at": None,
+            "last_error": None,
+            "rollback_applied": None,
         }
         _save_update_state(state)
 
@@ -402,10 +470,14 @@ class UpdateInstaller:
         process_id: int,
         target_version: str,
     ):
-        helper_source = UpdateInstaller._helper_executable_path(app_dir)
+        payload_helper = payload_dir / "update_helper.exe"
+        installed_helper = UpdateInstaller._helper_executable_path(app_dir)
+        helper_source = payload_helper if payload_helper.exists() else installed_helper
+
         if not helper_source.exists():
             raise FileNotFoundError(
-                f"O helper de atualização não foi encontrado em {helper_source}."
+                "O helper de atualização não foi encontrado nem na instalação atual "
+                f"({installed_helper}) nem no pacote baixado ({payload_helper})."
             )
 
         helper_runtime_dir = Path(tempfile.mkdtemp(prefix="project_parallel_helper_"))

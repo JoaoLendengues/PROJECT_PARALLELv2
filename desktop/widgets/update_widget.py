@@ -1,3 +1,5 @@
+import os
+
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -13,6 +15,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QFont
 
+from app_paths import get_update_log_path
 from updater import UpdateChecker, UpdateDownloader, UpdateInstaller
 from version import CURRENT_VERSION
 
@@ -76,8 +79,32 @@ class UpdateWidget(QWidget):
         self.update_btn.clicked.connect(self.install_update)
         btn_layout.addWidget(self.update_btn)
 
+        self.log_btn = QPushButton("Abrir log")
+        self.log_btn.setVisible(False)
+        self.log_btn.clicked.connect(self.abrir_log_atualizacao)
+        btn_layout.addWidget(self.log_btn)
+
         layout.addLayout(btn_layout)
         layout.addStretch()
+        self._refresh_log_button_visibility()
+
+    def _refresh_log_button_visibility(self):
+        self.log_btn.setVisible(get_update_log_path().exists())
+
+    def abrir_log_atualizacao(self):
+        log_path = get_update_log_path()
+        if not log_path.exists():
+            QMessageBox.information(self, "Log indisponível", "Ainda não existe um log de atualização nesta máquina.")
+            return
+
+        try:
+            os.startfile(str(log_path))
+        except Exception as error:
+            QMessageBox.warning(
+                self,
+                "Falha ao abrir log",
+                f"Não foi possível abrir o arquivo de log.\n\nCaminho: {log_path}\nErro: {error}",
+            )
 
     def check_for_updates(self):
         self.status_label.setText("Verificando...")
@@ -93,6 +120,7 @@ class UpdateWidget(QWidget):
         self.update_info = update_info
         self.status_label.setText(f"Nova versão {update_info['version']} disponível.")
         self.status_label.setStyleSheet("color: #2a9d8f;")
+        self._refresh_log_button_visibility()
 
         self.changelog_label.setVisible(True)
         self.changelog_text.setVisible(True)
@@ -105,11 +133,13 @@ class UpdateWidget(QWidget):
         self.status_label.setText("Você já tem a versão mais recente.")
         self.status_label.setStyleSheet("color: #2a9d8f;")
         self.check_btn.setEnabled(True)
+        self._refresh_log_button_visibility()
 
     def on_check_error(self, error_msg):
         self.status_label.setText(f"Erro: {error_msg}")
         self.status_label.setStyleSheet("color: #e76f51;")
         self.check_btn.setEnabled(True)
+        self._refresh_log_button_visibility()
 
     def install_update(self):
         if not self.update_info:
@@ -145,15 +175,21 @@ class UpdateWidget(QWidget):
     def on_download_finished(self, file_path):
         self.progress_bar.setVisible(False)
         self.status_label.setText("Preparando atualização...")
+        self._refresh_log_button_visibility()
 
         success, message = UpdateInstaller.install_update(file_path)
 
         if success:
+            self._refresh_log_button_visibility()
             QMessageBox.information(self, "Sucesso", message)
             QTimer.singleShot(1000, QApplication.instance().quit)
             return
 
-        QMessageBox.critical(self, "Erro", f"Falha: {message}")
+        self._refresh_log_button_visibility()
+        details = f"Falha: {message}"
+        if get_update_log_path().exists():
+            details += f"\n\nLog: {get_update_log_path()}"
+        QMessageBox.critical(self, "Erro", details)
         self.update_btn.setEnabled(True)
         self.check_btn.setEnabled(True)
 
@@ -163,3 +199,4 @@ class UpdateWidget(QWidget):
         self.status_label.setStyleSheet("color: #e76f51;")
         self.update_btn.setEnabled(True)
         self.check_btn.setEnabled(True)
+        self._refresh_log_button_visibility()

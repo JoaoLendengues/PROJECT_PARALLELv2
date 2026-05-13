@@ -43,6 +43,7 @@ Type: filesandordirs; Name: "{app}\_internal"
 
 [Files]
 Source: "{#BuildRoot}\main.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BuildRoot}\update_helper.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BuildRoot}\_internal\*"; DestDir: "{app}\_internal"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "desktop\.env"; DestDir: "{app}"; DestName: ".env"; Flags: ignoreversion onlyifdoesntexist uninsneveruninstall skipifsourcedoesntexist
 

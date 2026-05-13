@@ -17,6 +17,7 @@ dist/
 build/
 output/
 desktop/output/
+desktop/output_*/
 desktop/build/
 installer_output/
 eggs/
