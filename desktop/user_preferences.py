@@ -2,6 +2,7 @@ import json
 from typing import Any, Dict, Optional
 
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QHeaderView
 
 from app_paths import get_user_preferences_path
 from widgets.filter_utils import normalize_text
@@ -136,3 +137,39 @@ def apply_table_sort_state(table, state: Optional[dict]) -> bool:
     table.horizontalHeader().setSortIndicator(column, order)
     table.sortItems(column, order)
     return True
+
+
+def get_table_column_widths(table) -> dict:
+    header = table.horizontalHeader()
+    widths = {}
+
+    for column in range(table.columnCount()):
+        widths[str(column)] = int(header.sectionSize(column))
+
+    return widths
+
+
+def apply_table_column_widths(table, state: Optional[dict]) -> bool:
+    if not state or not isinstance(state, dict):
+        return False
+
+    header = table.horizontalHeader()
+    applied = False
+
+    for key, width in state.items():
+        try:
+            column = int(key)
+            size = int(width)
+        except Exception:
+            continue
+
+        if column < 0 or column >= table.columnCount() or size <= 0:
+            continue
+
+        if header.sectionResizeMode(column) == QHeaderView.Stretch:
+            continue
+
+        header.resizeSection(column, size)
+        applied = True
+
+    return applied

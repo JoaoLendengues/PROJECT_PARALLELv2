@@ -12,9 +12,11 @@ from widgets.toast_notification import notification_manager
 from widgets.filter_utils import contains_text, is_all_option, same_filter_value, same_text
 from widgets.table_utils import configure_data_table, number_item, refresh_data_table_layout
 from user_preferences import (
+    apply_table_column_widths,
     apply_combo_data,
     apply_combo_text,
     apply_table_sort_state,
+    get_table_column_widths,
     get_table_sort_state,
     get_widget_preferences,
     save_widget_preferences,
@@ -166,6 +168,7 @@ class MaquinasWidget(QWidget):
 
         # Barra de pesquisa
         self.pesquisa_edit = QLineEdit()
+        self.pesquisa_edit.setObjectName("machineSearchInput")
         self.pesquisa_edit.setPlaceholderText("🔍 Pesquisar por nome, modelo, MAC...")
         self.pesquisa_edit.setMaximumWidth(350)
         self.pesquisa_edit.textChanged.connect(self.filtrar_maquinas)
@@ -200,6 +203,24 @@ class MaquinasWidget(QWidget):
         self.status_filter.addItems(["Todos", "Ativo", "Manutenção", "Inativo"])
         self.status_filter.currentTextChanged.connect(self.filtrar_maquinas)
         filtros_layout.addWidget(self.status_filter)
+
+        filtros_layout.addWidget(QLabel("Rede:"))
+        self.rede_filter = QComboBox()
+        self.rede_filter.setMinimumWidth(140)
+        self.rede_filter.setMaximumWidth(170)
+        self.rede_filter.addItems(
+            [
+                "Todas",
+                "Online",
+                "Sem resposta",
+                "Sem rota",
+                "Rota com erro",
+                "Sem alvo",
+                "Com erro",
+            ]
+        )
+        self.rede_filter.currentTextChanged.connect(self.filtrar_maquinas)
+        filtros_layout.addWidget(self.rede_filter)
 
         filtros_layout.addStretch()
 
@@ -261,6 +282,7 @@ class MaquinasWidget(QWidget):
             },
         )
         self.tabela.horizontalHeader().sortIndicatorChanged.connect(self._ao_ordenar_tabela)
+        self.tabela.horizontalHeader().sectionResized.connect(self._ao_redimensionar_coluna)
         self.tabela.itemSelectionChanged.connect(self._update_detail_from_selection)
 
         self.detail_card = self._create_detail_panel()
@@ -363,6 +385,19 @@ class MaquinasWidget(QWidget):
         self.detail_body.setTextInteractionFlags(Qt.TextSelectableByMouse)
         layout.addWidget(self.detail_body, 1)
 
+        actions = QHBoxLayout()
+        actions.setSpacing(8)
+
+        self.detail_copy_btn = QPushButton("Copiar IP/Host")
+        self.detail_copy_btn.clicked.connect(self._copiar_ip_ou_host_selecionado)
+        actions.addWidget(self.detail_copy_btn)
+
+        self.detail_edit_btn = QPushButton("Editar")
+        self.detail_edit_btn.clicked.connect(self.editar_maquina)
+        actions.addWidget(self.detail_edit_btn)
+
+        layout.addLayout(actions)
+
         return card
 
     def _set_summary_value(self, key, value):
@@ -375,6 +410,10 @@ class MaquinasWidget(QWidget):
             self.detail_body.setText(
                 "Selecione uma máquina para ver IP/Host, rota de rede, status operacional, MAC e observações."
             )
+        if hasattr(self, "detail_copy_btn"):
+            self.detail_copy_btn.setEnabled(False)
+        if hasattr(self, "detail_edit_btn"):
+            self.detail_edit_btn.setEnabled(False)
 
     def _build_detail_text(self, maquina, monitor_label, monitor_tooltip, ip_ou_host):
         observacoes = maquina.get("observacoes") or "-"
@@ -390,6 +429,32 @@ class MaquinasWidget(QWidget):
             f"Status operacional: {str(maquina.get('status', '-')).upper()}\n"
             f"Observações: {observacoes}"
         )
+
+    def _copiar_ip_ou_host_selecionado(self):
+        current_row = self.tabela.currentRow()
+        if current_row < 0:
+            return
+
+        id_item = self.tabela.item(current_row, 0)
+        if id_item is None:
+            return
+
+        try:
+            maquina_id = int(id_item.text())
+        except Exception:
+            return
+
+        maquina = next((item for item in self._visible_maquinas if item.get("id") == maquina_id), None)
+        if not maquina:
+            return
+
+        ip_ou_host, _monitor_label, _monitor_status, _monitor_tooltip = self._resolve_monitoramento_visual(maquina)
+        if not ip_ou_host or ip_ou_host == "-":
+            notification_manager.error("Esta máquina não possui IP/Host configurado.", self.window(), 2500)
+            return
+
+        QApplication.clipboard().setText(str(ip_ou_host))
+        notification_manager.success("IP/Host copiado para a área de transferência.", self.window(), 2500)
 
     def empresa_pronta(self):
         return company_filter_ready(self.empresa_filter)
@@ -423,6 +488,12 @@ class MaquinasWidget(QWidget):
         latencia_ms = monitor.get("latencia_ms")
         if latencia_ms is not None:
             monitor_tooltip = f"{monitor_tooltip}\nLatencia: {latencia_ms} ms"
+
+        if monitor_status == "online":
+            qualidade = str(monitor_label or "").strip()
+            monitor_label = "Online"
+            if qualidade and qualidade.lower() != "online":
+                monitor_tooltip = f"Qualidade da conexao: {qualidade}.\n{monitor_tooltip}"
 
         rota = self._rota_para_empresa(maquina.get("empresa"))
         if rota:
@@ -469,6 +540,7 @@ class MaquinasWidget(QWidget):
             apply_combo_data(self.empresa_filter, self._saved_preferences.get("empresa"))
             apply_combo_text(self.departamento_filter, self._saved_preferences.get("departamento"))
             apply_combo_text(self.status_filter, self._saved_preferences.get("status"))
+            apply_combo_text(self.rede_filter, self._saved_preferences.get("rede"))
         finally:
             self._restoring_preferences = False
 
@@ -478,7 +550,9 @@ class MaquinasWidget(QWidget):
             "empresa": self.empresa_filter.currentData(),
             "departamento": self.departamento_filter.currentText(),
             "status": self.status_filter.currentText(),
+            "rede": self.rede_filter.currentText(),
             "sort": get_table_sort_state(self.tabela),
+            "widths": get_table_column_widths(self.tabela),
         }
 
     def _salvar_preferencias(self):
@@ -488,6 +562,9 @@ class MaquinasWidget(QWidget):
         save_widget_preferences(self.usuario, "maquinas", self._saved_preferences)
 
     def _ao_ordenar_tabela(self, *_args):
+        self._salvar_preferencias()
+
+    def _ao_redimensionar_coluna(self, *_args):
         self._salvar_preferencias()
 
     def _mostrar_prompt_empresa(self):
@@ -616,9 +693,12 @@ class MaquinasWidget(QWidget):
         empresa = self.empresa_filter.currentText()
         departamento = self.departamento_filter.currentText()
         status = self.status_filter.currentText()
+        rede = self.rede_filter.currentText()
 
         filtered = []
         for maquina in self.dados_cache:
+            _ip_ou_host, monitor_label, monitor_status, _monitor_tooltip = self._resolve_monitoramento_visual(maquina)
+
             # Filtro por status
             if not is_all_option(status) and not same_filter_value(maquina.get("status", ""), status):
                 continue
@@ -631,6 +711,9 @@ class MaquinasWidget(QWidget):
             if not is_all_option(departamento) and not same_text(maquina.get("departamento"), departamento):
                 continue
 
+            if not self._match_rede_filter(rede, monitor_label, monitor_status):
+                continue
+
             # Filtro por pesquisa (nome, modelo, IP/host, MAC)
             if contains_text(
                 search_text,
@@ -638,6 +721,7 @@ class MaquinasWidget(QWidget):
                 maquina.get("modelo", ""),
                 maquina.get("ip_address", ""),
                 maquina.get("mac_address", ""),
+                monitor_label,
             ):
                 filtered.append(maquina)
 
@@ -664,6 +748,29 @@ class MaquinasWidget(QWidget):
         self._set_summary_value("online", online)
         self._set_summary_value("atencao", atencao)
         self._set_summary_value("manutencao", manutencao)
+
+    def _match_rede_filter(self, selected_value, monitor_label, monitor_status):
+        if is_all_option(selected_value):
+            return True
+
+        normalized = str(selected_value or "").strip().lower()
+        monitor_label_normalized = str(monitor_label or "").strip().lower()
+        monitor_status_normalized = str(monitor_status or "").strip().lower()
+
+        if normalized == "online":
+            return monitor_status_normalized == "online"
+        if normalized == "sem resposta":
+            return monitor_status_normalized in {"sem_resposta", "offline"}
+        if normalized == "sem rota":
+            return monitor_status_normalized == "sem_rota"
+        if normalized == "rota com erro":
+            return monitor_status_normalized == "rota_com_erro"
+        if normalized == "sem alvo":
+            return monitor_status_normalized == "nao_configurado"
+        if normalized == "com erro":
+            return monitor_status_normalized == "erro"
+
+        return monitor_label_normalized == normalized
 
     def _update_detail_from_selection(self):
         if self.tabela.rowCount() == 0:
@@ -693,6 +800,10 @@ class MaquinasWidget(QWidget):
 
         ip_ou_host, monitor_label, _monitor_status, monitor_tooltip = self._resolve_monitoramento_visual(maquina)
         self.detail_body.setText(self._build_detail_text(maquina, monitor_label, monitor_tooltip, ip_ou_host))
+        if hasattr(self, "detail_copy_btn"):
+            self.detail_copy_btn.setEnabled(bool(ip_ou_host and ip_ou_host != "-"))
+        if hasattr(self, "detail_edit_btn"):
+            self.detail_edit_btn.setEnabled(True)
 
     def _atualizar_tabela_legado(self, maquinas):
         self.tabela.setRowCount(len(maquinas))
@@ -787,6 +898,7 @@ class MaquinasWidget(QWidget):
 
         apply_table_sort_state(self.tabela, self._saved_preferences.get("sort"))
         refresh_data_table_layout(self.tabela)
+        apply_table_column_widths(self.tabela, self._saved_preferences.get("widths"))
         self._atualizar_resumo(maquinas)
         if maquinas:
             self.tabela.setCurrentCell(0, 0)

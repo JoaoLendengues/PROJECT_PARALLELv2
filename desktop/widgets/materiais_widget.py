@@ -12,9 +12,11 @@ from widgets.toast_notification import notification_manager
 from widgets.filter_utils import contains_text, is_all_option, same_filter_value, same_text
 from widgets.table_utils import configure_data_table, number_item, refresh_data_table_layout
 from user_preferences import (
+    apply_table_column_widths,
     apply_combo_data,
     apply_combo_text,
     apply_table_sort_state,
+    get_table_column_widths,
     get_table_sort_state,
     get_widget_preferences,
     save_widget_preferences,
@@ -155,6 +157,7 @@ class MateriaisWidget(QWidget):
             },
         )
         self.tabela.horizontalHeader().sortIndicatorChanged.connect(self._ao_ordenar_tabela)
+        self.tabela.horizontalHeader().sectionResized.connect(self._ao_redimensionar_coluna)
 
         layout.addWidget(self.tabela)
 
@@ -224,6 +227,7 @@ class MateriaisWidget(QWidget):
             "categoria": self.categoria_filter.currentText(),
             "status": self.status_filter.currentText(),
             "sort": get_table_sort_state(self.tabela),
+            "widths": get_table_column_widths(self.tabela),
         }
 
     def _salvar_preferencias(self):
@@ -233,6 +237,9 @@ class MateriaisWidget(QWidget):
         save_widget_preferences(self.usuario, "materiais", self._saved_preferences)
 
     def _ao_ordenar_tabela(self, *_args):
+        self._salvar_preferencias()
+
+    def _ao_redimensionar_coluna(self, *_args):
         self._salvar_preferencias()
 
     def _mostrar_prompt_empresa(self):
@@ -341,6 +348,7 @@ class MateriaisWidget(QWidget):
 
         apply_table_sort_state(self.tabela, self._saved_preferences.get("sort"))
         refresh_data_table_layout(self.tabela)
+        apply_table_column_widths(self.tabela, self._saved_preferences.get("widths"))
 
     def novo_material(self):
         if not self._pode("materiais.create"):

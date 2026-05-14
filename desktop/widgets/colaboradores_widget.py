@@ -9,6 +9,7 @@ from access_control import get_action_label, has_action_access
 from widgets.form_feedback import focus_invalid_field, optional_label, required_field_message, required_hint_label, required_label
 from widgets.filter_utils import contains_text, is_all_option, same_text
 from widgets.table_utils import configure_data_table, number_item, refresh_data_table_layout
+from user_preferences import apply_table_column_widths, get_table_column_widths, get_widget_preferences, save_widget_preferences
 
 
 class ColaboradoresWidget(QWidget):
@@ -20,6 +21,7 @@ class ColaboradoresWidget(QWidget):
         self.colaboradores_cache = []  # Cache para filtros
         self._loaded = False
         self._summary_labels = {}
+        self._saved_preferences = {}
         self.init_ui()
 
     def on_show(self):
@@ -199,6 +201,7 @@ class ColaboradoresWidget(QWidget):
             },
         )
 
+        self.tabela.horizontalHeader().sectionResized.connect(self._ao_redimensionar_coluna)
         self.tabela.itemSelectionChanged.connect(self._update_detail_from_selection)
 
         self.detail_card = self._create_detail_panel()
@@ -230,7 +233,20 @@ class ColaboradoresWidget(QWidget):
 
     def set_usuario(self, usuario):
         self.usuario = usuario or {}
+        self._carregar_preferencias()
         self.aplicar_permissoes()
+
+    def _carregar_preferencias(self):
+        self._saved_preferences = get_widget_preferences(self.usuario, "colaboradores")
+
+    def _salvar_preferencias(self):
+        self._saved_preferences = {
+            "widths": get_table_column_widths(self.tabela),
+        }
+        save_widget_preferences(self.usuario, "colaboradores", self._saved_preferences)
+
+    def _ao_redimensionar_coluna(self, *_args):
+        self._salvar_preferencias()
 
     def _pode(self, action_key):
         return has_action_access(self.usuario, action_key)
@@ -429,6 +445,7 @@ class ColaboradoresWidget(QWidget):
             self.tabela.setSortingEnabled(True)
 
         refresh_data_table_layout(self.tabela)
+        apply_table_column_widths(self.tabela, self._saved_preferences.get("widths"))
         self._atualizar_resumo(colaboradores)
         if colaboradores:
             self.tabela.setCurrentCell(0, 0)
