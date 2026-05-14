@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
                                QTableWidgetItem, QPushButton, QLabel, QLineEdit,
                                QComboBox, QDialog, QFormLayout, QCheckBox,
-                               QMessageBox, QHeaderView)
+                               QMessageBox, QHeaderView, QFrame, QApplication)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QColor
 from api_client import api_client
@@ -16,14 +16,78 @@ class ColaboradoresWidget(QWidget):
         super().__init__()
         self.usuario = {}
         self.colaboradores = []
+        self._visible_colaboradores = []
         self.colaboradores_cache = []  # Cache para filtros
         self._loaded = False
+        self._summary_labels = {}
         self.init_ui()
 
     def on_show(self):
         if not self._loaded:
             self.carregar_colaboradores()
             self._loaded = True
+
+    def showEvent(self, event):
+        self._apply_theme_styles()
+        super().showEvent(event)
+
+    def _is_dark_theme(self):
+        app = QApplication.instance()
+        return str(app.property("accessibility_theme") or "Claro") == "Escuro"
+
+    def _theme_colors(self):
+        if self._is_dark_theme():
+            return {
+                "card_bg": "rgba(15, 23, 42, 0.34)",
+                "card_border": "rgba(148, 163, 184, 0.16)",
+                "title": "#f8fafc",
+                "muted": "#94a3b8",
+            }
+        return {
+            "card_bg": "rgba(248, 250, 252, 1.0)",
+            "card_border": "rgba(203, 213, 225, 0.9)",
+            "title": "#0f172a",
+            "muted": "#64748b",
+        }
+
+    def _apply_theme_styles(self):
+        colors_map = self._theme_colors()
+        self.setStyleSheet(
+            f"""
+            QFrame#collaboratorSummaryCard, QFrame#collaboratorDetailCard {{
+                background-color: {colors_map['card_bg']};
+                border: 1px solid {colors_map['card_border']};
+                border-radius: 16px;
+            }}
+            QLabel#collaboratorSummaryTitle {{
+                color: {colors_map['muted']};
+                font-size: 11px;
+                font-weight: 700;
+            }}
+            QLabel#collaboratorSummaryValue {{
+                color: {colors_map['title']};
+                font-size: 24px;
+                font-weight: 700;
+            }}
+            QLabel#collaboratorSummaryCaption, QLabel#collaboratorDetailBody {{
+                color: {colors_map['muted']};
+                font-size: 12px;
+            }}
+            QLabel#collaboratorDetailTitle {{
+                color: {colors_map['title']};
+                font-size: 16px;
+                font-weight: 700;
+            }}
+            QLineEdit#collaboratorSearchInput {{
+                background-color: {colors_map['card_bg']};
+                color: {colors_map['title']};
+                border: 1px solid {colors_map['card_border']};
+                border-radius: 12px;
+                padding: 10px 14px;
+                min-height: 18px;
+            }}
+            """
+        )
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -53,6 +117,7 @@ class ColaboradoresWidget(QWidget):
 
         # Barra de pesquisa
         self.pesquisa_edit = QLineEdit()
+        self.pesquisa_edit.setObjectName("collaboratorSearchInput")
         self.pesquisa_edit.setPlaceholderText("🔍 Pesquisar por nome...")
         self.pesquisa_edit.setMaximumWidth(300)
         self.pesquisa_edit.textChanged.connect(self.filtrar_colaboradores)
@@ -89,11 +154,22 @@ class ColaboradoresWidget(QWidget):
         filtros_layout.addStretch()
         layout.addLayout(filtros_layout)
 
+        self.summary_strip = self._create_summary_strip(
+            [
+                ("total", "Colaboradores visíveis", "Base filtrada na grade"),
+                ("ativos", "Ativos", "Disponíveis no sistema"),
+                ("inativos", "Inativos", "Registros desativados"),
+                ("empresas", "Empresas", "Distribuição visível"),
+            ]
+        )
+        layout.addWidget(self.summary_strip)
+
         # Tabela com estilo melhorado
         self.tabela = QTableWidget()
         self.tabela.setAlternatingRowColors(True)
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabela.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.tabela.setSortingEnabled(True)
         self.tabela.verticalHeader().setVisible(False)
 
         # Estilo da tabela
@@ -123,7 +199,14 @@ class ColaboradoresWidget(QWidget):
             },
         )
 
-        layout.addWidget(self.tabela)
+        self.tabela.itemSelectionChanged.connect(self._update_detail_from_selection)
+
+        self.detail_card = self._create_detail_panel()
+        content_layout = QHBoxLayout()
+        content_layout.setSpacing(18)
+        content_layout.addWidget(self.tabela, 3)
+        content_layout.addWidget(self.detail_card, 1)
+        layout.addLayout(content_layout, 1)
 
         # Botões de ação
         acoes = QHBoxLayout()
@@ -143,6 +226,7 @@ class ColaboradoresWidget(QWidget):
         self.carregar_empresas()
         self.carregar_departamentos()
         self.aplicar_permissoes()
+        self._set_detail_empty()
 
     def set_usuario(self, usuario):
         self.usuario = usuario or {}
@@ -162,10 +246,128 @@ class ColaboradoresWidget(QWidget):
         if hasattr(self, "deletar_btn"):
             self.deletar_btn.setVisible(self._pode("colaboradores.delete"))
 
+    def _create_summary_strip(self, specs):
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(14)
+        self._summary_labels = {}
+
+        for key, title, caption in specs:
+            card = QFrame()
+            card.setObjectName("collaboratorSummaryCard")
+            card_layout = QVBoxLayout(card)
+            card_layout.setContentsMargins(16, 14, 16, 14)
+            card_layout.setSpacing(4)
+
+            title_label = QLabel(title)
+            title_label.setObjectName("collaboratorSummaryTitle")
+            card_layout.addWidget(title_label)
+
+            value_label = QLabel("--")
+            value_label.setObjectName("collaboratorSummaryValue")
+            card_layout.addWidget(value_label)
+
+            caption_label = QLabel(caption)
+            caption_label.setObjectName("collaboratorSummaryCaption")
+            caption_label.setWordWrap(True)
+            card_layout.addWidget(caption_label)
+
+            layout.addWidget(card, 1)
+            self._summary_labels[key] = value_label
+
+        return container
+
+    def _create_detail_panel(self):
+        card = QFrame()
+        card.setObjectName("collaboratorDetailCard")
+        card.setMinimumWidth(320)
+        card.setMaximumWidth(380)
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(18, 16, 18, 16)
+        layout.setSpacing(10)
+
+        title = QLabel("Detalhes do colaborador")
+        title.setObjectName("collaboratorDetailTitle")
+        layout.addWidget(title)
+
+        self.detail_body = QLabel("")
+        self.detail_body.setObjectName("collaboratorDetailBody")
+        self.detail_body.setWordWrap(True)
+        self.detail_body.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.detail_body.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        layout.addWidget(self.detail_body, 1)
+
+        return card
+
+    def _set_summary_value(self, key, value):
+        label = self._summary_labels.get(key)
+        if label is not None:
+            label.setText(str(value))
+
+    def _set_detail_empty(self):
+        if hasattr(self, "detail_body"):
+            self.detail_body.setText(
+                "Selecione um colaborador para ver cargo, departamento, empresa e status."
+            )
+
+    def _build_detail_text(self, colaborador):
+        return (
+            f"Nome: {colaborador.get('nome', '-')}\n"
+            f"Cargo: {colaborador.get('cargo') or '-'}\n"
+            f"Departamento: {colaborador.get('departamento') or '-'}\n"
+            f"Empresa: {colaborador.get('empresa') or '-'}\n"
+            f"Status: {'Ativo' if colaborador.get('ativo', True) else 'Inativo'}"
+        )
+
+    def _atualizar_resumo(self, colaboradores):
+        total = len(colaboradores)
+        ativos = sum(1 for colab in colaboradores if colab.get("ativo", True))
+        inativos = max(0, total - ativos)
+        empresas = {
+            str(colab.get("empresa") or "").strip()
+            for colab in colaboradores
+            if str(colab.get("empresa") or "").strip()
+        }
+
+        self._set_summary_value("total", total)
+        self._set_summary_value("ativos", ativos)
+        self._set_summary_value("inativos", inativos)
+        self._set_summary_value("empresas", len(empresas))
+
+    def _update_detail_from_selection(self):
+        if self.tabela.rowCount() == 0:
+            self._set_detail_empty()
+            return
+
+        current_row = self.tabela.currentRow()
+        if current_row < 0:
+            self._set_detail_empty()
+            return
+
+        id_item = self.tabela.item(current_row, 0)
+        if id_item is None:
+            self._set_detail_empty()
+            return
+
+        try:
+            colaborador_id = int(id_item.text())
+        except Exception:
+            self._set_detail_empty()
+            return
+
+        colaborador = next((item for item in self._visible_colaboradores if item.get("id") == colaborador_id), None)
+        if not colaborador:
+            self._set_detail_empty()
+            return
+
+        self.detail_body.setText(self._build_detail_text(colaborador))
+
     def carregar_colaboradores(self):
         """Carrega a lista de colaboradores do backend"""
         try:
             self.colaboradores = api_client.listar_colaboradores()
+            self._visible_colaboradores = list(self.colaboradores)
             self.colaboradores_cache = self.colaboradores.copy()
             self.atualizar_tabela(self.colaboradores)
             print(f"✅ Colaboradores carregados: {len(self.colaboradores)}")
@@ -203,6 +405,10 @@ class ColaboradoresWidget(QWidget):
         self.atualizar_tabela(filtered)
 
     def atualizar_tabela(self, colaboradores):
+        self._visible_colaboradores = list(colaboradores)
+        sorting_enabled = self.tabela.isSortingEnabled()
+        self.tabela.setSortingEnabled(False)
+        self.tabela.clearContents()
         self.tabela.setRowCount(len(colaboradores))
 
         for row, colab in enumerate(colaboradores):
@@ -219,7 +425,15 @@ class ColaboradoresWidget(QWidget):
                 status_item.setForeground(QColor(42, 157, 143))
             self.tabela.setItem(row, 5, status_item)
 
+        if sorting_enabled:
+            self.tabela.setSortingEnabled(True)
+
         refresh_data_table_layout(self.tabela)
+        self._atualizar_resumo(colaboradores)
+        if colaboradores:
+            self.tabela.setCurrentCell(0, 0)
+        else:
+            self._set_detail_empty()
 
     def novo_colaborador(self):
         if not self._pode("colaboradores.create"):

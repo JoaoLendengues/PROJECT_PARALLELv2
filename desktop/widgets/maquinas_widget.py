@@ -694,7 +694,7 @@ class MaquinasWidget(QWidget):
         ip_ou_host, monitor_label, _monitor_status, monitor_tooltip = self._resolve_monitoramento_visual(maquina)
         self.detail_body.setText(self._build_detail_text(maquina, monitor_label, monitor_tooltip, ip_ou_host))
 
-    def atualizar_tabela(self, maquinas):
+    def _atualizar_tabela_legado(self, maquinas):
         self.tabela.setRowCount(len(maquinas))
 
         status_colors = {
