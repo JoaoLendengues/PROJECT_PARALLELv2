@@ -33,7 +33,12 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 
 from access_control import get_action_label, has_action_access
 from api_client import api_client
-from user_preferences import get_widget_preferences, save_widget_preferences
+from user_preferences import (
+    apply_table_column_widths,
+    get_table_column_widths,
+    get_widget_preferences,
+    save_widget_preferences,
+)
 from widgets.filter_utils import filter_value, is_all_option
 from widgets.table_utils import configure_data_table, refresh_data_table_layout
 
@@ -253,6 +258,29 @@ class RelatoriosWidget(QWidget):
         preferences = get_widget_preferences(self.usuario, "relatorios")
         preferences["active_tab"] = self.tabs.tabText(current_index)
         save_widget_preferences(self.usuario, "relatorios", preferences)
+
+    def _widths_pref_key(self, tipo):
+        return f"{tipo}_widths"
+
+    def _save_table_widths(self, tipo):
+        if not self.usuario:
+            return
+
+        table = self._table_for_tipo(tipo)
+        if table is None:
+            return
+
+        preferences = get_widget_preferences(self.usuario, "relatorios")
+        preferences[self._widths_pref_key(tipo)] = get_table_column_widths(table)
+        save_widget_preferences(self.usuario, "relatorios", preferences)
+
+    def _apply_saved_table_widths(self, tipo):
+        table = self._table_for_tipo(tipo)
+        if table is None:
+            return
+
+        preferences = get_widget_preferences(self.usuario, "relatorios")
+        apply_table_column_widths(table, preferences.get(self._widths_pref_key(tipo)))
 
     def aplicar_permissoes(self):
         pode_exportar = self._pode("relatorios.export")
@@ -588,6 +616,9 @@ class RelatoriosWidget(QWidget):
             stretch_columns=(1, 8),
             minimum_widths={0: 72, 1: 220, 2: 110, 3: 100, 4: 170, 5: 180, 6: 155, 7: 160, 8: 240},
         )
+        self.mov_tabela.horizontalHeader().sectionResized.connect(
+            lambda *_args, report_key="movimentacoes": self._save_table_widths(report_key)
+        )
         self.mov_tabela.itemSelectionChanged.connect(lambda: self._update_detail_from_selection("movimentacoes"))
         mov_content = QHBoxLayout()
         mov_content.setContentsMargins(0, 0, 0, 0)
@@ -668,6 +699,9 @@ class RelatoriosWidget(QWidget):
             stretch_columns=(1, 2),
             minimum_widths={0: 72, 1: 220, 2: 280, 3: 100, 4: 160, 5: 180, 6: 120},
         )
+        self.est_tabela.horizontalHeader().sectionResized.connect(
+            lambda *_args, report_key="estoque": self._save_table_widths(report_key)
+        )
         self.est_tabela.itemSelectionChanged.connect(lambda: self._update_detail_from_selection("estoque"))
         est_content = QHBoxLayout()
         est_content.setContentsMargins(0, 0, 0, 0)
@@ -744,6 +778,9 @@ class RelatoriosWidget(QWidget):
             ["ID", "Material", "Qtd", "Solicitante", "Empresa", "Data Solic.", "Data Conclusão", "Status"],
             stretch_columns=(1,),
             minimum_widths={0: 72, 1: 220, 2: 90, 3: 170, 4: 170, 5: 135, 6: 150, 7: 120},
+        )
+        self.ped_tabela.horizontalHeader().sectionResized.connect(
+            lambda *_args, report_key="pedidos": self._save_table_widths(report_key)
         )
         self.ped_tabela.itemSelectionChanged.connect(lambda: self._update_detail_from_selection("pedidos"))
         ped_content = QHBoxLayout()
@@ -826,6 +863,9 @@ class RelatoriosWidget(QWidget):
             ["ID", "Título", "Solicitante", "Prioridade", "Status", "Data Abertura", "Responsável"],
             stretch_columns=(1,),
             minimum_widths={0: 72, 1: 240, 2: 160, 3: 130, 4: 130, 5: 155, 6: 170},
+        )
+        self.dem_tabela.horizontalHeader().sectionResized.connect(
+            lambda *_args, report_key="demandas": self._save_table_widths(report_key)
         )
         self.dem_tabela.itemSelectionChanged.connect(lambda: self._update_detail_from_selection("demandas"))
         dem_content = QHBoxLayout()
@@ -942,6 +982,9 @@ class RelatoriosWidget(QWidget):
 
     def atualizar_tabela_movimentacoes(self, movimentacoes):
         self._report_visible["movimentacoes"] = list(movimentacoes)
+        sorting_enabled = self.mov_tabela.isSortingEnabled()
+        self.mov_tabela.setSortingEnabled(False)
+        self.mov_tabela.clearContents()
         self.mov_tabela.setRowCount(len(movimentacoes))
         entradas = 0
         saidas = 0
@@ -974,7 +1017,10 @@ class RelatoriosWidget(QWidget):
             obs = mov.get("observacao")
             self.mov_tabela.setItem(row, 8, QTableWidgetItem("-" if obs is None else str(obs)[:50]))
 
+        if sorting_enabled:
+            self.mov_tabela.setSortingEnabled(True)
         refresh_data_table_layout(self.mov_tabela)
+        self._apply_saved_table_widths("movimentacoes")
         self._set_summary_value("movimentacoes", "total", len(movimentacoes))
         self._set_summary_value("movimentacoes", "entradas", entradas)
         self._set_summary_value("movimentacoes", "saidas", saidas)
@@ -1013,6 +1059,9 @@ class RelatoriosWidget(QWidget):
 
     def atualizar_tabela_estoque(self, materiais):
         self._report_visible["estoque"] = list(materiais)
+        sorting_enabled = self.est_tabela.isSortingEnabled()
+        self.est_tabela.setSortingEnabled(False)
+        self.est_tabela.clearContents()
         self.est_tabela.setRowCount(len(materiais))
         ativos = 0
         criticos = 0
@@ -1036,7 +1085,10 @@ class RelatoriosWidget(QWidget):
             status_item.setForeground(QColor(42, 157, 143) if status == "ativo" else QColor(231, 111, 81))
             self.est_tabela.setItem(row, 6, status_item)
 
+        if sorting_enabled:
+            self.est_tabela.setSortingEnabled(True)
         refresh_data_table_layout(self.est_tabela)
+        self._apply_saved_table_widths("estoque")
         self._set_summary_value("estoque", "total", len(materiais))
         self._set_summary_value("estoque", "ativos", ativos)
         self._set_summary_value("estoque", "criticos", criticos)
@@ -1078,6 +1130,9 @@ class RelatoriosWidget(QWidget):
 
     def atualizar_tabela_pedidos(self, pedidos):
         self._report_visible["pedidos"] = list(pedidos)
+        sorting_enabled = self.ped_tabela.isSortingEnabled()
+        self.ped_tabela.setSortingEnabled(False)
+        self.ped_tabela.clearContents()
         self.ped_tabela.setRowCount(len(pedidos))
         pendentes = 0
         concluidos = 0
@@ -1107,7 +1162,10 @@ class RelatoriosWidget(QWidget):
             status_item.setForeground(status_cores.get(status, QColor(0, 0, 0)))
             self.ped_tabela.setItem(row, 7, status_item)
 
+        if sorting_enabled:
+            self.ped_tabela.setSortingEnabled(True)
         refresh_data_table_layout(self.ped_tabela)
+        self._apply_saved_table_widths("pedidos")
         self._set_summary_value("pedidos", "total", len(pedidos))
         self._set_summary_value("pedidos", "pendentes", pendentes)
         self._set_summary_value("pedidos", "concluidos", concluidos)
@@ -1150,6 +1208,9 @@ class RelatoriosWidget(QWidget):
 
     def atualizar_tabela_demandas(self, demandas):
         self._report_visible["demandas"] = list(demandas)
+        sorting_enabled = self.dem_tabela.isSortingEnabled()
+        self.dem_tabela.setSortingEnabled(False)
+        self.dem_tabela.clearContents()
         self.dem_tabela.setRowCount(len(demandas))
         abertas = 0
         concluidas = 0
@@ -1184,7 +1245,10 @@ class RelatoriosWidget(QWidget):
             self.dem_tabela.setItem(row, 5, QTableWidgetItem(data))
             self.dem_tabela.setItem(row, 6, QTableWidgetItem(dem.get("responsavel", "-")))
 
+        if sorting_enabled:
+            self.dem_tabela.setSortingEnabled(True)
         refresh_data_table_layout(self.dem_tabela)
+        self._apply_saved_table_widths("demandas")
         self._set_summary_value("demandas", "total", len(demandas))
         self._set_summary_value("demandas", "abertas", abertas)
         self._set_summary_value("demandas", "concluidas", concluidas)
