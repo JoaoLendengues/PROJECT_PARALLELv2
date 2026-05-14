@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
@@ -6,6 +8,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -79,46 +82,86 @@ class NotificationCenter(QDialog):
 
         self.filtros_card = QFrame()
         self.filtros_card.setObjectName("filterCard")
-        filtros_layout = QHBoxLayout(self.filtros_card)
+        filtros_layout = QVBoxLayout(self.filtros_card)
         filtros_layout.setContentsMargins(16, 12, 16, 12)
         filtros_layout.setSpacing(14)
 
+        busca_layout = QHBoxLayout()
+        busca_layout.setContentsMargins(0, 0, 0, 0)
+        busca_layout.setSpacing(12)
+
+        filtros_grid = QGridLayout()
+        filtros_grid.setContentsMargins(0, 0, 0, 0)
+        filtros_grid.setHorizontalSpacing(14)
+        filtros_grid.setVerticalSpacing(8)
+
         self.lbl_busca = QLabel("Busca:")
-        filtros_layout.addWidget(self.lbl_busca)
+        busca_layout.addWidget(self.lbl_busca)
 
         self.campo_busca = QLineEdit()
         self.campo_busca.setObjectName("notificationSearch")
         self.campo_busca.setPlaceholderText("Pesquisar por título, mensagem, origem ou ação...")
         self.campo_busca.setClearButtonEnabled(True)
         self.campo_busca.setMinimumWidth(320)
+        self.campo_busca.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.campo_busca.textChanged.connect(self.filtrar_notificacoes)
-        filtros_layout.addWidget(self.campo_busca)
+        busca_layout.addWidget(self.campo_busca, 1)
+        filtros_layout.addLayout(busca_layout)
 
         self.lbl_status = QLabel("Status:")
-        filtros_layout.addWidget(self.lbl_status)
+        filtros_grid.addWidget(self.lbl_status, 0, 0)
 
         self.filtro_status = QComboBox()
         self.filtro_status.addItems(["Todas", "Não lidas", "Lidas", "Ignoradas"])
         self.filtro_status.currentTextChanged.connect(self.filtrar_notificacoes)
-        filtros_layout.addWidget(self.filtro_status)
+        self.filtro_status.setMinimumWidth(150)
+        self.filtro_status.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        filtros_grid.addWidget(self.filtro_status, 1, 0)
 
         self.lbl_prioridade = QLabel("Prioridade:")
-        filtros_layout.addWidget(self.lbl_prioridade)
+        filtros_grid.addWidget(self.lbl_prioridade, 0, 1)
 
         self.filtro_prioridade = QComboBox()
         self.filtro_prioridade.addItems(["Todas", "Alta", "Media", "Baixa"])
         self.filtro_prioridade.currentTextChanged.connect(self.filtrar_notificacoes)
-        filtros_layout.addWidget(self.filtro_prioridade)
+        self.filtro_prioridade.setMinimumWidth(150)
+        self.filtro_prioridade.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        filtros_grid.addWidget(self.filtro_prioridade, 1, 1)
 
         self.lbl_tipo = QLabel("Origem:")
-        filtros_layout.addWidget(self.lbl_tipo)
+        filtros_grid.addWidget(self.lbl_tipo, 0, 2)
 
         self.filtro_tipo = QComboBox()
         self.filtro_tipo.addItems(["Todas"])
         self.filtro_tipo.currentTextChanged.connect(self.filtrar_notificacoes)
-        filtros_layout.addWidget(self.filtro_tipo)
+        self.filtro_tipo.setMinimumWidth(150)
+        self.filtro_tipo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        filtros_grid.addWidget(self.filtro_tipo, 1, 2)
 
-        filtros_layout.addStretch()
+        self.lbl_periodo = QLabel("Período:")
+        filtros_grid.addWidget(self.lbl_periodo, 0, 3)
+
+        self.filtro_periodo = QComboBox()
+        self.filtro_periodo.addItems(["Todos", "Agora", "Hoje", "Ontem", "Mais antigas"])
+        self.filtro_periodo.currentTextChanged.connect(self.filtrar_notificacoes)
+        self.filtro_periodo.setMinimumWidth(150)
+        self.filtro_periodo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        filtros_grid.addWidget(self.filtro_periodo, 1, 3)
+
+        self.lbl_acao = QLabel("Ação:")
+        filtros_grid.addWidget(self.lbl_acao, 0, 4)
+
+        self.filtro_acao = QComboBox()
+        self.filtro_acao.addItems(["Todas", "Com ação", "Sem ação"])
+        self.filtro_acao.currentTextChanged.connect(self.filtrar_notificacoes)
+        self.filtro_acao.setMinimumWidth(150)
+        self.filtro_acao.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        filtros_grid.addWidget(self.filtro_acao, 1, 4)
+
+        for column in range(5):
+            filtros_grid.setColumnStretch(column, 1)
+
+        filtros_layout.addLayout(filtros_grid)
         root_layout.addWidget(self.filtros_card)
 
         content_layout = QHBoxLayout()
@@ -191,25 +234,29 @@ class NotificationCenter(QDialog):
         detail_layout.addWidget(self.detail_info)
         detail_layout.addStretch()
 
-        action_layout = QHBoxLayout()
-        action_layout.setSpacing(12)
+        action_layout = QVBoxLayout()
+        action_layout.setSpacing(10)
         self.btn_abrir_acao = QPushButton("Abrir")
         self.btn_abrir_acao.setObjectName("primaryButton")
-        self.btn_abrir_acao.setMinimumWidth(92)
+        self.btn_abrir_acao.setMinimumHeight(40)
         self.btn_abrir_acao.clicked.connect(self.abrir_notificacao_atual)
         action_layout.addWidget(self.btn_abrir_acao)
 
+        secondary_actions_layout = QHBoxLayout()
+        secondary_actions_layout.setSpacing(10)
+
         self.btn_marcar_item = QPushButton("Marcar como lida")
         self.btn_marcar_item.setObjectName("successButton")
-        self.btn_marcar_item.setMinimumWidth(132)
+        self.btn_marcar_item.setMinimumHeight(40)
         self.btn_marcar_item.clicked.connect(self.marcar_notificacao_atual)
-        action_layout.addWidget(self.btn_marcar_item)
+        secondary_actions_layout.addWidget(self.btn_marcar_item, 1)
 
         self.btn_excluir_item = QPushButton("Excluir")
         self.btn_excluir_item.setObjectName("dangerButton")
-        self.btn_excluir_item.setMinimumWidth(92)
+        self.btn_excluir_item.setMinimumHeight(40)
         self.btn_excluir_item.clicked.connect(self.excluir_notificacao_atual)
-        action_layout.addWidget(self.btn_excluir_item)
+        secondary_actions_layout.addWidget(self.btn_excluir_item, 1)
+        action_layout.addLayout(secondary_actions_layout)
         detail_layout.addLayout(action_layout)
         content_layout.addWidget(self.detail_card, 1)
 
@@ -567,6 +614,49 @@ class NotificationCenter(QDialog):
         base = (tipo or "sistema").lower()
         return self.mapa_tipos.get(base, base.replace("_", " ").title())
 
+    def _parse_created_at(self, value):
+        raw = str(value or "").strip()
+        if not raw:
+            return None
+
+        normalized = raw.replace("Z", "+00:00")
+        try:
+            parsed = datetime.fromisoformat(normalized)
+        except ValueError:
+            return None
+
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone().replace(tzinfo=None)
+        return parsed
+
+    def _get_period_bucket(self, value):
+        created_at = self._parse_created_at(value)
+        if created_at is None:
+            return "sem data"
+
+        now = datetime.now()
+        if created_at.date() == now.date():
+            if now - created_at <= timedelta(hours=1):
+                return "agora"
+            return "hoje"
+        if created_at.date() == (now.date() - timedelta(days=1)):
+            return "ontem"
+        return "mais antigas"
+
+    def _format_created_at_display(self, value):
+        created_at = self._parse_created_at(value)
+        if created_at is None:
+            return "Sem data", "-"
+
+        bucket = self._get_period_bucket(value)
+        if bucket == "agora":
+            return "Agora", f"Agora • {created_at.strftime('%H:%M')}"
+        if bucket == "hoje":
+            return "Hoje", f"Hoje • {created_at.strftime('%H:%M')}"
+        if bucket == "ontem":
+            return "Ontem", f"Ontem • {created_at.strftime('%H:%M')}"
+        return "Mais antigas", created_at.strftime("%d/%m/%Y %H:%M")
+
     def _popular_filtro_tipo(self):
         atual = self.filtro_tipo.currentText() if hasattr(self, "filtro_tipo") else "Todas"
         tipos = sorted({self._label_tipo(n.get("tipo")) for n in self.notificacoes_originais if n.get("tipo")})
@@ -598,9 +688,7 @@ class NotificationCenter(QDialog):
 
         status = str(notificacao.get("status", "nao_lida")).replace("_", " ").title()
         tipo = self._label_tipo(notificacao.get("tipo"))
-        criado_em = str(notificacao.get("criado_em", "") or "")
-        if criado_em:
-            criado_em = criado_em[:19].replace("T", " ")
+        periodo, criado_em = self._format_created_at_display(notificacao.get("criado_em"))
         prioridade = str(notificacao.get("prioridade", "baixa") or "baixa").upper()
         acao = notificacao.get("acao") or "Sem ação direta"
 
@@ -610,7 +698,9 @@ class NotificationCenter(QDialog):
         self.detail_message.setText(notificacao.get("mensagem") or "Sem mensagem.")
         self.detail_info.setText(
             f"Prioridade: {prioridade}\n"
-            f"Criada em: {criado_em or 'Sem data'}"
+            f"Período: {periodo}\n"
+            f"Criada em: {criado_em or 'Sem data'}\n"
+            f"Ação disponível: {'Sim' if notificacao.get('acao') else 'Não'}"
         )
         self.btn_abrir_acao.setEnabled(bool(notificacao.get("acao")))
         self.btn_marcar_item.setEnabled(notificacao.get("status") != "lida")
@@ -644,6 +734,8 @@ class NotificationCenter(QDialog):
         status_filtro = filter_value(self.filtro_status.currentText())
         prioridade_filtro = filter_value(self.filtro_prioridade.currentText())
         tipo_filtro = filter_value(self.filtro_tipo.currentText())
+        periodo_filtro = filter_value(self.filtro_periodo.currentText())
+        acao_filtro = filter_value(self.filtro_acao.currentText())
         busca = (self.campo_busca.text() or "").strip().lower()
 
         filtradas = []
@@ -663,8 +755,19 @@ class NotificationCenter(QDialog):
             if not is_all_option(prioridade_filtro) and prioridade != prioridade_filtro:
                 continue
 
-            if not is_all_option(tipo_filtro) and tipo_label.lower() != tipo_filtro:
+            if not is_all_option(tipo_filtro) and filter_value(tipo_label) != tipo_filtro:
                 continue
+
+            if not is_all_option(periodo_filtro):
+                if self._get_period_bucket(notif.get("criado_em")) != periodo_filtro:
+                    continue
+
+            if not is_all_option(acao_filtro):
+                possui_acao = bool(notif.get("acao"))
+                if acao_filtro == "com acao" and not possui_acao:
+                    continue
+                if acao_filtro == "sem acao" and possui_acao:
+                    continue
 
             if busca:
                 alvo_busca = " ".join(
@@ -764,10 +867,9 @@ class NotificationCenter(QDialog):
             mensagem_item.setForeground(texto_padrao)
             self.tabela.setItem(row, 3, mensagem_item)
 
-            data = str(notif.get("criado_em", "") or "")
-            if data:
-                data = data[:16].replace("T", " ")
+            periodo, data = self._format_created_at_display(notif.get("criado_em"))
             data_item = QTableWidgetItem(data)
+            data_item.setToolTip(periodo)
             data_item.setForeground(data_color)
             self.tabela.setItem(row, 4, data_item)
 

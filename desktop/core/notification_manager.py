@@ -131,7 +131,7 @@ class NotificationManager(QObject):
             mensagem = notificacao.get("mensagem") or notificacao.get("titulo") or "Nova notificação"
             duracao = {"alta": 10000, "media": 7000, "baixa": 5000}.get(prioridade, 5000)
 
-            toast_manager.show(
+            self._agendar_toast(
                 message=mensagem,
                 tipo="warning" if prioridade in ["alta", "media"] else "info",
                 duration=duracao,
@@ -145,6 +145,24 @@ class NotificationManager(QObject):
         except Exception as e:
             print(f"Erro ao exibir toast de notificação: {e}")
     
+    def _agendar_toast(self, **kwargs):
+        def _emitir():
+            try:
+                from widgets.toast_notification import notification_manager as toast_manager
+
+                toast_manager.show(**kwargs)
+            except Exception as toast_error:
+                print(f"Erro ao disparar toast: {toast_error}")
+
+        delay = 350
+        if self._parent is not None and hasattr(self._parent, "isVisible"):
+            try:
+                if not self._parent.isVisible():
+                    delay = 1800
+            except RuntimeError:
+                delay = 1800
+        QTimer.singleShot(delay, _emitir)
+
     def deve_mostrar_notificacao(self, prioridade):
         """Verifica se a notificação deve ser mostrada (respeitando modo não perturbe)"""
         if not self._modo_nao_perturbe:
@@ -239,7 +257,7 @@ class NotificationManager(QObject):
                     duracao = {"alta": 10000, "media": 7000, "baixa": 5000}.get(prioridade, 5000)
                     
                     # ✅ CORREÇÃO: Usar parent_window (não self._parent)
-                    toast_manager.show(
+                    self._agendar_toast(
                         message=mensagem,
                         tipo="warning" if prioridade in ["alta", "media"] else "info",
                         duration=duracao,

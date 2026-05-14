@@ -32,7 +32,10 @@ class AlertService(QObject):
     
     def iniciar(self):
         """Inicia a verificação periódica de alertas"""
-        self._timer = QTimer()
+        if self._timer is not None and self._timer.isActive():
+            return
+
+        self._timer = QTimer(self)
         self._timer.timeout.connect(self.verificar_todos_alertas)
         
         # Verificar a cada 5 minutos (ou conforme configuração)
@@ -41,7 +44,7 @@ class AlertService(QObject):
         print("✅ Serviço de alertas iniciado")
         
         # Executar primeira verificação imediatamente
-        self.verificar_todos_alertas()
+        QTimer.singleShot(1200, self.verificar_todos_alertas)
     
     def parar(self):
         """Para a verificação periódica"""

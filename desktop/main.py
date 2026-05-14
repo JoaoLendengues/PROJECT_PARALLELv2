@@ -81,7 +81,7 @@ def on_login_success(usuario):
     # Iniciar seviço de alertas
     try:
         from core.alert_service import alert_service
-        alert_service.iniciar()
+        QTimer.singleShot(700, alert_service.iniciar)
         print('✅ Serviço de alertas iniciado')
     except Exception as e:
         print(f'⚠️ Erro ao iniciar serviço de alertas: {e}')

@@ -6,6 +6,7 @@ from PySide6.QtCore import (
     QEasingCurve,
     QPoint,
     QPropertyAnimation,
+    Signal,
     Qt,
     QTimer,
 )
@@ -25,6 +26,8 @@ from PySide6.QtWidgets import (
 
 class ToastNotification(QWidget):
     """Popup em estilo cápsula no topo da aplicação."""
+
+    closed = Signal()
 
     def __init__(
         self,
@@ -335,6 +338,8 @@ class ToastNotification(QWidget):
         if self.parent_window is not None:
             try:
                 target_window = self.parent_window.window()
+                if hasattr(target_window, "isVisible") and not target_window.isVisible():
+                    raise RuntimeError("Janela pai ainda n\u00e3o est\u00e1 vis\u00edvel.")
                 pos = target_window.mapToGlobal(QPoint(0, 0))
                 return QPoint(
                     pos.x() + max(0, (target_window.width() - self.final_size.x()) // 2),
@@ -451,6 +456,7 @@ class ToastNotification(QWidget):
         QTimer.singleShot(130, self.fade_out_anim.start)
 
     def _close_now(self) -> None:
+        self.closed.emit()
         self.hide()
         self.deleteLater()
 
@@ -539,6 +545,9 @@ class NotificationManager:
         notificacao_id=None,
         title=None,
     ):
+        if QApplication.instance() is None:
+            return
+
         if self._sons_habilitados:
             try:
                 from core.sound_manager import sound_manager
@@ -549,6 +558,19 @@ class NotificationManager:
 
         if parent is None:
             parent = self._parent or QApplication.activeWindow()
+        elif hasattr(parent, "isVisible"):
+            try:
+                if not parent.isVisible():
+                    parent = self._parent or QApplication.activeWindow()
+            except RuntimeError:
+                parent = self._parent or QApplication.activeWindow()
+
+        if self._notificacao_atual is not None:
+            try:
+                if not self._notificacao_atual.isVisible():
+                    self._notificacao_atual = None
+            except RuntimeError:
+                self._notificacao_atual = None
 
         self._fila.append(
             {
@@ -565,7 +587,7 @@ class NotificationManager:
         )
 
         if self._notificacao_atual is None:
-            self._exibir_proxima()
+            QTimer.singleShot(0, self._exibir_proxima)
 
     def _exibir_proxima(self):
         if not self._fila:
@@ -579,19 +601,33 @@ class NotificationManager:
                 parent = parent.window()
             except Exception:
                 pass
+        if parent is not None and hasattr(parent, "isVisible"):
+            try:
+                if not parent.isVisible():
+                    parent = self._parent or QApplication.activeWindow()
+            except RuntimeError:
+                parent = self._parent or QApplication.activeWindow()
 
-        self._notificacao_atual = ToastNotification(
-            message=item["message"],
-            tipo=item["tipo"],
-            parent=parent,
-            duration=item["duration"],
-            prioridade=item["prioridade"],
-            acao=item["acao"],
-            acao_id=item["acao_id"],
-            notificacao_id=item["notificacao_id"],
-            title=item["title"],
-        )
-        self._notificacao_atual.destroyed.connect(self._proxima)
+        try:
+            toast = ToastNotification(
+                message=item["message"],
+                tipo=item["tipo"],
+                parent=parent,
+                duration=item["duration"],
+                prioridade=item["prioridade"],
+                acao=item["acao"],
+                acao_id=item["acao_id"],
+                notificacao_id=item["notificacao_id"],
+                title=item["title"],
+            )
+            if toast is None:
+                raise RuntimeError("ToastNotification não foi criada corretamente.")
+            self._notificacao_atual = toast
+            self._notificacao_atual.closed.connect(self._proxima)
+        except Exception as e:
+            print(f"Erro ao exibir toast: {e}")
+            self._notificacao_atual = None
+            QTimer.singleShot(80, self._exibir_proxima)
 
     def _proxima(self):
         self._notificacao_atual = None
