@@ -8,21 +8,35 @@ from api_client import api_client
 from widgets.form_feedback import focus_invalid_field, optional_label, required_field_message, required_hint_label, required_label
 from widgets.filter_utils import is_all_option, same_filter_value, same_text
 from widgets.table_utils import configure_data_table, number_item, refresh_data_table_layout
+from user_preferences import (
+    apply_combo_text,
+    apply_table_column_widths,
+    apply_table_sort_state,
+    get_table_column_widths,
+    get_table_sort_state,
+    get_widget_preferences,
+    save_widget_preferences,
+)
 
 
 class UsuariosWidget(QWidget):
     def __init__(self):
         super().__init__()
+        self.usuario = {}
         self.usuarios = []
         self.usuarios_cache = []
         self._loaded = False
+        self._restoring_preferences = False
+        self._saved_preferences = {}
         self.init_ui()
 
     def on_show(self):
         if not self._loaded:
             self.carregar_empresas()
-            self.carregar_usuarios()
             self.carregar_cargos()
+            self._carregar_preferencias()
+            self._aplicar_preferencias_salvas()
+            self.carregar_usuarios()
             self._loaded = True
 
     def init_ui(self):
@@ -106,6 +120,7 @@ class UsuariosWidget(QWidget):
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabela.setEditTriggers(QTableWidget.NoEditTriggers)
         self.tabela.verticalHeader().setVisible(False)
+        self.tabela.setSortingEnabled(True)
 
         self.tabela.setStyleSheet("""
             QTableWidget::item {
@@ -152,6 +167,8 @@ class UsuariosWidget(QWidget):
                 6: 150,
             },
         )
+        self.tabela.horizontalHeader().sortIndicatorChanged.connect(self._ao_ordenar_tabela)
+        self.tabela.horizontalHeader().sectionResized.connect(self._ao_redimensionar_coluna)
 
         layout.addWidget(self.tabela)
 
@@ -176,6 +193,48 @@ class UsuariosWidget(QWidget):
         acoes.addWidget(self.deletar_btn)
 
         layout.addLayout(acoes)
+
+    def set_usuario(self, usuario):
+        self.usuario = usuario or {}
+        self._carregar_preferencias()
+        if self._loaded:
+            self._aplicar_preferencias_salvas()
+            self.carregar_usuarios()
+
+    def _carregar_preferencias(self):
+        self._saved_preferences = get_widget_preferences(self.usuario, "usuarios")
+
+    def _aplicar_preferencias_salvas(self):
+        self._restoring_preferences = True
+        try:
+            apply_combo_text(self.empresa_filter, self._saved_preferences.get("empresa"))
+            apply_combo_text(self.cargo_filter, self._saved_preferences.get("cargo"))
+            apply_combo_text(self.ativo_filter, self._saved_preferences.get("status"))
+            apply_combo_text(self.nivel_filter, self._saved_preferences.get("nivel"))
+        finally:
+            self._restoring_preferences = False
+
+    def _preferencias_atuais(self):
+        return {
+            "empresa": self.empresa_filter.currentText(),
+            "cargo": self.cargo_filter.currentText(),
+            "status": self.ativo_filter.currentText(),
+            "nivel": self.nivel_filter.currentText(),
+            "sort": get_table_sort_state(self.tabela),
+            "widths": get_table_column_widths(self.tabela),
+        }
+
+    def _salvar_preferencias(self):
+        if self._restoring_preferences:
+            return
+        self._saved_preferences = self._preferencias_atuais()
+        save_widget_preferences(self.usuario, "usuarios", self._saved_preferences)
+
+    def _ao_ordenar_tabela(self, *_args):
+        self._salvar_preferencias()
+
+    def _ao_redimensionar_coluna(self, *_args):
+        self._salvar_preferencias()
 
     def carregar_usuarios(self):
         """Carrega a lista de usuários do backend"""
@@ -243,9 +302,13 @@ class UsuariosWidget(QWidget):
             filtered.append(usuario)
 
         self.atualizar_tabela(filtered)
+        self._salvar_preferencias()
 
     def atualizar_tabela(self, usuarios):
         """Atualiza a tabela com a lista de usuários"""
+        sorting_enabled = self.tabela.isSortingEnabled()
+        self.tabela.setSortingEnabled(False)
+        self.tabela.clearContents()
         self.tabela.setRowCount(len(usuarios))
 
         for row, usuario in enumerate(usuarios):
@@ -277,7 +340,12 @@ class UsuariosWidget(QWidget):
             primeiro_acesso = "Sim" if usuario.get("primeiro_acesso", False) else "Não"
             self.tabela.setItem(row, 6, QTableWidgetItem(primeiro_acesso))
 
+        if sorting_enabled:
+            self.tabela.setSortingEnabled(True)
+
+        apply_table_sort_state(self.tabela, self._saved_preferences.get("sort"))
         refresh_data_table_layout(self.tabela)
+        apply_table_column_widths(self.tabela, self._saved_preferences.get("widths"))
 
     def _selected_usuario_id(self):
         current_row = self.tabela.currentRow()

@@ -36,7 +36,9 @@ from widgets.table_utils import configure_data_table, number_item, refresh_data_
 from user_preferences import (
     apply_combo_data,
     apply_combo_text,
+    apply_table_column_widths,
     apply_table_sort_state,
+    get_table_column_widths,
     get_table_sort_state,
     get_widget_preferences,
     save_widget_preferences,
@@ -180,6 +182,7 @@ class DemandasWidget(QWidget):
 
         self._configurar_colunas_tabela()
         self.tabela.horizontalHeader().sortIndicatorChanged.connect(self._ao_ordenar_tabela)
+        self.tabela.horizontalHeader().sectionResized.connect(self._ao_redimensionar_coluna)
         self.aplicar_permissoes()
         self.aplicar_modo_usuario()
 
@@ -299,6 +302,12 @@ class DemandasWidget(QWidget):
     def _carregar_preferencias(self):
         self._saved_preferences = get_widget_preferences(self.usuario, "demandas")
 
+    def _sort_pref_key(self):
+        return "sort_solicitante" if self._modo_solicitante else "sort_admin"
+
+    def _widths_pref_key(self):
+        return "widths_solicitante" if self._modo_solicitante else "widths_admin"
+
     def _aplicar_preferencias_salvas(self):
         self._restoring_preferences = True
         try:
@@ -316,16 +325,22 @@ class DemandasWidget(QWidget):
             "status": self.status_filter.currentText(),
             "prioridade": self.prioridade_filter.currentText(),
             "empresa": self.empresa_filter.currentData(),
-            "sort": get_table_sort_state(self.tabela),
+            self._sort_pref_key(): get_table_sort_state(self.tabela),
+            self._widths_pref_key(): get_table_column_widths(self.tabela),
         }
 
     def _salvar_preferencias(self):
         if self._restoring_preferences:
             return
-        self._saved_preferences = self._preferencias_atuais()
+        merged = dict(self._saved_preferences or {})
+        merged.update(self._preferencias_atuais())
+        self._saved_preferences = merged
         save_widget_preferences(self.usuario, "demandas", self._saved_preferences)
 
     def _ao_ordenar_tabela(self, *_args):
+        self._salvar_preferencias()
+
+    def _ao_redimensionar_coluna(self, *_args):
         self._salvar_preferencias()
 
     def carregar_empresas(self):
@@ -417,6 +432,9 @@ class DemandasWidget(QWidget):
         self._salvar_preferencias()
 
     def atualizar_tabela(self, demandas):
+        sorting_enabled = self.tabela.isSortingEnabled()
+        self.tabela.setSortingEnabled(False)
+        self.tabela.clearContents()
         self.tabela.setRowCount(len(demandas))
 
         prioridade_cores = {
@@ -458,8 +476,12 @@ class DemandasWidget(QWidget):
                 self.tabela.setItem(row, 6, QTableWidgetItem(data))
                 self.tabela.setItem(row, 7, QTableWidgetItem(demanda.get("responsavel", "-") or "-"))
 
-        apply_table_sort_state(self.tabela, self._saved_preferences.get("sort"))
+        if sorting_enabled:
+            self.tabela.setSortingEnabled(True)
+
+        apply_table_sort_state(self.tabela, self._saved_preferences.get(self._sort_pref_key()))
         refresh_data_table_layout(self.tabela)
+        apply_table_column_widths(self.tabela, self._saved_preferences.get(self._widths_pref_key()))
 
     def _demanda_selecionada(self):
         row = self.tabela.currentRow()
