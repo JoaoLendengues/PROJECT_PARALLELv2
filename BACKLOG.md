@@ -32,12 +32,13 @@ Este arquivo concentra apenas o que ainda faz sentido como próximo trabalho, re
 
 - Fazer a rodada final de refinamento da tela de relatórios.
 - Melhorar estados vazios, agrupamento visual e leitura das tabelas.
-- Refinar a experiência de exportação com nome de arquivo mais amigável e contexto dos filtros aplicados.
 - Avaliar se vale adicionar mais indicadores de resumo por aba.
 
 ## Notificações
 
 - Fazer uma segunda rodada de refinamento da central de notificações.
+- Corrigir o disparo automático dos pop-ups de alta prioridade e urgência logo após o login.
+- Revisar o fluxo entre `alert_service`, `notification_manager` e `toast_notification` no startup da aplicação.
 - Avaliar agrupamento por tempo (`Agora`, `Hoje`, `Ontem` e `Mais antigas`).
 - Aproximar ainda mais a central do padrão visual elegante/tech usado nos pop-ups.
 - Estudar filtros rápidos extras, como `só não lidas`, `só críticas` e `só acionáveis`.
@@ -50,8 +51,6 @@ Este arquivo concentra apenas o que ainda faz sentido como próximo trabalho, re
 
 ## Experiência e produtividade
 
-- Salvar largura das colunas por usuário, além de filtros, busca e ordenação.
-- Avaliar salvar a última aba aberta em telas maiores, como Relatórios e Parâmetros.
 - Planejar atalhos operacionais para fluxos recorrentes, depois de estabilizar o updater.
 - Seguir a passada final de acessibilidade e consistência visual, tela por tela.
 

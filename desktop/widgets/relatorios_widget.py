@@ -1,6 +1,8 @@
 from datetime import date, datetime
 from html import escape
 import os
+import re
+import unicodedata
 
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -1291,6 +1293,78 @@ class RelatoriosWidget(QWidget):
             rows.append(row_values)
         return headers, rows
 
+    def _report_label(self, tipo):
+        labels = {
+            "movimentacoes": "movimentacoes",
+            "estoque": "estoque",
+            "pedidos": "pedidos",
+            "demandas": "demandas",
+        }
+        return labels.get(tipo, tipo)
+
+    def _sanitize_filename_part(self, value):
+        text = str(value or "").strip()
+        if not text:
+            return ""
+        text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+        text = text.lower()
+        text = re.sub(r"[^a-z0-9]+", "_", text)
+        return text.strip("_")
+
+    def _current_export_filters(self, tipo):
+        filters = []
+
+        if tipo == "movimentacoes":
+            filters.append(("inicio", self.mov_data_inicio.date().toString("yyyy-MM-dd")))
+            filters.append(("fim", self.mov_data_fim.date().toString("yyyy-MM-dd")))
+            if not is_all_option(self.mov_tipo.currentText()):
+                filters.append(("tipo", self.mov_tipo.currentText()))
+            if not is_all_option(self.mov_empresa.currentText()):
+                filters.append(("empresa", self.mov_empresa.currentText()))
+        elif tipo == "estoque":
+            if not is_all_option(self.est_categoria.currentText()):
+                filters.append(("categoria", self.est_categoria.currentText()))
+            if not is_all_option(self.est_empresa.currentText()):
+                filters.append(("empresa", self.est_empresa.currentText()))
+            if not is_all_option(self.est_status.currentText()):
+                filters.append(("status", self.est_status.currentText()))
+        elif tipo == "pedidos":
+            filters.append(("inicio", self.ped_data_inicio.date().toString("yyyy-MM-dd")))
+            filters.append(("fim", self.ped_data_fim.date().toString("yyyy-MM-dd")))
+            if not is_all_option(self.ped_status.currentText()):
+                filters.append(("status", self.ped_status.currentText()))
+            if not is_all_option(self.ped_empresa.currentText()):
+                filters.append(("empresa", self.ped_empresa.currentText()))
+        elif tipo == "demandas":
+            filters.append(("inicio", self.dem_data_inicio.date().toString("yyyy-MM-dd")))
+            filters.append(("fim", self.dem_data_fim.date().toString("yyyy-MM-dd")))
+            if not is_all_option(self.dem_status.currentText()):
+                filters.append(("status", self.dem_status.currentText()))
+            if not is_all_option(self.dem_prioridade.currentText()):
+                filters.append(("prioridade", self.dem_prioridade.currentText()))
+            if not is_all_option(self.dem_empresa.currentText()):
+                filters.append(("empresa", self.dem_empresa.currentText()))
+
+        return filters
+
+    def _build_export_basename(self, tipo):
+        parts = [f"relatorio_{self._sanitize_filename_part(self._report_label(tipo))}"]
+        for key, value in self._current_export_filters(tipo):
+            sanitized = self._sanitize_filename_part(value)
+            if sanitized:
+                parts.append(f"{key}_{sanitized}")
+        parts.append(datetime.now().strftime("%Y%m%d_%H%M%S"))
+        return "_".join(parts)
+
+    def _export_context_text(self, tipo, row_count):
+        filters = self._current_export_filters(tipo)
+        filter_text = ", ".join(f"{label}: {value}" for label, value in filters) if filters else "sem filtros adicionais"
+        return (
+            f"Relatorio exportado com sucesso.\n\n"
+            f"Registros exportados: {row_count}\n"
+            f"Filtros: {filter_text}"
+        )
+
     def exportar_excel(self, tipo):
         if not self._pode("relatorios.export"):
             self._avisar_sem_permissao("relatorios.export")
@@ -1304,7 +1378,7 @@ class RelatoriosWidget(QWidget):
             file_path, _ = QFileDialog.getSaveFileName(
                 self,
                 "Salvar Excel",
-                f"relatorio_{tipo}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                f"{self._build_export_basename(tipo)}.xlsx",
                 "Excel Files (*.xlsx)",
             )
             if not file_path:
@@ -1348,7 +1422,11 @@ class RelatoriosWidget(QWidget):
                 sheet.column_dimensions[get_column_letter(index)].width = min(max_width + 2, 40)
 
             workbook.save(file_path)
-            QMessageBox.information(self, "Sucesso", f"Relatorio exportado com sucesso.\n\nArquivo: {file_path}")
+            QMessageBox.information(
+                self,
+                "Sucesso",
+                f"{self._export_context_text(tipo, len(rows))}\nArquivo: {file_path}",
+            )
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao exportar Excel: {e}")
 
@@ -1365,7 +1443,7 @@ class RelatoriosWidget(QWidget):
             file_path, _ = QFileDialog.getSaveFileName(
                 self,
                 "Salvar PDF",
-                f"relatorio_{tipo}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                f"{self._build_export_basename(tipo)}.pdf",
                 "PDF Files (*.pdf)",
             )
             if not file_path:
@@ -1407,6 +1485,10 @@ class RelatoriosWidget(QWidget):
             )
             elements.append(table)
             doc.build(elements)
-            QMessageBox.information(self, "Sucesso", f"Relatorio exportado com sucesso.\n\nArquivo: {file_path}")
+            QMessageBox.information(
+                self,
+                "Sucesso",
+                f"{self._export_context_text(tipo, len(rows))}\nArquivo: {file_path}",
+            )
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao exportar PDF: {e}")
