@@ -14,9 +14,11 @@ from widgets.toast_notification import notification_manager
 from widgets.filter_utils import contains_text, is_all_option, same_filter_value, same_text
 from widgets.table_utils import configure_data_table, number_item, refresh_data_table_layout
 from user_preferences import (
+    apply_table_column_widths,
     apply_combo_data,
     apply_combo_text,
     apply_table_sort_state,
+    get_table_column_widths,
     get_table_sort_state,
     get_widget_preferences,
     save_widget_preferences,
@@ -165,6 +167,7 @@ class PedidosWidget(QWidget):
             },
         )
         self.tabela.horizontalHeader().sortIndicatorChanged.connect(self._ao_ordenar_tabela)
+        self.tabela.horizontalHeader().sectionResized.connect(self._ao_redimensionar_coluna)
 
         layout.addWidget(self.tabela)
 
@@ -260,6 +263,7 @@ class PedidosWidget(QWidget):
             "empresa": self.empresa_filter.currentData(),
             "departamento": self.departamento_filter.currentText(),
             "sort": get_table_sort_state(self.tabela),
+            "widths": get_table_column_widths(self.tabela),
         }
 
     def _salvar_preferencias(self):
@@ -269,6 +273,9 @@ class PedidosWidget(QWidget):
         save_widget_preferences(self.usuario, "pedidos", self._saved_preferences)
 
     def _ao_ordenar_tabela(self, *_args):
+        self._salvar_preferencias()
+
+    def _ao_redimensionar_coluna(self, *_args):
         self._salvar_preferencias()
 
     def _pedido_selecionado(self):
@@ -396,6 +403,9 @@ class PedidosWidget(QWidget):
 
     def atualizar_tabela(self, pedidos):
         """Atualiza a tabela com a lista de pedidos"""
+        sorting_enabled = self.tabela.isSortingEnabled()
+        self.tabela.setSortingEnabled(False)
+        self.tabela.clearContents()
         self.tabela.setRowCount(len(pedidos))
 
         status_colors = {
@@ -426,8 +436,12 @@ class PedidosWidget(QWidget):
 
             self.tabela.setItem(row, 10, QTableWidgetItem(str(pedido.get("observacao") or "-")[:50]))
 
+        if sorting_enabled:
+            self.tabela.setSortingEnabled(True)
+
         apply_table_sort_state(self.tabela, self._saved_preferences.get("sort"))
         refresh_data_table_layout(self.tabela)
+        apply_table_column_widths(self.tabela, self._saved_preferences.get("widths"))
 
     def novo_pedido(self):
         if not self._pode("pedidos.create"):

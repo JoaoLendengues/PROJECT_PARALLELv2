@@ -13,9 +13,11 @@ from widgets.toast_notification import notification_manager
 from widgets.filter_utils import contains_text, is_all_option, same_filter_value, same_text
 from widgets.table_utils import configure_data_table, number_item, refresh_data_table_layout
 from user_preferences import (
+    apply_table_column_widths,
     apply_combo_data,
     apply_combo_text,
     apply_table_sort_state,
+    get_table_column_widths,
     get_table_sort_state,
     get_widget_preferences,
     save_widget_preferences,
@@ -156,6 +158,7 @@ class MovimentacoesWidget(QWidget):
             },
         )
         self.tabela.horizontalHeader().sortIndicatorChanged.connect(self._ao_ordenar_tabela)
+        self.tabela.horizontalHeader().sectionResized.connect(self._ao_redimensionar_coluna)
 
         layout.addWidget(self.tabela)
 
@@ -222,6 +225,7 @@ class MovimentacoesWidget(QWidget):
             "empresa": self.empresa_filter.currentData(),
             "material_id": self.material_filter.currentData(),
             "sort": get_table_sort_state(self.tabela),
+            "widths": get_table_column_widths(self.tabela),
         }
 
     def _salvar_preferencias(self):
@@ -231,6 +235,9 @@ class MovimentacoesWidget(QWidget):
         save_widget_preferences(self.usuario, "movimentacoes", self._saved_preferences)
 
     def _ao_ordenar_tabela(self, *_args):
+        self._salvar_preferencias()
+
+    def _ao_redimensionar_coluna(self, *_args):
         self._salvar_preferencias()
 
     def _mostrar_prompt_empresa(self):
@@ -342,6 +349,9 @@ class MovimentacoesWidget(QWidget):
 
     def atualizar_tabela(self, movimentacoes):
         """Atualiza a tabela com a lista de movimentações"""
+        sorting_enabled = self.tabela.isSortingEnabled()
+        self.tabela.setSortingEnabled(False)
+        self.tabela.clearContents()
         self.tabela.setRowCount(len(movimentacoes))
 
         for row, mov in enumerate(movimentacoes):
@@ -372,8 +382,12 @@ class MovimentacoesWidget(QWidget):
                 obs = str(obs)[:50]
             self.tabela.setItem(row, 7, QTableWidgetItem(obs))
 
+        if sorting_enabled:
+            self.tabela.setSortingEnabled(True)
+
         apply_table_sort_state(self.tabela, self._saved_preferences.get("sort"))
         refresh_data_table_layout(self.tabela)
+        apply_table_column_widths(self.tabela, self._saved_preferences.get("widths"))
 
 
     def nova_movimentacao(self):

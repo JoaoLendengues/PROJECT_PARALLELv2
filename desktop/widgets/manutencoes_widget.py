@@ -11,9 +11,11 @@ from widgets.form_feedback import focus_invalid_field, optional_label, required_
 from widgets.filter_utils import contains_text, is_all_option, same_filter_value, same_text
 from widgets.table_utils import configure_data_table, number_item, refresh_data_table_layout
 from user_preferences import (
+    apply_table_column_widths,
     apply_combo_data,
     apply_combo_text,
     apply_table_sort_state,
+    get_table_column_widths,
     get_table_sort_state,
     get_widget_preferences,
     save_widget_preferences,
@@ -154,6 +156,7 @@ class ManutencoesWidget(QWidget):
             },
         )
         self.tabela.horizontalHeader().sortIndicatorChanged.connect(self._ao_ordenar_tabela)
+        self.tabela.horizontalHeader().sectionResized.connect(self._ao_redimensionar_coluna)
 
         layout.addWidget(self.tabela)
 
@@ -237,6 +240,7 @@ class ManutencoesWidget(QWidget):
             "empresa": self.empresa_filter.currentData(),
             "maquina_id": self.maquina_filter.currentData(),
             "sort": get_table_sort_state(self.tabela),
+            "widths": get_table_column_widths(self.tabela),
         }
 
     def _salvar_preferencias(self):
@@ -246,6 +250,9 @@ class ManutencoesWidget(QWidget):
         save_widget_preferences(self.usuario, "manutencoes", self._saved_preferences)
 
     def _ao_ordenar_tabela(self, *_args):
+        self._salvar_preferencias()
+
+    def _ao_redimensionar_coluna(self, *_args):
         self._salvar_preferencias()
 
     def _mostrar_prompt_empresa(self):
@@ -359,6 +366,9 @@ class ManutencoesWidget(QWidget):
 
     def atualizar_tabela(self, manutencoes):
         """Atualiza a tabela com a lista de manutenções"""
+        sorting_enabled = self.tabela.isSortingEnabled()
+        self.tabela.setSortingEnabled(False)
+        self.tabela.clearContents()
         self.tabela.setRowCount(len(manutencoes))
 
         status_colors = {
@@ -382,8 +392,12 @@ class ManutencoesWidget(QWidget):
             status_item.setForeground(status_color)
             self.tabela.setItem(row, 7, status_item)
 
+        if sorting_enabled:
+            self.tabela.setSortingEnabled(True)
+
         apply_table_sort_state(self.tabela, self._saved_preferences.get("sort"))
         refresh_data_table_layout(self.tabela)
+        apply_table_column_widths(self.tabela, self._saved_preferences.get("widths"))
 
     def nova_manutencao(self):
         if not self._pode("manutencoes.create"):
