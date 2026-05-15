@@ -1,9 +1,11 @@
-from PySide6.QtCore import QDate
+﻿from PySide6.QtCore import QDate, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
+    QApplication,
     QComboBox,
     QDateEdit,
     QDialog,
+    QFrame,
     QFormLayout,
     QHBoxLayout,
     QLabel,
@@ -51,10 +53,12 @@ class DemandasWidget(QWidget):
         self.usuario = {}
         self.demandas = []
         self.empresas = []
+        self._visible_demandas = []
         self._loaded = False
         self._modo_solicitante = False
         self._restoring_preferences = False
         self._saved_preferences = {}
+        self._summary_labels = {}
         self.init_ui()
 
     def on_show(self):
@@ -70,6 +74,60 @@ class DemandasWidget(QWidget):
             self.carregar_demandas()
         else:
             self._mostrar_prompt_empresa()
+
+    def showEvent(self, event):
+        self._apply_theme_styles()
+        super().showEvent(event)
+
+    def _is_dark_theme(self):
+        app = QApplication.instance()
+        return str(app.property("accessibility_theme") or "Claro") == "Escuro"
+
+    def _theme_colors(self):
+        if self._is_dark_theme():
+            return {
+                "card_bg": "rgba(15, 23, 42, 0.34)",
+                "card_border": "rgba(148, 163, 184, 0.16)",
+                "title": "#f8fafc",
+                "muted": "#94a3b8",
+            }
+        return {
+            "card_bg": "rgba(248, 250, 252, 1.0)",
+            "card_border": "rgba(203, 213, 225, 0.9)",
+            "title": "#0f172a",
+            "muted": "#64748b",
+        }
+
+    def _apply_theme_styles(self):
+        colors_map = self._theme_colors()
+        self.setStyleSheet(
+            f"""
+            QFrame#demandSummaryCard, QFrame#demandDetailCard {{
+                background-color: {colors_map['card_bg']};
+                border: 1px solid {colors_map['card_border']};
+                border-radius: 16px;
+            }}
+            QLabel#demandSummaryTitle {{
+                color: {colors_map['muted']};
+                font-size: 11px;
+                font-weight: 700;
+            }}
+            QLabel#demandSummaryValue {{
+                color: {colors_map['title']};
+                font-size: 24px;
+                font-weight: 700;
+            }}
+            QLabel#demandSummaryCaption, QLabel#demandDetailBody {{
+                color: {colors_map['muted']};
+                font-size: 12px;
+            }}
+            QLabel#demandDetailTitle {{
+                color: {colors_map['title']};
+                font-size: 16px;
+                font-weight: 700;
+            }}
+            """
+        )
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -134,6 +192,16 @@ class DemandasWidget(QWidget):
         self.empresa_prompt.setStyleSheet("color: #64748b; font-size: 13px;")
         layout.addWidget(self.empresa_prompt)
 
+        self.summary_strip = self._create_summary_strip(
+            [
+                ("total", "Demandas visiveis", "Base filtrada na grade"),
+                ("abertas", "Abertas", "Aguardando andamento"),
+                ("andamento", "Em andamento", "Ja assumidas"),
+                ("criticas", "Criticas", "Alta prioridade ou urgencia"),
+            ]
+        )
+        layout.addWidget(self.summary_strip)
+
         self.tabela = QTableWidget()
         self.tabela.setAlternatingRowColors(True)
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
@@ -149,7 +217,12 @@ class DemandasWidget(QWidget):
             }
             """
         )
-        layout.addWidget(self.tabela)
+        self.detail_card = self._create_detail_panel()
+        content_layout = QHBoxLayout()
+        content_layout.setSpacing(18)
+        content_layout.addWidget(self.tabela, 3)
+        content_layout.addWidget(self.detail_card, 1)
+        layout.addLayout(content_layout, 1)
 
         acoes = QHBoxLayout()
         acoes.addStretch()
@@ -183,8 +256,11 @@ class DemandasWidget(QWidget):
         self._configurar_colunas_tabela()
         self.tabela.horizontalHeader().sortIndicatorChanged.connect(self._ao_ordenar_tabela)
         self.tabela.horizontalHeader().sectionResized.connect(self._ao_redimensionar_coluna)
+        self.tabela.itemSelectionChanged.connect(self._update_detail_from_selection)
         self.aplicar_permissoes()
         self.aplicar_modo_usuario()
+        self._apply_theme_styles()
+        self._set_detail_empty()
 
     def set_usuario(self, usuario):
         self.usuario = usuario or {}
@@ -256,6 +332,130 @@ class DemandasWidget(QWidget):
             },
         )
 
+    def _create_summary_strip(self, specs):
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(14)
+
+        for key, title, caption in specs:
+            card = QFrame()
+            card.setObjectName("demandSummaryCard")
+            card_layout = QVBoxLayout(card)
+            card_layout.setContentsMargins(16, 14, 16, 14)
+            card_layout.setSpacing(6)
+
+            title_label = QLabel(title)
+            title_label.setObjectName("demandSummaryTitle")
+
+            value_label = QLabel("0")
+            value_label.setObjectName("demandSummaryValue")
+
+            caption_label = QLabel(caption)
+            caption_label.setObjectName("demandSummaryCaption")
+            caption_label.setWordWrap(True)
+
+            card_layout.addWidget(title_label)
+            card_layout.addWidget(value_label)
+            card_layout.addWidget(caption_label)
+            layout.addWidget(card, 1)
+            self._summary_labels[key] = value_label
+
+        return container
+
+    def _create_detail_panel(self):
+        card = QFrame()
+        card.setObjectName("demandDetailCard")
+        card.setMinimumWidth(320)
+        card.setMaximumWidth(390)
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(18, 16, 18, 16)
+        layout.setSpacing(10)
+
+        title = QLabel("Detalhes da demanda")
+        title.setObjectName("demandDetailTitle")
+        layout.addWidget(title)
+
+        self.detail_titulo = QLabel("")
+        self.detail_titulo.setWordWrap(True)
+        self.detail_titulo.setStyleSheet("font-size: 20px; font-weight: 700;")
+        layout.addWidget(self.detail_titulo)
+
+        self.detail_body = QLabel("")
+        self.detail_body.setObjectName("demandDetailBody")
+        self.detail_body.setWordWrap(True)
+        self.detail_body.setTextFormat(Qt.RichText)
+        self.detail_body.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        layout.addWidget(self.detail_body, 1)
+
+        return card
+
+    def _set_summary_value(self, key, value):
+        label = self._summary_labels.get(key)
+        if label is not None:
+            label.setText(str(value))
+
+    def _display_status(self, value):
+        labels = {
+            "aberto": "Aberto",
+            "andamento": "Em andamento",
+            "concluido": "Concluido",
+            "cancelado": "Cancelado",
+        }
+        return labels.get(str(value or "").strip().lower(), str(value or "-"))
+
+    def _display_level(self, value):
+        labels = {
+            "alta": "Alta",
+            "media": "Media",
+            "baixa": "Baixa",
+        }
+        return labels.get(str(value or "").strip().lower(), str(value or "-"))
+
+    def _update_summary(self, demandas):
+        total = len(demandas)
+        abertas = sum(1 for demanda in demandas if str(demanda.get("status", "")).lower() == "aberto")
+        andamento = sum(1 for demanda in demandas if str(demanda.get("status", "")).lower() == "andamento")
+        criticas = sum(
+            1
+            for demanda in demandas
+            if str(demanda.get("prioridade", "")).lower() == "alta"
+            or str(demanda.get("urgencia", "")).lower() == "alta"
+        )
+        self._set_summary_value("total", total)
+        self._set_summary_value("abertas", abertas)
+        self._set_summary_value("andamento", andamento)
+        self._set_summary_value("criticas", criticas)
+
+    def _set_detail_empty(self):
+        if hasattr(self, "detail_titulo"):
+            self.detail_titulo.setText("Selecione uma demanda")
+        if hasattr(self, "detail_body"):
+            self.detail_body.setText(
+                "Escolha um item na grade para ver solicitante, empresa, prioridade, urgencia e o contexto completo."
+            )
+
+    def _update_detail_from_selection(self):
+        demanda = self._demanda_selecionada()
+        if not demanda:
+            self._set_detail_empty()
+            return
+
+        self.detail_titulo.setText(demanda.get("titulo", "Demanda"))
+        detalhe = (
+            f"<b>ID:</b> {demanda.get('id', '-')}<br>"
+            f"<b>Solicitante:</b> {demanda.get('solicitante', '-') or '-'}<br>"
+            f"<b>Empresa:</b> {demanda.get('empresa', '-') or '-'}<br>"
+            f"<b>Departamento:</b> {demanda.get('departamento', '-') or '-'}<br>"
+            f"<b>Prioridade:</b> {self._display_level(demanda.get('prioridade'))}<br>"
+            f"<b>Urgencia:</b> {self._display_level(demanda.get('urgencia'))}<br>"
+            f"<b>Status:</b> {self._display_status(demanda.get('status'))}<br>"
+            f"<b>Responsavel:</b> {demanda.get('responsavel', '-') or '-'}<br>"
+            f"<b>Data de abertura:</b> {(demanda.get('data_abertura') or '')[:10] or '-'}<br>"
+            f"<b>Descricao:</b><br>{(demanda.get('descricao') or '-')}<br>"
+            f"<b>Observacao:</b><br>{(demanda.get('observacao') or '-')}"
+        )
+        self.detail_body.setText(detalhe)
     def aplicar_modo_usuario(self):
         if not hasattr(self, "titulo_label"):
             return
@@ -432,8 +632,10 @@ class DemandasWidget(QWidget):
         self._salvar_preferencias()
 
     def atualizar_tabela(self, demandas):
+        self._visible_demandas = list(demandas)
         sorting_enabled = self.tabela.isSortingEnabled()
         self.tabela.setSortingEnabled(False)
+        self.tabela.clearSelection()
         self.tabela.clearContents()
         self.tabela.setRowCount(len(demandas))
 
@@ -482,6 +684,12 @@ class DemandasWidget(QWidget):
         apply_table_sort_state(self.tabela, self._saved_preferences.get(self._sort_pref_key()))
         refresh_data_table_layout(self.tabela)
         apply_table_column_widths(self.tabela, self._saved_preferences.get(self._widths_pref_key()))
+        self._update_summary(demandas)
+        if demandas:
+            self.tabela.selectRow(0)
+            self._update_detail_from_selection()
+        else:
+            self._set_detail_empty()
 
     def _demanda_selecionada(self):
         row = self.tabela.currentRow()
@@ -493,7 +701,7 @@ class DemandasWidget(QWidget):
             return None
 
         demanda_id = int(item_id.text())
-        return next((demanda for demanda in self.demandas if demanda.get("id") == demanda_id), None)
+        return next((demanda for demanda in self._visible_demandas if demanda.get("id") == demanda_id), None)
 
     def nova_demanda(self):
         if not self._pode("demandas.create"):
