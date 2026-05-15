@@ -1,10 +1,11 @@
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from app import auth, models, schemas
+from app.audit import get_request_user, model_to_dict, registrar_log_auditoria
 from app.database import get_db
 
 router = APIRouter(prefix="/api/movimentacoes", tags=["Movimentacoes"])
@@ -76,6 +77,7 @@ def criar_movimentacao(
     movimentacao: schemas.MovimentacaoCreate,
     db: Session = Depends(get_db),
     current_user: models.UsuarioSistema = Depends(auth.get_current_user),
+    request: Request = None,
     usuario_id: int = Query(1, description="ID do usuario legado"),
 ):
     """Registra uma movimentacao de entrada ou saida."""
@@ -96,6 +98,7 @@ def criar_movimentacao(
     dados_movimentacao["usuario_id"] = usuario_id
     dados_movimentacao["ip_origem"] = dados_movimentacao.get("ip_origem") or "127.0.0.1"
 
+    estoque_antes = material.quantidade
     nova_movimentacao = models.Movimentacao(**dados_movimentacao)
     db.add(nova_movimentacao)
 
@@ -108,23 +111,22 @@ def criar_movimentacao(
     db.refresh(nova_movimentacao)
 
     try:
-        log = models.LogAuditoria(
-            usuario_id=current_user.id,
+        registrar_log_auditoria(
+            db,
+            usuario=current_user,
             acao="CREATE",
             tabela_afetada="movimentacoes",
             registro_id=nova_movimentacao.id,
             dados_novos={
-                "material_id": nova_movimentacao.material_id,
-                "tipo": nova_movimentacao.tipo,
-                "quantidade": nova_movimentacao.quantidade,
-                "empresa": nova_movimentacao.empresa,
-                "destinatario": nova_movimentacao.destinatario,
-                "observacao": nova_movimentacao.observacao,
+                **model_to_dict(nova_movimentacao),
+                "material_nome": material.nome,
+                "estoque_antes": estoque_antes,
+                "estoque_depois": material.quantidade,
                 "confirmacao_senha": True,
             },
+            request=request,
             ip_origem=dados_movimentacao["ip_origem"],
         )
-        db.add(log)
         db.commit()
     except Exception as log_error:
         print(f"Erro ao registrar log de movimentacao: {log_error}")
@@ -137,6 +139,7 @@ def atualizar_movimentacao(
     movimentacao_id: int,
     movimentacao: schemas.MovimentacaoUpdate,
     db: Session = Depends(get_db),
+    request: Request = None,
 ):
     """Atualiza uma movimentacao existente sem mexer no estoque."""
     movimentacao_existente = (
@@ -146,12 +149,28 @@ def atualizar_movimentacao(
     if not movimentacao_existente:
         raise HTTPException(status_code=404, detail="Movimentacao nao encontrada")
 
+    usuario_auditoria = get_request_user(request, db)
+    dados_anteriores = model_to_dict(movimentacao_existente)
     update_data = movimentacao.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(movimentacao_existente, field, value)
 
     db.commit()
     db.refresh(movimentacao_existente)
+    try:
+        registrar_log_auditoria(
+            db,
+            usuario=usuario_auditoria,
+            acao="UPDATE",
+            tabela_afetada="movimentacoes",
+            registro_id=movimentacao_existente.id,
+            dados_anteriores=dados_anteriores,
+            dados_novos=model_to_dict(movimentacao_existente),
+            request=request,
+        )
+        db.commit()
+    except Exception as log_error:
+        print(f"Erro ao registrar log de auditoria da movimentacao: {log_error}")
     return _movimentacao_to_response(db, movimentacao_existente)
 
 
@@ -160,6 +179,7 @@ def deletar_movimentacao(
     movimentacao_id: int,
     db: Session = Depends(get_db),
     current_user: models.UsuarioSistema = Depends(auth.verificar_admin),
+    request: Request = None,
 ):
     """Remove uma movimentacao sem reverter estoque. Apenas administradores."""
     movimentacao = (
@@ -170,20 +190,15 @@ def deletar_movimentacao(
         raise HTTPException(status_code=404, detail="Movimentacao nao encontrada")
 
     try:
-        log = models.LogAuditoria(
-            usuario_id=current_user.id,
+        registrar_log_auditoria(
+            db,
+            usuario=current_user,
             acao="DELETE",
             tabela_afetada="movimentacoes",
             registro_id=movimentacao_id,
-            dados_anteriores={
-                "material_id": movimentacao.material_id,
-                "tipo": movimentacao.tipo,
-                "quantidade": movimentacao.quantidade,
-                "data_hora": str(movimentacao.data_hora),
-            },
-            ip_origem="127.0.0.1",
+            dados_anteriores=model_to_dict(movimentacao),
+            request=request,
         )
-        db.add(log)
     except Exception as log_error:
         print(f"Erro ao criar log de auditoria: {log_error}")
 
