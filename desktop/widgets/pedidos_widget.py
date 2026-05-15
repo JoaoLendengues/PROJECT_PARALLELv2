@@ -3,7 +3,7 @@ from urllib.parse import urlparse
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
                                QTableWidgetItem, QPushButton, QLabel, QLineEdit,
                                QComboBox, QDialog, QFormLayout, QSpinBox,
-                               QTextEdit, QMessageBox, QHeaderView, QDateEdit, QApplication)
+                               QTextEdit, QMessageBox, QHeaderView, QDateEdit, QApplication, QFrame)
 from PySide6.QtCore import Qt, QDate, QUrl
 from PySide6.QtGui import QDesktopServices, QFont, QColor, QCursor
 from api_client import api_client
@@ -31,11 +31,13 @@ class PedidosWidget(QWidget):
         self.usuario = {}
         self.pedidos = []
         self.pedidos_cache = []
+        self._visible_pedidos = []
         self.materiais = []
         self.departamentos = []
         self._loaded = False
         self._restoring_preferences = False
         self._saved_preferences = {}
+        self._summary_labels = {}
         self.init_ui()
 
     def on_show(self):
@@ -51,6 +53,60 @@ class PedidosWidget(QWidget):
             else:
                 self._mostrar_prompt_empresa()
             self._loaded = True
+
+    def showEvent(self, event):
+        self._apply_theme_styles()
+        super().showEvent(event)
+
+    def _is_dark_theme(self):
+        app = QApplication.instance()
+        return str(app.property("accessibility_theme") or "Claro") == "Escuro"
+
+    def _theme_colors(self):
+        if self._is_dark_theme():
+            return {
+                "card_bg": "rgba(15, 23, 42, 0.34)",
+                "card_border": "rgba(148, 163, 184, 0.16)",
+                "title": "#f8fafc",
+                "muted": "#94a3b8",
+            }
+        return {
+            "card_bg": "rgba(248, 250, 252, 1.0)",
+            "card_border": "rgba(203, 213, 225, 0.9)",
+            "title": "#0f172a",
+            "muted": "#64748b",
+        }
+
+    def _apply_theme_styles(self):
+        colors_map = self._theme_colors()
+        self.setStyleSheet(
+            f"""
+            QFrame#orderSummaryCard, QFrame#orderDetailCard {{
+                background-color: {colors_map['card_bg']};
+                border: 1px solid {colors_map['card_border']};
+                border-radius: 16px;
+            }}
+            QLabel#orderSummaryTitle {{
+                color: {colors_map['muted']};
+                font-size: 11px;
+                font-weight: 700;
+            }}
+            QLabel#orderSummaryValue {{
+                color: {colors_map['title']};
+                font-size: 24px;
+                font-weight: 700;
+            }}
+            QLabel#orderSummaryCaption, QLabel#orderDetailBody {{
+                color: {colors_map['muted']};
+                font-size: 12px;
+            }}
+            QLabel#orderDetailTitle {{
+                color: {colors_map['title']};
+                font-size: 16px;
+                font-weight: 700;
+            }}
+            """
+        )
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -124,6 +180,16 @@ class PedidosWidget(QWidget):
         self.empresa_prompt.setStyleSheet("color: #64748b; font-size: 13px;")
         layout.addWidget(self.empresa_prompt)
 
+        self.summary_strip = self._create_summary_strip(
+            [
+                ("total", "Pedidos visiveis", "Base filtrada na grade"),
+                ("pendentes", "Pendentes", "Aguardando aprovacao"),
+                ("aprovados", "Aprovados", "Prontos para execucao"),
+                ("com_link", "Com link", "Links de compra cadastrados"),
+            ]
+        )
+        layout.addWidget(self.summary_strip)
+
         # Tabela de pedidos com estilo melhorado
         self.tabela = QTableWidget()
         self.tabela.setAlternatingRowColors(True)
@@ -168,8 +234,14 @@ class PedidosWidget(QWidget):
         )
         self.tabela.horizontalHeader().sortIndicatorChanged.connect(self._ao_ordenar_tabela)
         self.tabela.horizontalHeader().sectionResized.connect(self._ao_redimensionar_coluna)
+        self.tabela.itemSelectionChanged.connect(self._update_detail_from_selection)
 
-        layout.addWidget(self.tabela)
+        self.detail_card = self._create_detail_panel()
+        content_layout = QHBoxLayout()
+        content_layout.setSpacing(18)
+        content_layout.addWidget(self.tabela, 3)
+        content_layout.addWidget(self.detail_card, 1)
+        layout.addLayout(content_layout, 1)
 
         # Botões de ação
         acoes = QHBoxLayout()
@@ -201,6 +273,8 @@ class PedidosWidget(QWidget):
 
         layout.addLayout(acoes)
         self.aplicar_permissoes()
+        self._apply_theme_styles()
+        self._set_detail_empty()
 
     def set_usuario(self, usuario):
         self.usuario = usuario or {}
@@ -236,6 +310,10 @@ class PedidosWidget(QWidget):
             self.cancelar_btn.setVisible(self._pode("pedidos.cancel"))
         if hasattr(self, "deletar_btn"):
             self.deletar_btn.setVisible(self._pode("pedidos.delete"))
+        if hasattr(self, "detail_open_link_btn") or hasattr(self, "detail_copy_link_btn"):
+            pedido = self._pedido_selecionado()
+            has_link = bool(pedido and str(pedido.get("link_compra") or "").strip())
+            self._set_detail_actions_enabled(self.tabela.currentRow() >= 0, has_link)
 
     def empresa_pronta(self):
         return company_filter_ready(self.empresa_filter)
@@ -284,7 +362,7 @@ class PedidosWidget(QWidget):
             return None
 
         pedido_id = int(self.tabela.item(current_row, 0).text())
-        return next((pedido for pedido in self.pedidos if pedido.get("id") == pedido_id), None)
+        return next((pedido for pedido in self._visible_pedidos if pedido.get("id") == pedido_id), None)
 
     def _texto_link(self, link_compra):
         link = str(link_compra or "").strip()
@@ -296,6 +374,154 @@ class PedidosWidget(QWidget):
 
         parsed = urlparse(link)
         return parsed.netloc or "Link salvo"
+
+    def _classificar_link(self, link_compra):
+        link = str(link_compra or "").strip()
+        if not link:
+            return ("Sem link", "-")
+        if "://" not in link:
+            link = f"https://{link}"
+        parsed = urlparse(link)
+        dominio = (parsed.netloc or "").lower()
+        if not dominio:
+            return ("Link invalido", "-")
+
+        conhecidos = {
+            "mercadolivre": "Marketplace",
+            "amazon": "Marketplace",
+            "magazineluiza": "Varejo",
+            "kabum": "Tecnologia",
+            "terabyteshop": "Tecnologia",
+            "pichau": "Tecnologia",
+        }
+        categoria = next((label for key, label in conhecidos.items() if key in dominio), "Externo")
+        return (categoria, dominio)
+
+    def _create_summary_strip(self, specs):
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(14)
+
+        for key, title, caption in specs:
+            card = QFrame()
+            card.setObjectName("orderSummaryCard")
+            card_layout = QVBoxLayout(card)
+            card_layout.setContentsMargins(16, 14, 16, 14)
+            card_layout.setSpacing(6)
+
+            title_label = QLabel(title)
+            title_label.setObjectName("orderSummaryTitle")
+
+            value_label = QLabel("0")
+            value_label.setObjectName("orderSummaryValue")
+
+            caption_label = QLabel(caption)
+            caption_label.setObjectName("orderSummaryCaption")
+            caption_label.setWordWrap(True)
+
+            card_layout.addWidget(title_label)
+            card_layout.addWidget(value_label)
+            card_layout.addWidget(caption_label)
+            layout.addWidget(card, 1)
+            self._summary_labels[key] = value_label
+
+        return container
+
+    def _create_detail_panel(self):
+        card = QFrame()
+        card.setObjectName("orderDetailCard")
+        card.setMinimumWidth(320)
+        card.setMaximumWidth(390)
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(18, 16, 18, 16)
+        layout.setSpacing(10)
+
+        title = QLabel("Detalhes do pedido")
+        title.setObjectName("orderDetailTitle")
+        layout.addWidget(title)
+
+        self.detail_material = QLabel("")
+        self.detail_material.setWordWrap(True)
+        self.detail_material.setStyleSheet("font-size: 20px; font-weight: 700;")
+        layout.addWidget(self.detail_material)
+
+        self.detail_body = QLabel("")
+        self.detail_body.setObjectName("orderDetailBody")
+        self.detail_body.setWordWrap(True)
+        self.detail_body.setTextFormat(Qt.RichText)
+        self.detail_body.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        layout.addWidget(self.detail_body, 1)
+
+        actions_layout = QVBoxLayout()
+        actions_layout.setSpacing(8)
+
+        self.detail_open_link_btn = QPushButton("Abrir link")
+        self.detail_open_link_btn.setMinimumHeight(38)
+        self.detail_open_link_btn.clicked.connect(self.abrir_link_pedido)
+        actions_layout.addWidget(self.detail_open_link_btn)
+
+        self.detail_copy_link_btn = QPushButton("Copiar link")
+        self.detail_copy_link_btn.setMinimumHeight(38)
+        self.detail_copy_link_btn.clicked.connect(self.copiar_link_pedido)
+        actions_layout.addWidget(self.detail_copy_link_btn)
+
+        layout.addLayout(actions_layout)
+        return card
+
+    def _set_summary_value(self, key, value):
+        label = self._summary_labels.get(key)
+        if label is not None:
+            label.setText(str(value))
+
+    def _update_summary(self, pedidos):
+        total = len(pedidos)
+        pendentes = sum(1 for pedido in pedidos if str(pedido.get("status", "")).lower() == "pendente")
+        aprovados = sum(1 for pedido in pedidos if str(pedido.get("status", "")).lower() == "aprovado")
+        com_link = sum(1 for pedido in pedidos if str(pedido.get("link_compra") or "").strip())
+        self._set_summary_value("total", total)
+        self._set_summary_value("pendentes", pendentes)
+        self._set_summary_value("aprovados", aprovados)
+        self._set_summary_value("com_link", com_link)
+
+    def _set_detail_empty(self):
+        if hasattr(self, "detail_material"):
+            self.detail_material.setText("Selecione um pedido")
+        if hasattr(self, "detail_body"):
+            self.detail_body.setText(
+                "Escolha um item na grade para ver solicitante, empresa, dominio do link e o contexto da compra."
+            )
+        self._set_detail_actions_enabled(False)
+
+    def _set_detail_actions_enabled(self, enabled, has_link=False):
+        if hasattr(self, "detail_open_link_btn"):
+            self.detail_open_link_btn.setEnabled(enabled and has_link)
+        if hasattr(self, "detail_copy_link_btn"):
+            self.detail_copy_link_btn.setEnabled(enabled and has_link)
+
+    def _update_detail_from_selection(self):
+        pedido = self._pedido_selecionado()
+        if not pedido:
+            self._set_detail_empty()
+            return
+
+        categoria_link, dominio = self._classificar_link(pedido.get("link_compra"))
+        self.detail_material.setText(pedido.get("material_nome", "Pedido"))
+        detalhe = (
+            f"<b>Pedido:</b> #{pedido.get('id', '-')}<br>"
+            f"<b>Quantidade:</b> {pedido.get('quantidade', '-')}<br>"
+            f"<b>Solicitante:</b> {pedido.get('solicitante', '-') or '-'}<br>"
+            f"<b>Empresa:</b> {pedido.get('empresa', '-') or '-'}<br>"
+            f"<b>Departamento:</b> {pedido.get('departamento', '-') or '-'}<br>"
+            f"<b>Status:</b> {str(pedido.get('status', '-') or '-').upper()}<br>"
+            f"<b>Data de solicitacao:</b> {pedido.get('data_solicitacao', '-') or '-'}<br>"
+            f"<b>Data de conclusao:</b> {pedido.get('data_conclusao', '-') or '-'}<br>"
+            f"<b>Categoria do link:</b> {categoria_link}<br>"
+            f"<b>Dominio:</b> {dominio}<br>"
+            f"<b>Observacao:</b><br>{(pedido.get('observacao') or '-')}"
+        )
+        self.detail_body.setText(detalhe)
+        self._set_detail_actions_enabled(True, bool(str(pedido.get("link_compra") or "").strip()))
 
     def _mostrar_prompt_empresa(self):
         self.pedidos = []
@@ -403,8 +629,10 @@ class PedidosWidget(QWidget):
 
     def atualizar_tabela(self, pedidos):
         """Atualiza a tabela com a lista de pedidos"""
+        self._visible_pedidos = list(pedidos)
         sorting_enabled = self.tabela.isSortingEnabled()
         self.tabela.setSortingEnabled(False)
+        self.tabela.clearSelection()
         self.tabela.clearContents()
         self.tabela.setRowCount(len(pedidos))
 
@@ -442,6 +670,12 @@ class PedidosWidget(QWidget):
         apply_table_sort_state(self.tabela, self._saved_preferences.get("sort"))
         refresh_data_table_layout(self.tabela)
         apply_table_column_widths(self.tabela, self._saved_preferences.get("widths"))
+        self._update_summary(pedidos)
+        if pedidos:
+            self.tabela.selectRow(0)
+            self._update_detail_from_selection()
+        else:
+            self._set_detail_empty()
 
     def novo_pedido(self):
         if not self._pode("pedidos.create"):
@@ -495,6 +729,20 @@ class PedidosWidget(QWidget):
 
         if not QDesktopServices.openUrl(url):
             QMessageBox.warning(self, "Erro", "Não foi possível abrir o link de compra.")
+
+    def copiar_link_pedido(self):
+        pedido = self._pedido_selecionado()
+        if not pedido:
+            QMessageBox.warning(self, "Atenção", "Selecione um pedido para copiar o link.")
+            return
+
+        link_compra = str(pedido.get("link_compra") or "").strip()
+        if not link_compra:
+            QMessageBox.information(self, "Sem link", "Esse pedido ainda não possui link de compra cadastrado.")
+            return
+
+        QApplication.clipboard().setText(link_compra)
+        notification_manager.success("Link de compra copiado.", self.window(), 2200)
 
     def aprovar_pedido(self):
         if not self._pode("pedidos.approve"):
