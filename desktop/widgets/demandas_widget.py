@@ -301,7 +301,7 @@ class DemandasWidget(QWidget):
 
     def _configurar_colunas_tabela(self):
         if self._modo_solicitante:
-            headers = ["ID", "Título", "Prioridade", "Urgência", "Status", "Data Abertura"]
+            headers = ["ID", "Título", "Prioridade", "Urgência", "Status", "Atualizado em", "Abertura"]
         else:
             headers = [
                 "ID",
@@ -412,6 +412,14 @@ class DemandasWidget(QWidget):
         }
         return labels.get(str(value or "").strip().lower(), str(value or "-"))
 
+    def _display_date(self, value):
+        text = str(value or "").strip()
+        if not text:
+            return "-"
+        if "T" in text:
+            return text[:16].replace("T", " ")
+        return text[:10]
+
     def _update_summary(self, demandas):
         total = len(demandas)
         abertas = sum(1 for demanda in demandas if str(demanda.get("status", "")).lower() == "aberto")
@@ -442,20 +450,26 @@ class DemandasWidget(QWidget):
             return
 
         self.detail_titulo.setText(demanda.get("titulo", "Demanda"))
-        detalhe = (
-            f"<b>ID:</b> {demanda.get('id', '-')}<br>"
-            f"<b>Solicitante:</b> {demanda.get('solicitante', '-') or '-'}<br>"
-            f"<b>Empresa:</b> {demanda.get('empresa', '-') or '-'}<br>"
-            f"<b>Departamento:</b> {demanda.get('departamento', '-') or '-'}<br>"
-            f"<b>Prioridade:</b> {self._display_level(demanda.get('prioridade'))}<br>"
-            f"<b>Urgencia:</b> {self._display_level(demanda.get('urgencia'))}<br>"
-            f"<b>Status:</b> {self._display_status(demanda.get('status'))}<br>"
-            f"<b>Responsavel:</b> {demanda.get('responsavel', '-') or '-'}<br>"
-            f"<b>Data de abertura:</b> {(demanda.get('data_abertura') or '')[:10] or '-'}<br>"
-            f"<b>Descricao:</b><br>{(demanda.get('descricao') or '-')}<br>"
-            f"<b>Observacao:</b><br>{(demanda.get('observacao') or '-')}"
-        )
-        self.detail_body.setText(detalhe)
+        linhas = [
+            f"<b>Protocolo:</b> #{demanda.get('id', '-')}",
+            f"<b>Solicitante:</b> {demanda.get('solicitante', '-') or '-'}",
+            f"<b>Empresa:</b> {demanda.get('empresa', '-') or '-'}",
+            f"<b>Departamento:</b> {demanda.get('departamento', '-') or '-'}",
+            f"<b>Prioridade:</b> {self._display_level(demanda.get('prioridade'))}",
+            f"<b>Urgencia:</b> {self._display_level(demanda.get('urgencia'))}",
+            f"<b>Status:</b> {self._display_status(demanda.get('status'))}",
+            f"<b>Data de abertura:</b> {self._display_date(demanda.get('data_abertura'))}",
+            f"<b>Ultima atualizacao:</b> {self._display_date(demanda.get('atualizado_em'))}",
+        ]
+        if demanda.get("data_conclusao"):
+            linhas.append(f"<b>Concluida em:</b> {self._display_date(demanda.get('data_conclusao'))}")
+        if not self._modo_solicitante:
+            linhas.append(f"<b>Responsavel:</b> {demanda.get('responsavel', '-') or '-'}")
+        linhas.append(f"<b>Descricao:</b><br>{(demanda.get('descricao') or '-')}")
+        if demanda.get("observacao"):
+            linhas.append(f"<b>Observacao:</b><br>{demanda.get('observacao')}")
+        self.detail_body.setText("<br>".join(linhas))
+
     def aplicar_modo_usuario(self):
         if not hasattr(self, "titulo_label"):
             return
@@ -653,7 +667,8 @@ class DemandasWidget(QWidget):
         }
 
         for row, demanda in enumerate(demandas):
-            data = (demanda.get("data_abertura") or "")[:10]
+            data_abertura = self._display_date(demanda.get("data_abertura"))
+            atualizado_em = self._display_date(demanda.get("atualizado_em"))
             self.tabela.setItem(row, 0, number_item(demanda.get("id", "")))
             self.tabela.setItem(row, 1, QTableWidgetItem((demanda.get("titulo") or "")[:80]))
 
@@ -669,13 +684,14 @@ class DemandasWidget(QWidget):
                 self.tabela.setItem(row, 2, prioridade_item)
                 self.tabela.setItem(row, 3, urgencia_item)
                 self.tabela.setItem(row, 4, status_item)
-                self.tabela.setItem(row, 5, QTableWidgetItem(data))
+                self.tabela.setItem(row, 5, QTableWidgetItem(atualizado_em))
+                self.tabela.setItem(row, 6, QTableWidgetItem(data_abertura))
             else:
                 self.tabela.setItem(row, 2, QTableWidgetItem(demanda.get("solicitante", "-")))
                 self.tabela.setItem(row, 3, prioridade_item)
                 self.tabela.setItem(row, 4, urgencia_item)
                 self.tabela.setItem(row, 5, status_item)
-                self.tabela.setItem(row, 6, QTableWidgetItem(data))
+                self.tabela.setItem(row, 6, QTableWidgetItem(data_abertura))
                 self.tabela.setItem(row, 7, QTableWidgetItem(demanda.get("responsavel", "-") or "-"))
 
         if sorting_enabled:
