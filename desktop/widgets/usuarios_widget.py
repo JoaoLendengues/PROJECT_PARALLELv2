@@ -5,6 +5,7 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QColor, QCursor
 from api_client import api_client
+from access_control import SCREEN_PERMISSIONS, get_screen_label, has_screen_access, normalize_access_level
 from widgets.form_feedback import focus_invalid_field, optional_label, required_field_message, required_hint_label, required_label
 from widgets.filter_utils import contains_text, is_all_option, same_filter_value, same_text
 from widgets.table_utils import configure_data_table, number_item, refresh_data_table_layout
@@ -110,7 +111,7 @@ class UsuariosWidget(QWidget):
 
         # CabeÃ§alho
         header = QHBoxLayout()
-        titulo = QLabel("ðŸ‘¥ Usuarios do Sistema")
+        titulo = QLabel("Usuarios do Sistema")
         titulo.setProperty("class", "page-title")
         header.addWidget(titulo)
         header.addStretch()
@@ -196,7 +197,7 @@ class UsuariosWidget(QWidget):
         )
         layout.addWidget(self.summary_strip)
 
-        # Tabela de usuÃ¡rios
+        # Tabela de usuarios
         self.tabela = QTableWidget()
         self.tabela.setAlternatingRowColors(True)
         self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
@@ -213,7 +214,7 @@ class UsuariosWidget(QWidget):
             }
         """)
 
-        headers = ["ID", "Codigo", "Nome", "Cargo", "Empresa", "Nivel", "Status", "Primeiro Acesso"]
+        headers = ["ID", "Codigo", "Nome", "Cargo", "Empresa", "Nivel", "Status", "Primeiro acesso"]
         self.tabela.setColumnCount(len(headers))
         self.tabela.setHorizontalHeaderLabels(headers)
         configure_data_table(
@@ -232,7 +233,7 @@ class UsuariosWidget(QWidget):
             },
         )
 
-        visible_headers = ["Codigo", "Nome", "Cargo", "Empresa", "Nivel", "Status", "Primeiro Acesso"]
+        visible_headers = ["Codigo", "Nome", "Cargo", "Empresa", "Nivel", "Status", "Primeiro acesso"]
         self.tabela.setColumnCount(len(visible_headers))
         self.tabela.setHorizontalHeaderLabels(visible_headers)
         configure_data_table(
@@ -352,6 +353,18 @@ class UsuariosWidget(QWidget):
             "solicitante": "Solicitante",
         }
         return labels.get(normalized, normalized.title() or "Usuario")
+
+    def _accessible_screen_labels(self, nivel_acesso, cargo=None):
+        usuario_preview = {
+            "nivel_acesso": normalize_access_level(nivel_acesso),
+            "cargo": cargo or "",
+        }
+        labels = [
+            get_screen_label(screen_key)
+            for screen_key in SCREEN_PERMISSIONS
+            if has_screen_access(usuario_preview, screen_key)
+        ]
+        return labels
 
     def _set_detail_actions_enabled(self, enabled):
         if hasattr(self, "detail_editar_btn"):
@@ -491,6 +504,7 @@ class UsuariosWidget(QWidget):
         nivel = self._role_display_name(usuario.get("nivel_acesso", "usuario"))
         status = "Ativo" if usuario.get("ativo", True) else "Inativo"
         primeiro_acesso = "Sim" if usuario.get("primeiro_acesso", False) else "Nao"
+        acessos = ", ".join(self._accessible_screen_labels(usuario.get("nivel_acesso"), usuario.get("cargo"))) or "-"
 
         self.detail_nome.setText(nome)
         self.detail_body.setText(
@@ -499,20 +513,21 @@ class UsuariosWidget(QWidget):
             f"<b>Empresa:</b> {empresa}<br>"
             f"<b>Nivel:</b> {nivel}<br>"
             f"<b>Status:</b> {status}<br>"
-            f"<b>Primeiro acesso:</b> {primeiro_acesso}"
+            f"<b>Primeiro acesso:</b> {primeiro_acesso}<br>"
+            f"<b>Acessos:</b> {acessos}"
         )
         self._set_detail_actions_enabled(True)
 
     def carregar_usuarios(self):
-        """Carrega a lista de usuÃ¡rios do backend"""
+        """Carrega a lista de usuarios do backend"""
         try:
             self.usuarios = api_client.listar_usuarios()
             self.usuarios_cache = self.usuarios.copy()
             self.atualizar_tabela(self.usuarios)
-            print(f"âœ… Usuarios carregados: {len(self.usuarios)}")
+            print(f"Usuarios carregados: {len(self.usuarios)}")
         except Exception as e:
-            print(f"âŒ Erro ao carregar usuÃ¡rios: {e}")
-            QMessageBox.warning(self, "Erro", f"Erro ao carregar usuÃ¡rios: {e}")
+            print(f"Erro ao carregar usuarios: {e}")
+            QMessageBox.warning(self, "Erro", f"Erro ao carregar usuarios: {e}")
 
     def carregar_empresas(self):
         """Carrega a lista de empresas para o filtro"""
@@ -539,7 +554,7 @@ class UsuariosWidget(QWidget):
             print(f"âŒ Erro ao carregar cargos: {e}")
 
     def filtrar_usuarios(self):
-        """Filtra os usuÃ¡rios com base nos filtros"""
+        """Filtra os usuarios com base nos filtros"""
         busca = self.pesquisa_edit.text().strip()
         empresa = self.empresa_filter.currentText()
         cargo = self.cargo_filter.currentText()
@@ -581,7 +596,7 @@ class UsuariosWidget(QWidget):
         self._salvar_preferencias()
 
     def atualizar_tabela(self, usuarios):
-        """Atualiza a tabela com a lista de usuÃ¡rios"""
+        """Atualiza a tabela com a lista de usuarios"""
         self._visible_usuarios = list(usuarios)
         sorting_enabled = self.tabela.isSortingEnabled()
         self.tabela.setSortingEnabled(False)
@@ -648,7 +663,7 @@ class UsuariosWidget(QWidget):
         return int(usuario_id)
 
     def novo_usuario(self):
-        """Abre diÃ¡logo para criar novo usuÃ¡rio com cÃ³digo automÃ¡tico"""
+        """Abre dialogo para criar novo usuario com codigo automatico"""
 
         QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
 
@@ -656,7 +671,7 @@ class UsuariosWidget(QWidget):
             response = api_client.get_proximo_codigo()
             proximo_codigo = response.get("proximo_codigo", "1")
         except Exception as e:
-            print(f"âŒ Erro ao buscar prÃ³ximo cÃ³digo: {e}")
+            print(f"Erro ao buscar proximo codigo: {e}")
             proximo_codigo = "1"
 
         QApplication.restoreOverrideCursor()
@@ -668,12 +683,12 @@ class UsuariosWidget(QWidget):
     def editar_usuario(self):
         current_row = self.tabela.currentRow()
         if current_row < 0:
-            QMessageBox.warning(self, "AtenÃ§Ã£o", "Selecione um usuario para editar")
+            QMessageBox.warning(self, "Atencao", "Selecione um usuario para editar")
             return
 
         usuario_id = self._selected_usuario_id()
         if usuario_id is None:
-            QMessageBox.warning(self, "Erro", "Nao foi possÃ­vel identificar o usuÃ¡rio selecionado.")
+            QMessageBox.warning(self, "Erro", "Nao foi possivel identificar o usuario selecionado.")
             return
 
         usuario = next((u for u in self.usuarios if u["id"] == usuario_id), None)
@@ -686,12 +701,12 @@ class UsuariosWidget(QWidget):
     def alterar_senha(self):
         current_row = self.tabela.currentRow()
         if current_row < 0:
-            QMessageBox.warning(self, "AtenÃ§Ã£o", "Selecione um usuario para alterar a senha")
+            QMessageBox.warning(self, "Atencao", "Selecione um usuario para alterar a senha")
             return
 
         usuario_id = self._selected_usuario_id()
         if usuario_id is None:
-            QMessageBox.warning(self, "Erro", "Nao foi possÃ­vel identificar o usuÃ¡rio selecionado.")
+            QMessageBox.warning(self, "Erro", "Nao foi possivel identificar o usuario selecionado.")
             return
 
         usuario_nome = self.tabela.item(current_row, 1).text()
@@ -729,7 +744,7 @@ class UsuariosWidget(QWidget):
         confirmar_senha_edit.setPlaceholderText("Confirme a nova senha")
         form_layout.addRow("Confirmar Senha:", confirmar_senha_edit)
 
-        requisitos_label = QLabel("ðŸ”’ Requisitos:<br>â€¢ MÃ­nimo de 6 caracteres")
+        requisitos_label = QLabel("Requisitos:<br>- Minimo de 6 caracteres")
         requisitos_label.setStyleSheet("color: #64748b; font-size: 11px; margin-top: 10px;")
         form_layout.addRow("", requisitos_label)
 
@@ -758,23 +773,23 @@ class UsuariosWidget(QWidget):
 
             if len(nova_senha) < 6:
                 focus_invalid_field(nova_senha_edit)
-                QMessageBox.warning(senha_dialog, "AtenÃ§Ã£o", "A senha deve ter no mÃ­nimo 6 caracteres!")
+                QMessageBox.warning(senha_dialog, "Atencao", "A senha deve ter no minimo 6 caracteres!")
                 return
 
             if nova_senha != confirmar_senha:
                 focus_invalid_field(confirmar_senha_edit)
-                QMessageBox.warning(senha_dialog, "AtenÃ§Ã£o", "As senhas nÃ£o conferem!")
+                QMessageBox.warning(senha_dialog, "Atencao", "As senhas nao conferem!")
                 return
 
             try:
                 if api_client.alterar_senha_usuario(usuario_id, nova_senha):
-                    QMessageBox.information(senha_dialog, "Sucesso", f"Senha do usuÃ¡rio '{usuario_nome}' alterada com sucesso.")
+                    QMessageBox.information(senha_dialog, "Sucesso", f"Senha do usuario '{usuario_nome}' alterada com sucesso.")
                     senha_dialog.accept()
                     self.carregar_usuarios()
                 else:
-                    QMessageBox.warning(senha_dialog, "Erro", "Nao foi possÃ­vel alterar a senha. Tente novamente.")
+                    QMessageBox.warning(senha_dialog, "Erro", "Nao foi possivel alterar a senha. Tente novamente.")
             except Exception as e:
-                QMessageBox.critical(senha_dialog, "Erro", f"Nao foi possÃ­vel alterar a senha.\n\nDetalhes: {e}")
+                QMessageBox.critical(senha_dialog, "Erro", f"Nao foi possivel alterar a senha.\n\nDetalhes: {e}")
 
         btn_alterar.clicked.connect(confirmar_alteracao)
         senha_dialog.exec()
@@ -782,12 +797,12 @@ class UsuariosWidget(QWidget):
     def resetar_senha(self):
         current_row = self.tabela.currentRow()
         if current_row < 0:
-            QMessageBox.warning(self, "AtenÃ§Ã£o", "Selecione um usuario para resetar a senha")
+            QMessageBox.warning(self, "Atencao", "Selecione um usuario para resetar a senha")
             return
 
         usuario_id = self._selected_usuario_id()
         if usuario_id is None:
-            QMessageBox.warning(self, "Erro", "Nao foi possÃ­vel identificar o usuÃ¡rio selecionado.")
+            QMessageBox.warning(self, "Erro", "Nao foi possivel identificar o usuario selecionado.")
             return
 
         usuario_nome = self.tabela.item(current_row, 1).text()
@@ -795,14 +810,14 @@ class UsuariosWidget(QWidget):
         confirm = QMessageBox.question(
             self,
             "Confirmar reset de senha",
-            f"Tem certeza que deseja resetar a senha do usuÃ¡rio '{usuario_nome}'?\n\nA nova senha serÃ¡ '123456'.",
+            f"Tem certeza que deseja resetar a senha do usuario '{usuario_nome}'?\n\nA nova senha sera '123456'.",
             QMessageBox.Yes | QMessageBox.No
         )
 
         if confirm == QMessageBox.Yes:
             try:
                 if api_client.resetar_senha_usuario(usuario_id):
-                    QMessageBox.information(self, "Sucesso", f"Senha do usuÃ¡rio '{usuario_nome}' resetada para '123456'!")
+                    QMessageBox.information(self, "Sucesso", f"Senha do usuario '{usuario_nome}' resetada para '123456'!")
                     self.carregar_usuarios()
                 else:
                     QMessageBox.warning(self, "Erro", "Erro ao resetar senha")
@@ -812,20 +827,20 @@ class UsuariosWidget(QWidget):
     def deletar_usuario(self):
         current_row = self.tabela.currentRow()
         if current_row < 0:
-            QMessageBox.warning(self, "AtenÃ§Ã£o", "Selecione um usuario para deletar")
+            QMessageBox.warning(self, "Atencao", "Selecione um usuario para excluir")
             return
 
         usuario_id = self._selected_usuario_id()
         if usuario_id is None:
-            QMessageBox.warning(self, "Erro", "Nao foi possÃ­vel identificar o usuÃ¡rio selecionado.")
+            QMessageBox.warning(self, "Erro", "Nao foi possivel identificar o usuario selecionado.")
             return
 
         usuario_nome = self.tabela.item(current_row, 1).text()
 
         confirm = QMessageBox.question(
             self,
-            "Confirmar exclusÃ£o",
-            f"Tem certeza que deseja deletar o usuÃ¡rio '{usuario_nome}'?\n\nEsta aÃ§Ã£o nÃ£o poderÃ¡ ser desfeita.",
+            "Confirmar exclusao",
+            f"Tem certeza que deseja excluir o usuario '{usuario_nome}'?\n\nEsta acao nao podera ser desfeita.",
             QMessageBox.Yes | QMessageBox.No
         )
 
@@ -835,7 +850,7 @@ class UsuariosWidget(QWidget):
                     QMessageBox.information(self, "Sucesso", "Usuario deletado com sucesso!")
                     self.carregar_usuarios()
                 else:
-                    QMessageBox.warning(self, "Erro", "Erro ao deletar usuÃ¡rio")
+                    QMessageBox.warning(self, "Erro", "Erro ao excluir usuario")
             except Exception as e:
                 QMessageBox.critical(self, "Erro", f"Erro ao deletar: {e}")
 
@@ -897,18 +912,23 @@ class UsuarioDialog(QDialog):
         self.nivel_combo.addItems(["admin", "gerente", "usuario", "solicitante"])
         self.nivel_combo.setToolTip(
             "admin: Acesso total\n"
-            "gerente: Pode gerir operaÃ§Ã£o e demandas\n"
-            "usuario: Acesso bÃ¡sico\n"
-            "solicitante: Abre demandas e acompanha as prÃ³prias"
+            "gerente: Pode gerir operacao e demandas\n"
+            "usuario: Acesso basico\n"
+            "solicitante: Abre demandas e acompanha as proprias"
         )
         form_layout.addRow(required_label("Nivel de Acesso:"), self.nivel_combo)
+
+        self.nivel_preview = QLabel("")
+        self.nivel_preview.setWordWrap(True)
+        self.nivel_preview.setStyleSheet("color: #64748b; font-size: 11px;")
+        form_layout.addRow(optional_label("Permissoes:"), self.nivel_preview)
 
         self.ativo_check = QCheckBox("Usuario ativo")
         self.ativo_check.setChecked(True)
         form_layout.addRow(optional_label(""), self.ativo_check)
 
         if not self.dados_item:
-            senha_info = QLabel("âš ï¸ A senha padrÃ£o serÃ¡ '123456'.\nO usuÃ¡rio deverÃ¡ trocar no primeiro acesso.")
+            senha_info = QLabel("A senha padrao sera '123456'.\nO usuario devera trocar no primeiro acesso.")
             senha_info.setStyleSheet("color: #64748b; font-size: 11px;")
             form_layout.addRow(optional_label(""), senha_info)
 
@@ -927,6 +947,10 @@ class UsuarioDialog(QDialog):
         btn_layout.addWidget(cancelar_btn)
 
         layout.addLayout(btn_layout)
+
+        self.cargo_combo.currentTextChanged.connect(self._update_nivel_preview)
+        self.nivel_combo.currentTextChanged.connect(self._update_nivel_preview)
+        self._update_nivel_preview()
 
     def carregar_cargos_combo(self):
         """Carrega os cargos do backend para o combobox"""
@@ -985,6 +1009,22 @@ class UsuarioDialog(QDialog):
             self.nivel_combo.setCurrentIndex(idx)
 
         self.ativo_check.setChecked(self.dados_item.get("ativo", True))
+        self._update_nivel_preview()
+
+    def _update_nivel_preview(self):
+        nivel = self.nivel_combo.currentText()
+        cargo = self.cargo_combo.currentText().strip()
+        usuario_preview = {
+            "nivel_acesso": normalize_access_level(nivel),
+            "cargo": cargo,
+        }
+        telas = [
+            get_screen_label(screen_key)
+            for screen_key in SCREEN_PERMISSIONS
+            if has_screen_access(usuario_preview, screen_key)
+        ]
+        descricao = ", ".join(telas) if telas else "Nenhuma tela liberada."
+        self.nivel_preview.setText(f"Acessos previstos para este perfil: {descricao}")
 
     def salvar(self):
         codigo = self.codigo_edit.text().strip()
@@ -1028,15 +1068,15 @@ class UsuarioDialog(QDialog):
                     QMessageBox.information(self, "Sucesso", f"Usuario '{nome}' atualizado com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Nao foi possÃ­vel atualizar o usuÃ¡rio. Revise os dados e tente novamente.")
+                    QMessageBox.warning(self, "Erro", "Nao foi possivel atualizar o usuario. Revise os dados e tente novamente.")
             else:
                 response = api_client.criar_usuario(dados)
                 if response:
                     QMessageBox.information(self, "Sucesso", f"Usuario '{nome}' criado com sucesso.\n\nSenha padrao: 123456")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Nao foi possÃ­vel criar o usuÃ¡rio. Revise os dados e tente novamente.")
+                    QMessageBox.warning(self, "Erro", "Nao foi possivel criar o usuario. Revise os dados e tente novamente.")
         except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Nao foi possÃ­vel salvar o usuÃ¡rio.\n\nDetalhes: {e}")
+            QMessageBox.critical(self, "Erro", f"Nao foi possivel salvar o usuario.\n\nDetalhes: {e}")
 
 

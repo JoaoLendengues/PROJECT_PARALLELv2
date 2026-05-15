@@ -10,6 +10,26 @@ from app.database import get_db
 router = APIRouter(prefix="/api/usuarios", tags=["Usuarios do Sistema"])
 
 
+def _count_active_admins(db: Session) -> int:
+    return (
+        db.query(models.UsuarioSistema)
+        .filter(
+            models.UsuarioSistema.nivel_acesso == "admin",
+            models.UsuarioSistema.ativo == True,
+        )
+        .count()
+    )
+
+
+def _would_remove_admin_access(usuario: models.UsuarioSistema, update_data: dict) -> bool:
+    if usuario.nivel_acesso != "admin" or not usuario.ativo:
+        return False
+
+    novo_nivel = update_data.get("nivel_acesso", usuario.nivel_acesso)
+    novo_ativo = update_data.get("ativo", usuario.ativo)
+    return novo_nivel != "admin" or not novo_ativo
+
+
 @router.get("/", response_model=List[schemas.UsuarioSistemaResponse])
 def listar_usuarios(
     db: Session = Depends(get_db),
@@ -110,6 +130,15 @@ def atualizar_usuario(
     dados_anteriores = model_to_dict(usuario_existente, exclude={"senha_hash"})
     update_data = usuario.model_dump(exclude_unset=True)
 
+    if admin.id == usuario_existente.id:
+        if update_data.get("ativo") is False:
+            raise HTTPException(status_code=400, detail="Voce nao pode desativar o proprio usuario.")
+        if "nivel_acesso" in update_data and update_data.get("nivel_acesso") != "admin":
+            raise HTTPException(status_code=400, detail="Voce nao pode rebaixar o proprio nivel de acesso.")
+
+    if _would_remove_admin_access(usuario_existente, update_data) and _count_active_admins(db) <= 1:
+        raise HTTPException(status_code=400, detail="Nao e possivel remover o ultimo administrador ativo.")
+
     for field, value in update_data.items():
         setattr(usuario_existente, field, value)
 
@@ -139,6 +168,12 @@ def deletar_usuario(
     usuario = db.query(models.UsuarioSistema).filter(models.UsuarioSistema.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario nao encontrado")
+
+    if admin.id == usuario.id:
+        raise HTTPException(status_code=400, detail="Voce nao pode excluir o proprio usuario.")
+
+    if usuario.nivel_acesso == "admin" and usuario.ativo and _count_active_admins(db) <= 1:
+        raise HTTPException(status_code=400, detail="Nao e possivel excluir o ultimo administrador ativo.")
 
     registrar_log_auditoria(
         db,

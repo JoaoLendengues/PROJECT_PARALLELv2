@@ -1,7 +1,31 @@
-from pydantic import BaseModel
-from datetime import datetime
+import unicodedata
+
+from pydantic import BaseModel, field_validator
 from typing import Optional, Dict, Any
 from datetime import datetime, date
+
+
+ACCESS_LEVEL_ALIASES = {
+    "admin": "admin",
+    "administrador": "admin",
+    "gerente": "gerente",
+    "gerencia": "gerente",
+    "manager": "gerente",
+    "usuario": "usuario",
+    "comum": "usuario",
+    "solicitante": "solicitante",
+    "funcionario": "solicitante",
+    "vendedor": "solicitante",
+}
+
+
+def normalize_access_level_value(value: Optional[str]) -> str:
+    normalized = unicodedata.normalize("NFKD", str(value or "usuario").strip().lower())
+    normalized = "".join(char for char in normalized if not unicodedata.combining(char))
+    access_level = ACCESS_LEVEL_ALIASES.get(normalized)
+    if access_level is None:
+        raise ValueError("Nivel de acesso invalido. Use admin, gerente, usuario ou solicitante.")
+    return access_level
 
 # Schemas para Material
 class MaterialBase(BaseModel):
@@ -219,6 +243,11 @@ class UsuarioSistemaBase(BaseModel):
     nivel_acesso: str = 'usuario' # admin, gerente, usuario, solicitante
     ativo: bool = True
 
+    @field_validator("nivel_acesso")
+    @classmethod
+    def validate_nivel_acesso(cls, value: str) -> str:
+        return normalize_access_level_value(value)
+
 class UsuarioSistemaCreate(UsuarioSistemaBase):
     senha: str # Senha em texto plano, será hasheada
 
@@ -228,6 +257,13 @@ class UsuarioSistemaUpdate(BaseModel):
     empresa: Optional[str] = None
     nivel_acesso: Optional[str] = None
     ativo: Optional[bool] = None
+
+    @field_validator("nivel_acesso")
+    @classmethod
+    def validate_nivel_acesso(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        return normalize_access_level_value(value)
 
 class UsuarioSistemaResponse(UsuarioSistemaBase):
     id: int
