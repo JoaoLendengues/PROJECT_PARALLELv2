@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
+﻿from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
                                QTableWidgetItem, QPushButton, QLabel, QLineEdit,
                                QComboBox, QDialog, QFormLayout, QCheckBox,
                                QMessageBox, QHeaderView, QFrame, QApplication)
@@ -9,7 +9,15 @@ from access_control import get_action_label, has_action_access
 from widgets.form_feedback import focus_invalid_field, optional_label, required_field_message, required_hint_label, required_label
 from widgets.filter_utils import contains_text, is_all_option, same_text
 from widgets.table_utils import configure_data_table, number_item, refresh_data_table_layout
-from user_preferences import apply_table_column_widths, get_table_column_widths, get_widget_preferences, save_widget_preferences
+from user_preferences import (
+    apply_combo_text,
+    apply_table_column_widths,
+    apply_table_sort_state,
+    get_table_column_widths,
+    get_table_sort_state,
+    get_widget_preferences,
+    save_widget_preferences,
+)
 
 
 class ColaboradoresWidget(QWidget):
@@ -22,10 +30,13 @@ class ColaboradoresWidget(QWidget):
         self._loaded = False
         self._summary_labels = {}
         self._saved_preferences = {}
+        self._restoring_preferences = False
         self.init_ui()
 
     def on_show(self):
         if not self._loaded:
+            self._carregar_preferencias()
+            self._aplicar_preferencias_salvas()
             self.carregar_colaboradores()
             self._loaded = True
 
@@ -96,21 +107,21 @@ class ColaboradoresWidget(QWidget):
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(15)
 
-        # Cabeçalho
+        # CabeÃ§alho
         header = QHBoxLayout()
-        titulo = QLabel("👥 Colaboradores")
+        titulo = QLabel("Colaboradores")
         titulo.setProperty("class", "page-title")
         header.addWidget(titulo)
         header.addStretch()
 
-        # Botão Novo Colaborador
+        # BotÃ£o Novo Colaborador
         self.novo_btn = QPushButton("+ Novo Colaborador")
         self.novo_btn.setFixedHeight(40)
         self.novo_btn.clicked.connect(self.novo_colaborador)
         header.addWidget(self.novo_btn)
 
-        # Botão Atualizar
-        self.atualizar_btn = QPushButton("🔄 Atualizar")
+        # BotÃ£o Atualizar
+        self.atualizar_btn = QPushButton("Atualizar")
         self.atualizar_btn.setFixedHeight(40)
         self.atualizar_btn.clicked.connect(self.carregar_colaboradores)
         header.addWidget(self.atualizar_btn)
@@ -120,7 +131,7 @@ class ColaboradoresWidget(QWidget):
         # Barra de pesquisa
         self.pesquisa_edit = QLineEdit()
         self.pesquisa_edit.setObjectName("collaboratorSearchInput")
-        self.pesquisa_edit.setPlaceholderText("🔍 Pesquisar por nome...")
+        self.pesquisa_edit.setPlaceholderText("Pesquisar por nome, cargo, departamento ou empresa...")
         self.pesquisa_edit.setMaximumWidth(300)
         self.pesquisa_edit.textChanged.connect(self.filtrar_colaboradores)
         layout.addWidget(self.pesquisa_edit)
@@ -158,10 +169,10 @@ class ColaboradoresWidget(QWidget):
 
         self.summary_strip = self._create_summary_strip(
             [
-                ("total", "Colaboradores visíveis", "Base filtrada na grade"),
-                ("ativos", "Ativos", "Disponíveis no sistema"),
+                ("total", "Colaboradores visiveis", "Base filtrada na grade"),
+                ("ativos", "Ativos", "Disponiveis no sistema"),
                 ("inativos", "Inativos", "Registros desativados"),
-                ("empresas", "Empresas", "Distribuição visível"),
+                ("empresas", "Empresas", "Distribuicao visivel"),
             ]
         )
         layout.addWidget(self.summary_strip)
@@ -202,6 +213,7 @@ class ColaboradoresWidget(QWidget):
         )
 
         self.tabela.horizontalHeader().sectionResized.connect(self._ao_redimensionar_coluna)
+        self.tabela.horizontalHeader().sortIndicatorChanged.connect(self._ao_ordenar_tabela)
         self.tabela.itemSelectionChanged.connect(self._update_detail_from_selection)
 
         self.detail_card = self._create_detail_panel()
@@ -211,15 +223,15 @@ class ColaboradoresWidget(QWidget):
         content_layout.addWidget(self.detail_card, 1)
         layout.addLayout(content_layout, 1)
 
-        # Botões de ação
+        # BotÃµes de aÃ§Ã£o
         acoes = QHBoxLayout()
         acoes.addStretch()
 
-        self.editar_btn = QPushButton("✏️ Editar")
+        self.editar_btn = QPushButton("Editar")
         self.editar_btn.clicked.connect(self.editar_colaborador)
         acoes.addWidget(self.editar_btn)
 
-        self.deletar_btn = QPushButton("🗑️ Deletar")
+        self.deletar_btn = QPushButton("Excluir")
         self.deletar_btn.clicked.connect(self.deletar_colaborador)
         acoes.addWidget(self.deletar_btn)
 
@@ -235,12 +247,32 @@ class ColaboradoresWidget(QWidget):
         self.usuario = usuario or {}
         self._carregar_preferencias()
         self.aplicar_permissoes()
+        if self._loaded:
+            self._aplicar_preferencias_salvas()
+            self.carregar_colaboradores()
 
     def _carregar_preferencias(self):
         self._saved_preferences = get_widget_preferences(self.usuario, "colaboradores")
 
+    def _aplicar_preferencias_salvas(self):
+        self._restoring_preferences = True
+        try:
+            self.pesquisa_edit.setText(self._saved_preferences.get("busca", ""))
+            apply_combo_text(self.status_filter, self._saved_preferences.get("status"))
+            apply_combo_text(self.empresa_filter, self._saved_preferences.get("empresa"))
+            apply_combo_text(self.departamento_filter, self._saved_preferences.get("departamento"))
+        finally:
+            self._restoring_preferences = False
+
     def _salvar_preferencias(self):
+        if self._restoring_preferences:
+            return
         self._saved_preferences = {
+            "busca": self.pesquisa_edit.text().strip(),
+            "status": self.status_filter.currentText(),
+            "empresa": self.empresa_filter.currentText(),
+            "departamento": self.departamento_filter.currentText(),
+            "sort": get_table_sort_state(self.tabela),
             "widths": get_table_column_widths(self.tabela),
         }
         save_widget_preferences(self.usuario, "colaboradores", self._saved_preferences)
@@ -248,11 +280,14 @@ class ColaboradoresWidget(QWidget):
     def _ao_redimensionar_coluna(self, *_args):
         self._salvar_preferencias()
 
+    def _ao_ordenar_tabela(self, *_args):
+        self._salvar_preferencias()
+
     def _pode(self, action_key):
         return has_action_access(self.usuario, action_key)
 
     def _avisar_sem_permissao(self, action_key):
-        QMessageBox.warning(self, "Acesso não permitido", f"Você não tem permissão para {get_action_label(action_key)}.")
+        QMessageBox.warning(self, "Acesso nÃ£o permitido", f"VocÃª nÃ£o tem permissÃ£o para {get_action_label(action_key)}.")
 
     def aplicar_permissoes(self):
         if hasattr(self, "novo_btn"):
@@ -261,6 +296,8 @@ class ColaboradoresWidget(QWidget):
             self.editar_btn.setVisible(self._pode("colaboradores.edit"))
         if hasattr(self, "deletar_btn"):
             self.deletar_btn.setVisible(self._pode("colaboradores.delete"))
+        if hasattr(self, "detail_editar_btn") or hasattr(self, "detail_excluir_btn"):
+            self._set_detail_actions_enabled(self.tabela.currentRow() >= 0)
 
     def _create_summary_strip(self, specs):
         container = QWidget()
@@ -307,12 +344,33 @@ class ColaboradoresWidget(QWidget):
         title.setObjectName("collaboratorDetailTitle")
         layout.addWidget(title)
 
+        self.detail_nome = QLabel("")
+        self.detail_nome.setWordWrap(True)
+        self.detail_nome.setStyleSheet("font-size: 20px; font-weight: 700;")
+        layout.addWidget(self.detail_nome)
+
         self.detail_body = QLabel("")
         self.detail_body.setObjectName("collaboratorDetailBody")
         self.detail_body.setWordWrap(True)
         self.detail_body.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.detail_body.setTextFormat(Qt.RichText)
         self.detail_body.setTextInteractionFlags(Qt.TextSelectableByMouse)
         layout.addWidget(self.detail_body, 1)
+
+        actions_layout = QVBoxLayout()
+        actions_layout.setSpacing(8)
+
+        self.detail_editar_btn = QPushButton("Editar colaborador")
+        self.detail_editar_btn.setMinimumHeight(38)
+        self.detail_editar_btn.clicked.connect(self.editar_colaborador)
+        actions_layout.addWidget(self.detail_editar_btn)
+
+        self.detail_excluir_btn = QPushButton("Excluir colaborador")
+        self.detail_excluir_btn.setMinimumHeight(38)
+        self.detail_excluir_btn.clicked.connect(self.deletar_colaborador)
+        actions_layout.addWidget(self.detail_excluir_btn)
+
+        layout.addLayout(actions_layout)
 
         return card
 
@@ -322,18 +380,26 @@ class ColaboradoresWidget(QWidget):
             label.setText(str(value))
 
     def _set_detail_empty(self):
+        if hasattr(self, "detail_nome"):
+            self.detail_nome.setText("Selecione um colaborador")
         if hasattr(self, "detail_body"):
             self.detail_body.setText(
                 "Selecione um colaborador para ver cargo, departamento, empresa e status."
             )
+        self._set_detail_actions_enabled(False)
+
+    def _set_detail_actions_enabled(self, enabled):
+        if hasattr(self, "detail_editar_btn"):
+            self.detail_editar_btn.setEnabled(enabled and self._pode("colaboradores.edit"))
+        if hasattr(self, "detail_excluir_btn"):
+            self.detail_excluir_btn.setEnabled(enabled and self._pode("colaboradores.delete"))
 
     def _build_detail_text(self, colaborador):
         return (
-            f"Nome: {colaborador.get('nome', '-')}\n"
-            f"Cargo: {colaborador.get('cargo') or '-'}\n"
-            f"Departamento: {colaborador.get('departamento') or '-'}\n"
-            f"Empresa: {colaborador.get('empresa') or '-'}\n"
-            f"Status: {'Ativo' if colaborador.get('ativo', True) else 'Inativo'}"
+            f"<b>Cargo:</b> {colaborador.get('cargo') or '-'}<br>"
+            f"<b>Departamento:</b> {colaborador.get('departamento') or '-'}<br>"
+            f"<b>Empresa:</b> {colaborador.get('empresa') or '-'}<br>"
+            f"<b>Status:</b> {'Ativo' if colaborador.get('ativo', True) else 'Inativo'}"
         )
 
     def _atualizar_resumo(self, colaboradores):
@@ -377,23 +443,24 @@ class ColaboradoresWidget(QWidget):
             self._set_detail_empty()
             return
 
+        self.detail_nome.setText(colaborador.get("nome", "Colaborador"))
         self.detail_body.setText(self._build_detail_text(colaborador))
+        self._set_detail_actions_enabled(True)
 
     def carregar_colaboradores(self):
         """Carrega a lista de colaboradores do backend"""
         try:
             self.colaboradores = api_client.listar_colaboradores()
-            self._visible_colaboradores = list(self.colaboradores)
             self.colaboradores_cache = self.colaboradores.copy()
-            self.atualizar_tabela(self.colaboradores)
-            print(f"✅ Colaboradores carregados: {len(self.colaboradores)}")
+            self.filtrar_colaboradores()
+            print(f"âœ… Colaboradores carregados: {len(self.colaboradores)}")
         except Exception as e:
-            print(f"❌ Erro ao carregar colaboradores: {e}")
+            print(f"âŒ Erro ao carregar colaboradores: {e}")
             QMessageBox.warning(self, "Erro", f"Erro ao carregar colaboradores: {e}")
 
     def filtrar_colaboradores(self):
         """Filtra os colaboradores com base nos filtros"""
-        search_text = self.pesquisa_edit.text()
+        search_text = self.pesquisa_edit.text().strip()
         status = self.status_filter.currentText().lower()
         empresa = self.empresa_filter.currentText()
         departamento = self.departamento_filter.currentText()
@@ -414,11 +481,19 @@ class ColaboradoresWidget(QWidget):
             if not is_all_option(departamento) and not same_text(colab.get('departamento'), departamento):
                 continue
 
-            # Filtro por pesquisa
-            if contains_text(search_text, colab.get('nome', '')):
-                filtered.append(colab)
+            if not contains_text(
+                search_text,
+                colab.get('nome', ''),
+                colab.get('cargo', ''),
+                colab.get('departamento', ''),
+                colab.get('empresa', ''),
+            ):
+                continue
+
+            filtered.append(colab)
 
         self.atualizar_tabela(filtered)
+        self._salvar_preferencias()
 
     def atualizar_tabela(self, colaboradores):
         self._visible_colaboradores = list(colaboradores)
@@ -444,6 +519,7 @@ class ColaboradoresWidget(QWidget):
         if sorting_enabled:
             self.tabela.setSortingEnabled(True)
 
+        apply_table_sort_state(self.tabela, self._saved_preferences.get("sort"))
         refresh_data_table_layout(self.tabela)
         apply_table_column_widths(self.tabela, self._saved_preferences.get("widths"))
         self._atualizar_resumo(colaboradores)
@@ -470,7 +546,7 @@ class ColaboradoresWidget(QWidget):
             return
         row = self.tabela.currentRow()
         if row < 0:
-            QMessageBox.warning(self, "Atenção", "Selecione um colaborador para editar")
+            QMessageBox.warning(self, "AtenÃ§Ã£o", "Selecione um colaborador para editar")
             return
 
         colab_id = int(self.tabela.item(row, 0).text())
@@ -487,7 +563,7 @@ class ColaboradoresWidget(QWidget):
             return
         row = self.tabela.currentRow()
         if row < 0:
-            QMessageBox.warning(self, "Atenção", "Selecione um colaborador para deletar")
+            QMessageBox.warning(self, "AtenÃ§Ã£o", "Selecione um colaborador para deletar")
             return
 
         colab_id = int(self.tabela.item(row, 0).text())
@@ -495,7 +571,7 @@ class ColaboradoresWidget(QWidget):
 
         confirm = QMessageBox.question(
             self,
-            "Confirmar exclusão",
+            "Confirmar exclusÃ£o",
             f"Tem certeza que deseja deletar o colaborador '{colab_nome}'?",
             QMessageBox.Yes | QMessageBox.No
         )
@@ -519,9 +595,9 @@ class ColaboradoresWidget(QWidget):
             for dept in departamentos:
                 if dept and dept.strip():
                     self.departamento_filter.addItem(dept)
-            print(f"✅ Departamentos carregados para filtro: {len(departamentos)}")
+            print(f"âœ… Departamentos carregados para filtro: {len(departamentos)}")
         except Exception as e:
-            print(f'❌ Erro ao carregar departamentos: {e}')
+            print(f'âŒ Erro ao carregar departamentos: {e}')
 
     def carregar_empresas(self):
         """Carrega a lista de empresas do backend para o filtro"""
@@ -532,9 +608,9 @@ class ColaboradoresWidget(QWidget):
             for emp in empresas:
                 if emp and emp.strip():
                     self.empresa_filter.addItem(emp)
-            print(f"✅ Empresas carregadas para filtro: {len(empresas)}")
+            print(f"âœ… Empresas carregadas para filtro: {len(empresas)}")
         except Exception as e:
-            print(f'❌ Erro ao carregar empresas: {e}')
+            print(f'âŒ Erro ao carregar empresas: {e}')
 
 
 class ColaboradorDialog(QDialog):
@@ -545,7 +621,7 @@ class ColaboradorDialog(QDialog):
         self.setModal(True)
         self.setMinimumWidth(450)
 
-        # Estilo do diálogo
+        # Estilo do diÃ¡logo
         self.setStyleSheet("""
             QDialog {
                 background-color: #f5f7fa;
@@ -623,11 +699,11 @@ class ColaboradorDialog(QDialog):
             for cargo in cargos:
                 if cargo and cargo.strip():
                     self.cargo_combo.addItem(cargo)
-            print(f'✅ Cargos carregados: {len(cargos)}')
+            print(f'âœ… Cargos carregados: {len(cargos)}')
         except Exception as e:
-            print(f'❌ Erro ao carregar cargos: {e}')
+            print(f'âŒ Erro ao carregar cargos: {e}')
             # Fallback em caso de erro
-            default_cargos = ['', 'Analista', 'Coordenador', 'Gerente', 'Assistente', 'Técnico']
+            default_cargos = ['', 'Analista', 'Coordenador', 'Gerente', 'Assistente', 'TÃ©cnico']
             for cargo in default_cargos:
                 self.cargo_combo.addItem(cargo)
 
@@ -640,9 +716,9 @@ class ColaboradorDialog(QDialog):
                 if dept and dept.strip():
                     self.departamento_combo.addItem(dept)
         except Exception as e:
-            print(f'❌ Erro ao carregar departamentos: {e}')
+            print(f'âŒ Erro ao carregar departamentos: {e}')
             # Fallback em caso de erro
-            default_depts = ["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "Logística"]
+            default_depts = ["TI", "Administrativo", "Financeiro", "RH", "Comercial", "Marketing", "LogÃ­stica"]
             for dept in default_depts:
                 self.departamento_combo.addItem(dept)
 
@@ -655,14 +731,14 @@ class ColaboradorDialog(QDialog):
                 if emp and emp.strip():
                     self.empresa_combo.addItem(emp)
         except Exception as e:
-            print(f'❌ Erro ao carregar empresas: {e}')
+            print(f'âŒ Erro ao carregar empresas: {e}')
             # Fallback em caso de erro
             default_empresas = ["Matriz", "Filial 1", "Filial 2", "Filial 3"]
             for emp in default_empresas:
                 self.empresa_combo.addItem(emp)
 
     def carregar_dados_edicao(self):
-        """Carrega os dados do colaborador para edição"""
+        """Carrega os dados do colaborador para ediÃ§Ã£o"""
         if self.dados_item is None:
             return
 
@@ -711,13 +787,13 @@ class ColaboradorDialog(QDialog):
                     QMessageBox.information(self, "Sucesso", f"Colaborador '{dados['nome']}' atualizado com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Não foi possível atualizar o colaborador. Revise os dados e tente novamente.")
+                    QMessageBox.warning(self, "Erro", "NÃ£o foi possÃ­vel atualizar o colaborador. Revise os dados e tente novamente.")
             else:
                 response = api_client.criar_colaborador(dados)
                 if response:
                     QMessageBox.information(self, "Sucesso", f"Colaborador '{dados['nome']}' criado com sucesso.")
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "Erro", "Não foi possível criar o colaborador. Revise os dados e tente novamente.")
+                    QMessageBox.warning(self, "Erro", "NÃ£o foi possÃ­vel criar o colaborador. Revise os dados e tente novamente.")
         except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Não foi possível salvar o colaborador.\n\nDetalhes: {e}")
+            QMessageBox.critical(self, "Erro", f"NÃ£o foi possÃ­vel salvar o colaborador.\n\nDetalhes: {e}")
