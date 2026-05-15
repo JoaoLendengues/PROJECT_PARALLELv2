@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models, schemas, auth
+from app.audit import registrar_log_auditoria
 
 
 router = APIRouter(prefix='/api/auth', tags=['Autenticação'])
@@ -30,6 +31,7 @@ def get_usuario_preview(
 
 @router.post('/login', response_model=schemas.LoginResponse)
 def login(
+    request: Request,
     login_data: schemas.LoginRequest,
     db: Session = Depends(get_db)
 ):
@@ -44,6 +46,25 @@ def login(
     
     # Criar token
     access_token = auth.criar_token_acesso(data={"sub":usuario.codigo})
+
+    try:
+        registrar_log_auditoria(
+            db,
+            usuario=usuario,
+            acao="LOGIN",
+            tabela_afetada="auth",
+            registro_id=usuario.id,
+            dados_novos={
+                "codigo": usuario.codigo,
+                "nome": usuario.nome,
+                "nivel_acesso": usuario.nivel_acesso,
+                "primeiro_acesso": usuario.primeiro_acesso,
+            },
+            request=request,
+        )
+        db.commit()
+    except Exception as log_error:
+        print(f"Erro ao registrar log de login: {log_error}")
 
     return{
         "access_token": access_token,
@@ -67,6 +88,7 @@ def confirmar_senha(
 @router.post('/trocar-senha')
 def trocar_senha(
     dados: schemas.TrocarSenhaRequest,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """Troca a senha do usuário"""
@@ -81,10 +103,34 @@ def trocar_senha(
     if not auth.verificar_senha(dados.senha_atual, usuario.senha_hash):
         raise HTTPException(status_code=401, detail="Senha atual incorreta")
     
+    dados_anteriores = {
+        "codigo": usuario.codigo,
+        "primeiro_acesso": usuario.primeiro_acesso,
+    }
+
     #Atualizar senha
     usuario.senha_hash = auth.gerar_hash_senha(dados.nova_senha)
     usuario.primeiro_acesso = False
     db.commit()
+
+    try:
+        registrar_log_auditoria(
+            db,
+            usuario=usuario,
+            acao="CHANGE_PASSWORD",
+            tabela_afetada="usuarios_sistema",
+            registro_id=usuario.id,
+            dados_anteriores=dados_anteriores,
+            dados_novos={
+                "codigo": usuario.codigo,
+                "primeiro_acesso": usuario.primeiro_acesso,
+                "senha_alterada": True,
+            },
+            request=request,
+        )
+        db.commit()
+    except Exception as log_error:
+        print(f"Erro ao registrar log de troca de senha: {log_error}")
 
     return{"message":"Senha alterada com sucesso"}
 
@@ -92,6 +138,7 @@ def trocar_senha(
 @router.post('/primeiro-acesso')
 def primeiro_acesso(
     dados: schemas.TrocarSenhaRequest,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """Primeiro acesso - troca a senha padrão"""
@@ -108,10 +155,34 @@ def primeiro_acesso(
     if not auth.verificar_senha(dados.senha_atual, usuario.senha_hash):
         raise HTTPException(status_code=401, detail="Senha atual incorreta")
     
+    dados_anteriores = {
+        "codigo": usuario.codigo,
+        "primeiro_acesso": usuario.primeiro_acesso,
+    }
+
     # Atualizar senha
     usuario.senha_hash = auth.gerar_hash_senha(dados.nova_senha)
     usuario.primeiro_acesso = False
     db.commit()
+
+    try:
+        registrar_log_auditoria(
+            db,
+            usuario=usuario,
+            acao="FIRST_ACCESS_PASSWORD_CHANGE",
+            tabela_afetada="usuarios_sistema",
+            registro_id=usuario.id,
+            dados_anteriores=dados_anteriores,
+            dados_novos={
+                "codigo": usuario.codigo,
+                "primeiro_acesso": usuario.primeiro_acesso,
+                "senha_alterada": True,
+            },
+            request=request,
+        )
+        db.commit()
+    except Exception as log_error:
+        print(f"Erro ao registrar log de primeiro acesso: {log_error}")
     
     return {"message": "Senha alterada com sucesso. Faça login novamente."}
 
