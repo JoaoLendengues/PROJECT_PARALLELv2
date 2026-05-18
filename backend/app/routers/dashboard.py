@@ -7,47 +7,21 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.database import get_db
+from app.network_topology import get_topology_catalog, get_unit_topology, normalize_company
 
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
-
-FIREWALL_TARGETS = {
-    "PINHEIRO TAGUATINGA": {
-        "host": "10.1.1.100",
-        "port": 8443,
-        "label": "Firewall Netdeep - PINHEIRO TAGUATINGA",
-    },
-    "PINHEIRO SIA": {
-        "host": "10.1.1.150",
-        "port": 8443,
-        "label": "Firewall Netdeep - PINHEIRO SIA",
-    },
-    "PINHEIRO INDUSTRIA": {
-        "host": "85.113.93.6",
-        "port": 8443,
-        "label": "Firewall Netdeep - PINHEIRO INDUSTRIA",
-    },
-}
-
-
-def _normalize_company(value: Optional[str]) -> str:
-    import unicodedata
-
-    text = str(value or "").strip().upper()
-    if not text:
-        return ""
-    text = unicodedata.normalize("NFKD", text)
-    return "".join(char for char in text if not unicodedata.combining(char))
 
 
 def _resolve_local_target(empresa: Optional[str]) -> dict:
     import os
     from urllib.parse import urlparse
 
-    normalized_company = _normalize_company(empresa)
+    normalized_company = normalize_company(empresa)
     configured_port = os.getenv("REDE_LOCAL_PORT") or os.getenv("LOCAL_NETWORK_PORT")
+    topology = get_unit_topology(normalized_company)
 
-    if normalized_company in FIREWALL_TARGETS:
-        target = dict(FIREWALL_TARGETS[normalized_company])
+    if topology.get("firewall"):
+        target = dict(topology["firewall"])
         if configured_port:
             target["port"] = int(configured_port)
         target["empresa"] = normalized_company
@@ -72,7 +46,7 @@ def _resolve_local_target(empresa: Optional[str]) -> dict:
             "label": "Servidor local da aplicacao",
         }
 
-    fallback = dict(FIREWALL_TARGETS["PINHEIRO SIA"])
+    fallback = dict(get_topology_catalog()["PINHEIRO SIA"]["firewall"])
     fallback["empresa"] = normalized_company or "PINHEIRO SIA"
     return fallback
 
@@ -194,16 +168,18 @@ def get_status_internet(empresa: Optional[str] = None):
 def get_status_lan_to_lan(empresa: Optional[str] = None):
     """Retorna a conectividade da unidade atual para os firewalls das outras unidades."""
     origem = _resolve_local_target(empresa)
-    empresa_origem = _normalize_company(empresa)
+    empresa_origem = normalize_company(empresa)
+    topology_catalog = get_topology_catalog()
 
     destinos = []
-    for empresa_destino, target in FIREWALL_TARGETS.items():
+    for empresa_destino, unit in topology_catalog.items():
         if empresa_origem and empresa_destino == empresa_origem:
             continue
-        destinos.append((empresa_destino, dict(target)))
+        if unit.get("firewall"):
+            destinos.append((empresa_destino, dict(unit["firewall"])))
 
-    if not destinos and empresa_origem in FIREWALL_TARGETS:
-        destinos = [(empresa_origem, dict(FIREWALL_TARGETS[empresa_origem]))]
+    if not destinos and empresa_origem in topology_catalog and topology_catalog[empresa_origem].get("firewall"):
+        destinos = [(empresa_origem, dict(topology_catalog[empresa_origem]["firewall"]))]
 
     def monitorar_destino(item):
         empresa_destino, target = item
@@ -234,4 +210,18 @@ def get_status_lan_to_lan(empresa: Optional[str] = None):
         "origem": origem,
         "links": links,
         "resumo": resumo,
+    }
+
+
+@router.get("/topologia-links")
+def get_topologia_links(empresa: Optional[str] = None):
+    """Retorna o cadastro de firewalls e links dedicados por unidade."""
+    empresa_origem = normalize_company(empresa)
+    catalog = list(get_topology_catalog().values())
+    unidade_atual = get_unit_topology(empresa_origem)
+
+    return {
+        "empresa_origem": empresa_origem or unidade_atual.get("empresa"),
+        "unidade_atual": unidade_atual,
+        "unidades": catalog,
     }

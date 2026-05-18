@@ -1320,6 +1320,25 @@ class APIClient:
             print(f"âŒ Erro ao obter status LAN-to-LAN: {e}")
             return {"links": [], "resumo": {"online": 0, "offline": 0, "erro": 0, "total": 0}}
 
+    def get_topologia_links(self, empresa=None):
+        """Obtém o cadastro de firewalls e links dedicados por unidade."""
+        try:
+            params = {}
+            if empresa:
+                params["empresa"] = empresa
+            response = requests.get(
+                f"{self.base_url}/api/dashboard/topologia-links",
+                headers=self.get_headers(),
+                params=params,
+                timeout=10
+            )
+            if response.status_code == 200:
+                return response.json()
+            return {"empresa_origem": empresa, "unidade_atual": {}, "unidades": []}
+        except Exception as e:
+            print(f"Erro ao obter topologia de links: {e}")
+            return {"empresa_origem": empresa, "unidade_atual": {}, "unidades": []}
+
     def get_health_status(self):
         """Obtém a saúde da API e do banco de dados."""
         try:
