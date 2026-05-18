@@ -27,13 +27,11 @@ class NotificationManager(QObject):
         super().__init__()
         self._initialized = True
         self._ultimas_notificacoes = []
-        self._toast_ids_mostrados = set()
         self._ultimo_contador = 0
         self._timer_verificacao = None
         self._modo_nao_perturbe = False
         self._horario_nao_perturbe = {"ativo": False, "inicio": "22:00", "fim": "06:00"}
         self._parent = None
-        self._startup_sync_delays = (1200, 3200, 6500)
 
         self.carregar_configuracoes()
         self.iniciar_verificacao_periodica()
@@ -41,26 +39,12 @@ class NotificationManager(QObject):
     def set_parent(self, parent):
         """Define a janela principal para exibir toasts."""
         self._parent = parent
-        self._resetar_estado_sessao()
-        self.iniciar_verificacao_periodica()
         try:
             from widgets.toast_notification import notification_manager as toast_manager
 
             toast_manager.set_parent(parent)
         except Exception as e:
             print(f"Erro ao vincular parent do toast manager: {e}")
-        self._agendar_sincronizacao_startup()
-
-    def _resetar_estado_sessao(self):
-        """Reinicia o estado volatil ao abrir uma nova sessao."""
-        self._ultimas_notificacoes = []
-        self._toast_ids_mostrados = set()
-        self._ultimo_contador = 0
-
-    def _agendar_sincronizacao_startup(self):
-        """Executa algumas verificacoes curtas no startup para capturar alertas apos o login."""
-        for delay in self._startup_sync_delays:
-            QTimer.singleShot(delay, lambda: self.verificar_novas_notificacoes(force_fetch=True))
 
     def carregar_configuracoes(self):
         """Carrega as configuracoes de notificacao do backend."""
@@ -78,8 +62,7 @@ class NotificationManager(QObject):
 
     def iniciar_verificacao_periodica(self):
         """Inicia a verificacao periodica de novas notificacoes."""
-        app = QApplication.instance()
-        if app is None:
+        if QApplication.instance() is None:
             return False
 
         if self._timer_verificacao is None:
@@ -91,45 +74,31 @@ class NotificationManager(QObject):
 
         return True
 
-    def verificar_novas_notificacoes(self, force_fetch=False):
+    def verificar_novas_notificacoes(self):
         """Verifica se ha novas notificacoes no backend."""
         try:
             count = api_client.contar_notificacoes_nao_lidas()
-            contador_alterado = count != self._ultimo_contador
 
-            if contador_alterado:
+            if count != self._ultimo_contador:
                 self._ultimo_contador = count
                 self.contador_atualizado.emit(count)
 
-            if count > 0 and (contador_alterado or force_fetch):
-                self.buscar_novas_notificacoes(force_toasts=force_fetch)
+                if count > 0:
+                    self.buscar_novas_notificacoes()
         except Exception as e:
             print(f"Erro ao verificar notificacoes: {e}")
 
-    def buscar_novas_notificacoes(self, force_toasts=False):
+    def buscar_novas_notificacoes(self):
         """Busca as notificacoes nao lidas do backend."""
         try:
             notificacoes = api_client.listar_notificacoes(status="nao_lida", limit=20)
             ids_anteriores = [n.get("id") for n in self._ultimas_notificacoes]
 
             for notif in notificacoes:
-                notif_id = notif.get("id")
-                if notif_id not in ids_anteriores:
+                if notif.get("id") not in ids_anteriores:
                     self._ultimas_notificacoes.insert(0, notif)
-
-                if notif_id is None:
-                    continue
-
-                deve_tostar = (force_toasts or notif_id not in ids_anteriores) and notif_id not in self._toast_ids_mostrados
-                if not deve_tostar:
-                    continue
-
-                self.nova_notificacao.emit(notif)
-                try:
+                    self.nova_notificacao.emit(notif)
                     self._mostrar_toast_notificacao(notif)
-                    self._toast_ids_mostrados.add(notif_id)
-                except Exception as toast_error:
-                    print(f"Erro ao exibir toast da notificacao {notif_id}: {toast_error}")
 
             self._ultimas_notificacoes = self._ultimas_notificacoes[:50]
             self.notificacoes_atualizadas.emit()
@@ -141,45 +110,26 @@ class NotificationManager(QObject):
         if not self.deve_mostrar_notificacao(prioridade):
             return
 
-        from widgets.toast_notification import notification_manager as toast_manager
+        try:
+            from widgets.toast_notification import notification_manager as toast_manager
 
-        parent_window = self._parent or QApplication.activeWindow()
-        mensagem = notificacao.get("mensagem") or notificacao.get("titulo") or "Nova notificacao"
-        duracao = {"alta": 10000, "media": 7000, "baixa": 5000}.get(prioridade, 5000)
+            parent_window = self._parent or QApplication.activeWindow()
+            mensagem = notificacao.get("mensagem") or notificacao.get("titulo") or "Nova notificacao"
+            duracao = {"alta": 10000, "media": 7000, "baixa": 5000}.get(prioridade, 5000)
 
-        self._agendar_toast(
-            message=mensagem,
-            tipo="warning" if prioridade in ["alta", "media"] else "info",
-            duration=duracao,
-            parent=parent_window,
-            prioridade=prioridade,
-            acao=notificacao.get("acao"),
-            acao_id=notificacao.get("acao_id"),
-            notificacao_id=notificacao.get("id"),
-            title=notificacao.get("titulo"),
-            toast_manager=toast_manager,
-        )
-
-    def _agendar_toast(self, toast_manager=None, **kwargs):
-        def _emitir():
-            try:
-                manager = toast_manager
-                if manager is None:
-                    from widgets.toast_notification import notification_manager as imported_manager
-
-                    manager = imported_manager
-                manager.show(**kwargs)
-            except Exception as toast_error:
-                print(f"Erro ao disparar toast: {toast_error}")
-
-        delay = 350
-        if self._parent is not None and hasattr(self._parent, "isVisible"):
-            try:
-                if not self._parent.isVisible():
-                    delay = 1800
-            except RuntimeError:
-                delay = 1800
-        QTimer.singleShot(delay, _emitir)
+            toast_manager.show(
+                message=mensagem,
+                tipo="warning" if prioridade in ["alta", "media"] else "info",
+                duration=duracao,
+                parent=parent_window,
+                prioridade=prioridade,
+                acao=notificacao.get("acao"),
+                acao_id=notificacao.get("acao_id"),
+                notificacao_id=notificacao.get("id"),
+                title=notificacao.get("titulo"),
+            )
+        except Exception as e:
+            print(f"Erro ao exibir toast de notificacao: {e}")
 
     def deve_mostrar_notificacao(self, prioridade):
         """Verifica se a notificacao deve ser mostrada."""
@@ -222,7 +172,7 @@ class NotificationManager(QObject):
         return None
 
     def criar_notificacao_sistema(self, tipo, titulo, mensagem, prioridade, acao=None, acao_id=None, dados_extra=None):
-        """Cria uma notificacao no backend e tenta exibir o toast."""
+        """Cria uma notificacao no backend e exibe o toast."""
         if self._verificar_cooldown(tipo):
             print(f"Notificacao {tipo} em cooldown, ignorando...")
             return None
@@ -243,9 +193,12 @@ class NotificationManager(QObject):
                 self._registrar_envio(tipo)
 
                 if self.deve_mostrar_notificacao(prioridade):
+                    from widgets.toast_notification import notification_manager as toast_manager
+
                     parent_window = self._parent or QApplication.activeWindow()
                     duracao = {"alta": 10000, "media": 7000, "baixa": 5000}.get(prioridade, 5000)
-                    self._agendar_toast(
+
+                    toast_manager.show(
                         message=mensagem,
                         tipo="warning" if prioridade in ["alta", "media"] else "info",
                         duration=duracao,
@@ -292,7 +245,7 @@ class NotificationManager(QObject):
         """Marca uma notificacao como lida."""
         success = api_client.marcar_notificacao_lida(notificacao_id)
         if success:
-            self.verificar_novas_notificacoes(force_fetch=True)
+            self.verificar_novas_notificacoes()
         return success
 
     def marcar_todas_como_lidas(self):
@@ -301,7 +254,7 @@ class NotificationManager(QObject):
         if success:
             self._ultimo_contador = 0
             self.contador_atualizado.emit(0)
-            self.verificar_novas_notificacoes(force_fetch=True)
+            self.verificar_novas_notificacoes()
         return success
 
     def get_notificacoes(self, status=None, prioridade=None, limit=50):

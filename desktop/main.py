@@ -38,6 +38,7 @@ def show_login():
 def on_login_success(usuario):
     """Callback quando o login é bem sucedido"""
     global _current_window
+    global _update_startup_result
 
     if _current_window:
         _current_window.close()
