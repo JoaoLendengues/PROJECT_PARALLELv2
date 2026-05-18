@@ -95,7 +95,7 @@ class Pedido(Base):
     departamento = Column(String(100))
     data_solicitacao = Column(Date, server_default=func.current_date())
     data_conclusao = Column(Date)
-    status = Column(String(20), default="pedente")
+    status = Column(String(20), default="pendente")
     observacao = Column(Text)
     link_compra = Column(Text)
     criado_em = Column(DateTime, server_default=func.now())
@@ -216,3 +216,15 @@ class Notificacao(Base):
     
     # Relacionamento
     usuario = relationship("UsuarioSistema", backref="notificacoes")
+
+
+class NotificacaoSuprimida(Base):
+    __tablename__ = "notificacoes_suprimidas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios_sistema.id"), nullable=False)
+    tipo = Column(String(50), nullable=False)
+    acao_id = Column(Integer, nullable=False)
+    suprimida_em = Column(DateTime, server_default=func.now())
+
+    usuario = relationship("UsuarioSistema", backref="notificacoes_suprimidas")

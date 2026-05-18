@@ -55,6 +55,36 @@ def _can_receive_company_alert(usuario: models.UsuarioSistema, empresa: Optional
     return _same_company(usuario, empresa)
 
 
+def _is_active_demanda_status(value) -> bool:
+    normalized = _normalize_text(value)
+    return normalized in {"aberto", "andamento", "em andamento", "em_andamento"}
+
+
+def _is_active_material_status(value) -> bool:
+    normalized = _normalize_text(value)
+    return normalized in {"ativo", "ativa", ""}
+
+
+def _is_pending_manutencao_status(value) -> bool:
+    normalized = _normalize_text(value)
+    return normalized in {"pendente", "andamento", "em andamento", "em_andamento"}
+
+
+def _is_pending_pedido_status(value) -> bool:
+    normalized = _normalize_text(value)
+    return normalized in {"pendente", "pedente", "aguardando"}
+
+
+def _normalize_priority_bucket(prioridade, urgencia) -> str:
+    prioridade_norm = _normalize_text(prioridade)
+    urgencia_norm = _normalize_text(urgencia)
+    if "alta" in {prioridade_norm, urgencia_norm}:
+        return "alta"
+    if "media" in {prioridade_norm, urgencia_norm}:
+        return "media"
+    return "baixa"
+
+
 def _config_value(db: Session, chave: str, default):
     config = db.query(models.Configuracao).filter(models.Configuracao.chave == chave).first()
     if not config or config.valor is None:
@@ -85,6 +115,44 @@ def _notificacao_existente(db: Session, usuario_id: int, tipo: str, acao_id: int
     )
 
 
+def _alerta_suprimido(db: Session, usuario_id: int, tipo: str, acao_id: int) -> bool:
+    return (
+        db.query(models.NotificacaoSuprimida.id)
+        .filter(
+            models.NotificacaoSuprimida.usuario_id == usuario_id,
+            models.NotificacaoSuprimida.tipo == tipo,
+            models.NotificacaoSuprimida.acao_id == acao_id,
+        )
+        .first()
+        is not None
+    )
+
+
+def _registrar_supressao_alerta(db: Session, usuario_id: int, tipo: str, acao_id: int) -> None:
+    if _alerta_suprimido(db, usuario_id, tipo, acao_id):
+        return
+
+    db.add(
+        models.NotificacaoSuprimida(
+            usuario_id=usuario_id,
+            tipo=tipo,
+            acao_id=acao_id,
+        )
+    )
+
+
+def _limpar_supressoes_inativas(db: Session, usuario_id: int, tipo: str, active_ids: set[int]) -> None:
+    query = db.query(models.NotificacaoSuprimida).filter(
+        models.NotificacaoSuprimida.usuario_id == usuario_id,
+        models.NotificacaoSuprimida.tipo == tipo,
+    )
+    if active_ids:
+        query = query.filter(models.NotificacaoSuprimida.acao_id.notin_(active_ids))
+    suppressed = query.all()
+    for entry in suppressed:
+        db.delete(entry)
+
+
 def _criar_notificacao(
     db: Session,
     usuario: models.UsuarioSistema,
@@ -95,23 +163,25 @@ def _criar_notificacao(
     acao: str,
     acao_id: int,
     dados_extra: Optional[dict] = None,
-) -> bool:
+) -> Optional[models.Notificacao]:
     if _notificacao_existente(db, usuario.id, tipo, acao_id):
-        return False
+        return None
+    if _alerta_suprimido(db, usuario.id, tipo, acao_id):
+        return None
 
-    db.add(
-        models.Notificacao(
-            usuario_id=usuario.id,
-            tipo=tipo,
-            titulo=titulo,
-            mensagem=mensagem,
-            prioridade=prioridade,
-            acao=acao,
-            acao_id=acao_id,
-            dados_extra=dados_extra,
-        )
+    notificacao = models.Notificacao(
+        usuario_id=usuario.id,
+        tipo=tipo,
+        titulo=titulo,
+        mensagem=mensagem,
+        prioridade=prioridade,
+        acao=acao,
+        acao_id=acao_id,
+        dados_extra=dados_extra,
     )
-    return True
+    db.add(notificacao)
+    db.flush()
+    return notificacao
 
 
 @router.get("/", response_model=List[schemas.NotificacaoResponse])
@@ -183,6 +253,7 @@ def sincronizar_alertas(
         "pedido": 0,
         "demanda": 0,
     }
+    created_notifications = []
 
     notif_estoque_critico = _config_value(db, "notif_estoque_critico", True)
     notif_estoque_baixo = _config_value(db, "notif_estoque_baixo", True)
@@ -193,62 +264,84 @@ def sincronizar_alertas(
     alerta_estoque = _config_value(db, "alerta_estoque", 5)
 
     if notif_estoque_critico or notif_estoque_baixo:
-        materiais = db.query(models.Material).filter(models.Material.status == "ativo").all()
+        materiais = db.query(models.Material).all()
+        estoque_critico_ativos = set()
+        estoque_baixo_ativos = set()
         for material in materiais:
+            if not _is_active_material_status(material.status):
+                continue
             if not _can_receive_company_alert(current_user, material.empresa):
                 continue
-            if material.quantidade <= 0:
-                continue
 
-            if notif_estoque_critico and material.quantidade <= alerta_estoque_critico:
-                if _criar_notificacao(
+            quantidade = int(material.quantidade or 0)
+
+            if notif_estoque_critico and quantidade <= alerta_estoque_critico:
+                estoque_critico_ativos.add(int(material.id))
+                mensagem = (
+                    f"{material.nome}\n"
+                    f"Apenas {quantidade} unidades restantes!\n"
+                    f"Limite critico: {alerta_estoque_critico} unidades"
+                )
+                if quantidade <= 0:
+                    mensagem = (
+                        f"{material.nome}\n"
+                        "Sem estoque disponivel!\n"
+                        f"Limite critico: {alerta_estoque_critico} unidades"
+                    )
+                notificacao = _criar_notificacao(
                     db,
                     current_user,
                     tipo="estoque_critico",
                     titulo="ESTOQUE CRITICO!",
-                    mensagem=(
-                        f"{material.nome}\n"
-                        f"Apenas {material.quantidade} unidades restantes!\n"
-                        f"Limite critico: {alerta_estoque_critico} unidades"
-                    ),
+                    mensagem=mensagem,
                     prioridade="alta",
                     acao="show_materiais",
                     acao_id=material.id,
-                    dados_extra={"quantidade": material.quantidade, "limite": alerta_estoque_critico},
-                ):
+                    dados_extra={"quantidade": quantidade, "limite": alerta_estoque_critico},
+                )
+                if notificacao:
                     created += 1
                     details["estoque_critico"] += 1
+                    created_notifications.append(notificacao)
                 continue
 
-            if notif_estoque_baixo and material.quantidade <= alerta_estoque:
-                if _criar_notificacao(
+            if notif_estoque_baixo and quantidade <= alerta_estoque:
+                estoque_baixo_ativos.add(int(material.id))
+                notificacao = _criar_notificacao(
                     db,
                     current_user,
                     tipo="estoque_baixo",
                     titulo="ESTOQUE BAIXO",
                     mensagem=(
                         f"{material.nome}\n"
-                        f"Estoque: {material.quantidade} unidades\n"
+                        f"Estoque: {quantidade} unidades\n"
                         f"Limite de alerta: {alerta_estoque} unidades"
                     ),
                     prioridade="media",
                     acao="show_materiais",
                     acao_id=material.id,
-                    dados_extra={"quantidade": material.quantidade, "limite": alerta_estoque},
-                ):
+                    dados_extra={"quantidade": quantidade, "limite": alerta_estoque},
+                )
+                if notificacao:
                     created += 1
                     details["estoque_baixo"] += 1
+                    created_notifications.append(notificacao)
+        _limpar_supressoes_inativas(db, current_user.id, "estoque_critico", estoque_critico_ativos)
+        _limpar_supressoes_inativas(db, current_user.id, "estoque_baixo", estoque_baixo_ativos)
 
     if notif_manutencao:
         manutencoes = (
             db.query(models.Manutencao, models.Maquina)
             .join(models.Maquina, models.Manutencao.maquina_id == models.Maquina.id)
-            .filter(models.Manutencao.status == "pendente")
             .all()
         )
+        manutencoes_ativas = set()
         for manutencao, maquina in manutencoes:
+            if not _is_pending_manutencao_status(manutencao.status):
+                continue
             if not _can_receive_company_alert(current_user, maquina.empresa):
                 continue
+            manutencoes_ativas.add(int(manutencao.id))
 
             dias_pendente = 0
             if manutencao.data_inicio:
@@ -262,7 +355,7 @@ def sincronizar_alertas(
                 mensagem += f"Pendente ha {dias_pendente} dia(s)\n"
             mensagem += f"Descricao: {(manutencao.descricao or '')[:50]}"
 
-            if _criar_notificacao(
+            notificacao = _criar_notificacao(
                 db,
                 current_user,
                 tipo="manutencao",
@@ -272,15 +365,22 @@ def sincronizar_alertas(
                 acao="show_manutencoes",
                 acao_id=manutencao.id,
                 dados_extra={"dias_pendente": dias_pendente, "empresa": maquina.empresa},
-            ):
+            )
+            if notificacao:
                 created += 1
                 details["manutencao"] += 1
+                created_notifications.append(notificacao)
+        _limpar_supressoes_inativas(db, current_user.id, "manutencao", manutencoes_ativas)
 
     if notif_pedidos:
-        pedidos = db.query(models.Pedido).filter(models.Pedido.status == "pendente").all()
+        pedidos = db.query(models.Pedido).all()
+        pedidos_ativos = set()
         for pedido in pedidos:
+            if not _is_pending_pedido_status(pedido.status):
+                continue
             if not _can_receive_company_alert(current_user, pedido.empresa):
                 continue
+            pedidos_ativos.add(int(pedido.id))
 
             dias_atraso = 0
             if pedido.data_solicitacao:
@@ -299,7 +399,7 @@ def sincronizar_alertas(
             if dias_atraso > 0:
                 mensagem += f"\nAguardando ha {dias_atraso} dia(s)"
 
-            if _criar_notificacao(
+            notificacao = _criar_notificacao(
                 db,
                 current_user,
                 tipo="pedido",
@@ -309,26 +409,39 @@ def sincronizar_alertas(
                 acao="show_pedidos",
                 acao_id=pedido.id,
                 dados_extra={"dias_atraso": dias_atraso, "empresa": pedido.empresa},
-            ):
+            )
+            if notificacao:
                 created += 1
                 details["pedido"] += 1
+                created_notifications.append(notificacao)
+        _limpar_supressoes_inativas(db, current_user.id, "pedido", pedidos_ativos)
 
     if notif_demandas:
-        demandas = db.query(models.Demanda).filter(models.Demanda.status == "aberto").all()
+        demandas = db.query(models.Demanda).all()
+        demandas_ativas = set()
         for demanda in demandas:
+            if not _is_active_demanda_status(demanda.status):
+                continue
             if not _can_receive_company_alert(current_user, demanda.empresa):
                 continue
+            demandas_ativas.add(int(demanda.id))
 
-            prioridade_notif = demanda.prioridade if demanda.prioridade in {"alta", "media", "baixa"} else "media"
-            mensagem = f"Titulo: {(demanda.titulo or '')[:50]}\nSolicitante: {demanda.solicitante}"
+            prioridade_notif = _normalize_priority_bucket(demanda.prioridade, demanda.urgencia)
+            mensagem = (
+                f"Protocolo: #{demanda.id}\n"
+                f"Titulo: {(demanda.titulo or '')[:50]}\n"
+                f"Solicitante: {demanda.solicitante}"
+            )
             if demanda.urgencia:
                 mensagem += f"\nUrgencia: {demanda.urgencia}"
+            if demanda.status:
+                mensagem += f"\nStatus: {demanda.status}"
 
-            if _criar_notificacao(
+            notificacao = _criar_notificacao(
                 db,
                 current_user,
                 tipo="demanda",
-                titulo=f"NOVA DEMANDA {str(demanda.prioridade or 'media').upper()}!",
+                titulo=f"DEMANDA {prioridade_notif.upper()} PENDENTE!",
                 mensagem=mensagem,
                 prioridade=prioridade_notif,
                 acao="show_demandas",
@@ -339,16 +452,37 @@ def sincronizar_alertas(
                     "urgencia": demanda.urgencia,
                     "status": demanda.status,
                 },
-            ):
+            )
+            if notificacao:
                 created += 1
                 details["demanda"] += 1
+                created_notifications.append(notificacao)
+        _limpar_supressoes_inativas(db, current_user.id, "demanda", demandas_ativas)
 
     if created:
         db.commit()
     else:
         db.rollback()
 
-    return {"created": created, "details": details}
+    serialized_notifications = [
+        {
+            "id": notif.id,
+            "usuario_id": notif.usuario_id,
+            "tipo": notif.tipo,
+            "titulo": notif.titulo,
+            "mensagem": notif.mensagem,
+            "prioridade": notif.prioridade,
+            "status": notif.status,
+            "acao": notif.acao,
+            "acao_id": notif.acao_id,
+            "dados_extra": notif.dados_extra,
+            "criado_em": notif.criado_em.isoformat() if notif.criado_em else datetime.now().isoformat(),
+            "lida_em": notif.lida_em.isoformat() if notif.lida_em else None,
+        }
+        for notif in created_notifications
+    ]
+
+    return {"created": created, "details": details, "notifications": serialized_notifications}
 
 
 @router.put("/{notificacao_id}/marcar-lida")
@@ -412,6 +546,15 @@ def deletar_notificacao(
 
     if not notificacao:
         raise HTTPException(status_code=404, detail="Notificacao nao encontrada")
+
+    alert_types = {"estoque_critico", "estoque_baixo", "manutencao", "pedido", "demanda"}
+    if notificacao.tipo in alert_types and notificacao.acao_id is not None:
+        _registrar_supressao_alerta(
+            db,
+            usuario_id=current_user.id,
+            tipo=notificacao.tipo,
+            acao_id=int(notificacao.acao_id),
+        )
 
     db.delete(notificacao)
     db.commit()

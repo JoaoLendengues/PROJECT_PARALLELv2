@@ -43,8 +43,10 @@ class AlertService(QObject):
             if response.status_code == 200:
                 payload = response.json()
                 created = int(payload.get("created", 0) or 0)
+                notifications = payload.get("notifications") or []
                 if created > 0:
                     print(f"Alertas sincronizados: {created} nova(s) notificacao(oes)")
+                    notification_manager.registrar_notificacoes_recebidas(notifications)
                 notification_manager.verificar_novas_notificacoes()
             else:
                 print(f"Erro ao sincronizar alertas: HTTP {response.status_code} - {response.text}")

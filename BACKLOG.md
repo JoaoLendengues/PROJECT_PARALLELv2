@@ -6,6 +6,7 @@ Este arquivo concentra apenas o que ainda faz sentido como próximo trabalho, re
 
 ## Prioridade imediata
 
+- Corrigir com prioridade máxima a materialização e o disparo dos pop-ups de notificações sistêmicas (`estoque`, `manutenções`, `pedidos` e `demandas`), garantindo fila sequencial, consistência com a central e comportamento estável no login.
 - Refazer o sistema de atualizações do zero para correção de erros. Este item é crítico e tem prioridade máxima.
 - Refinar o atualizador automático com helper externo, staging validado, estado pendente e relançamento confiável do app.
 - Concluir rollback e recuperação automática quando a atualização falhar no meio do processo.

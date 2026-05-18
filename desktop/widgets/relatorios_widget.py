@@ -89,8 +89,10 @@ class RelatoriosWidget(QWidget):
             "demandas": [],
         }
         self._summary_labels = {}
+        self._result_labels = {}
         self._detail_labels = {}
         self._detail_empty_messages = {}
+        self._empty_state_cards = {}
         self.init_ui()
 
     def set_usuario(self, usuario):
@@ -181,6 +183,26 @@ class RelatoriosWidget(QWidget):
                 font-weight: 700;
             }}
             QLabel#reportDetailBody {{
+                color: {colors_map['muted']};
+                font-size: 12px;
+            }}
+            QLabel#reportResultsLabel {{
+                color: {colors_map['muted']};
+                font-size: 12px;
+                font-weight: 600;
+                padding-left: 2px;
+            }}
+            QFrame#reportEmptyStateCard {{
+                background-color: {colors_map['card_bg']};
+                border: 1px dashed {colors_map['card_border']};
+                border-radius: 16px;
+            }}
+            QLabel#reportEmptyStateTitle {{
+                color: {colors_map['title']};
+                font-size: 15px;
+                font-weight: 700;
+            }}
+            QLabel#reportEmptyStateBody {{
                 color: {colors_map['muted']};
                 font-size: 12px;
             }}
@@ -415,10 +437,72 @@ class RelatoriosWidget(QWidget):
         self._detail_empty_messages[key] = empty_message
         return card
 
+    def _create_table_panel(self, key, table, empty_title, empty_message):
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(10)
+
+        result_label = QLabel("Aguardando dados do relatorio...")
+        result_label.setObjectName("reportResultsLabel")
+        layout.addWidget(result_label)
+
+        layout.addWidget(table, 1)
+
+        empty_card = QFrame()
+        empty_card.setObjectName("reportEmptyStateCard")
+        empty_layout = QVBoxLayout(empty_card)
+        empty_layout.setContentsMargins(22, 20, 22, 20)
+        empty_layout.setSpacing(8)
+
+        title_label = QLabel(empty_title)
+        title_label.setObjectName("reportEmptyStateTitle")
+        empty_layout.addWidget(title_label)
+
+        body_label = QLabel(empty_message)
+        body_label.setObjectName("reportEmptyStateBody")
+        body_label.setWordWrap(True)
+        empty_layout.addWidget(body_label)
+        empty_layout.addStretch()
+
+        empty_card.hide()
+        layout.addWidget(empty_card, 1)
+
+        self._result_labels[key] = result_label
+        self._empty_state_cards[key] = empty_card
+        return container
+
     def _set_detail_empty(self, key):
         label = self._detail_labels.get(key)
         if label is not None:
             label.setText(self._detail_empty_messages.get(key, "Selecione um registro para ver os detalhes."))
+
+    def _set_report_feedback(self, key, count):
+        label = self._result_labels.get(key)
+        if label is None:
+            return
+
+        descriptors = {
+            "movimentacoes": ("movimentacao encontrada", "movimentacoes encontradas"),
+            "estoque": ("item encontrado", "itens encontrados"),
+            "pedidos": ("pedido encontrado", "pedidos encontrados"),
+            "demandas": ("demanda encontrada", "demandas encontradas"),
+        }
+        singular, plural = descriptors.get(key, ("registro encontrado", "registros encontrados"))
+        if count == 0:
+            label.setText("Nenhum resultado com os filtros atuais.")
+        elif count == 1:
+            label.setText(f"1 {singular}.")
+        else:
+            label.setText(f"{count} {plural}.")
+
+    def _set_table_empty_state(self, key, has_rows):
+        table = self._table_for_tipo(key)
+        empty_card = self._empty_state_cards.get(key)
+        if table is not None:
+            table.setVisible(has_rows)
+        if empty_card is not None:
+            empty_card.setVisible(not has_rows)
 
     def _build_detail_html(self, title, fields):
         colors_map = self._theme_colors()
@@ -625,7 +709,15 @@ class RelatoriosWidget(QWidget):
         mov_content = QHBoxLayout()
         mov_content.setContentsMargins(0, 0, 0, 0)
         mov_content.setSpacing(16)
-        mov_content.addWidget(self.mov_tabela, 1)
+        mov_content.addWidget(
+            self._create_table_panel(
+                "movimentacoes",
+                self.mov_tabela,
+                "Nenhuma movimentacao encontrada",
+                "Ajuste a busca ou revise o periodo e os filtros para encontrar registros.",
+            ),
+            1,
+        )
         mov_content.addWidget(
             self._create_detail_panel("movimentacoes", "Detalhes da movimentacao", "Selecione uma movimentacao para ver o resumo completo."),
             0,
@@ -708,7 +800,15 @@ class RelatoriosWidget(QWidget):
         est_content = QHBoxLayout()
         est_content.setContentsMargins(0, 0, 0, 0)
         est_content.setSpacing(16)
-        est_content.addWidget(self.est_tabela, 1)
+        est_content.addWidget(
+            self._create_table_panel(
+                "estoque",
+                self.est_tabela,
+                "Nenhum item encontrado",
+                "Ajuste a busca ou revise categoria, empresa e status para localizar materiais.",
+            ),
+            1,
+        )
         est_content.addWidget(
             self._create_detail_panel("estoque", "Detalhes do material", "Selecione um item do estoque para ver os detalhes."),
             0,
@@ -788,7 +888,15 @@ class RelatoriosWidget(QWidget):
         ped_content = QHBoxLayout()
         ped_content.setContentsMargins(0, 0, 0, 0)
         ped_content.setSpacing(16)
-        ped_content.addWidget(self.ped_tabela, 1)
+        ped_content.addWidget(
+            self._create_table_panel(
+                "pedidos",
+                self.ped_tabela,
+                "Nenhum pedido encontrado",
+                "Ajuste a busca ou revise o periodo, status e empresa para localizar pedidos.",
+            ),
+            1,
+        )
         ped_content.addWidget(
             self._create_detail_panel("pedidos", "Detalhes do pedido", "Selecione um pedido para ver o contexto completo."),
             0,
@@ -873,7 +981,15 @@ class RelatoriosWidget(QWidget):
         dem_content = QHBoxLayout()
         dem_content.setContentsMargins(0, 0, 0, 0)
         dem_content.setSpacing(16)
-        dem_content.addWidget(self.dem_tabela, 1)
+        dem_content.addWidget(
+            self._create_table_panel(
+                "demandas",
+                self.dem_tabela,
+                "Nenhuma demanda encontrada",
+                "Ajuste a busca ou revise o periodo, prioridade, status e empresa para encontrar demandas.",
+            ),
+            1,
+        )
         dem_content.addWidget(
             self._create_detail_panel("demandas", "Detalhes da demanda", "Selecione uma demanda para ver o resumo completo."),
             0,
@@ -1026,6 +1142,8 @@ class RelatoriosWidget(QWidget):
         self._set_summary_value("movimentacoes", "total", len(movimentacoes))
         self._set_summary_value("movimentacoes", "entradas", entradas)
         self._set_summary_value("movimentacoes", "saidas", saidas)
+        self._set_report_feedback("movimentacoes", len(movimentacoes))
+        self._set_table_empty_state("movimentacoes", bool(movimentacoes))
         if movimentacoes:
             self.mov_tabela.selectRow(0)
             self._update_detail_from_selection("movimentacoes")
@@ -1094,6 +1212,8 @@ class RelatoriosWidget(QWidget):
         self._set_summary_value("estoque", "total", len(materiais))
         self._set_summary_value("estoque", "ativos", ativos)
         self._set_summary_value("estoque", "criticos", criticos)
+        self._set_report_feedback("estoque", len(materiais))
+        self._set_table_empty_state("estoque", bool(materiais))
         if materiais:
             self.est_tabela.selectRow(0)
             self._update_detail_from_selection("estoque")
@@ -1171,6 +1291,8 @@ class RelatoriosWidget(QWidget):
         self._set_summary_value("pedidos", "total", len(pedidos))
         self._set_summary_value("pedidos", "pendentes", pendentes)
         self._set_summary_value("pedidos", "concluidos", concluidos)
+        self._set_report_feedback("pedidos", len(pedidos))
+        self._set_table_empty_state("pedidos", bool(pedidos))
         if pedidos:
             self.ped_tabela.selectRow(0)
             self._update_detail_from_selection("pedidos")
@@ -1254,6 +1376,8 @@ class RelatoriosWidget(QWidget):
         self._set_summary_value("demandas", "total", len(demandas))
         self._set_summary_value("demandas", "abertas", abertas)
         self._set_summary_value("demandas", "concluidas", concluidas)
+        self._set_report_feedback("demandas", len(demandas))
+        self._set_table_empty_state("demandas", bool(demandas))
         if demandas:
             self.dem_tabela.selectRow(0)
             self._update_detail_from_selection("demandas")

@@ -34,6 +34,7 @@ class NotificationCenter(QDialog):
         super().__init__(parent)
         self.notificacoes_originais = []
         self.notificacoes_atuais = []
+        self._quick_filter_mode = "todas"
         self.mapa_tipos = {
             "demanda": "Demandas",
             "pedido": "Pedidos",
@@ -162,6 +163,26 @@ class NotificationCenter(QDialog):
             filtros_grid.setColumnStretch(column, 1)
 
         filtros_layout.addLayout(filtros_grid)
+
+        quick_filters_layout = QHBoxLayout()
+        quick_filters_layout.setContentsMargins(0, 0, 0, 0)
+        quick_filters_layout.setSpacing(10)
+
+        quick_label = QLabel("Filtros rápidos:")
+        quick_label.setObjectName("notificationInfo")
+        quick_filters_layout.addWidget(quick_label)
+
+        self.btn_quick_todas = self._create_quick_filter_button("Tudo", "todas")
+        self.btn_quick_nao_lidas = self._create_quick_filter_button("Só não lidas", "nao_lidas")
+        self.btn_quick_criticas = self._create_quick_filter_button("Só críticas", "criticas")
+        self.btn_quick_acionaveis = self._create_quick_filter_button("Só acionáveis", "acionaveis")
+
+        quick_filters_layout.addWidget(self.btn_quick_todas)
+        quick_filters_layout.addWidget(self.btn_quick_nao_lidas)
+        quick_filters_layout.addWidget(self.btn_quick_criticas)
+        quick_filters_layout.addWidget(self.btn_quick_acionaveis)
+        quick_filters_layout.addStretch()
+        filtros_layout.addLayout(quick_filters_layout)
         root_layout.addWidget(self.filtros_card)
 
         content_layout = QHBoxLayout()
@@ -310,6 +331,7 @@ class NotificationCenter(QDialog):
         root_layout.addWidget(self.footer_card)
 
         self._resetar_detalhes()
+        self._update_quick_filter_buttons()
 
     def showEvent(self, event):
         self._apply_theme_styles()
@@ -534,6 +556,23 @@ class NotificationCenter(QDialog):
             QPushButton#secondaryButton:hover {{
                 background-color: {colors['secondary_btn_hover']};
             }}
+            QPushButton#quickFilterButton {{
+                background-color: {colors['card_bg']};
+                color: {colors['muted']};
+                padding: 8px 14px;
+                border-radius: 18px;
+                font-weight: 600;
+                border: 1px solid {colors['input_border']};
+            }}
+            QPushButton#quickFilterButton:hover {{
+                border-color: {colors['input_border_hover']};
+                color: {colors['text']};
+            }}
+            QPushButton#quickFilterButton:checked {{
+                background-color: {colors['selection_bg']};
+                color: {colors['selection_text']};
+                border: 1px solid {colors['selection_bg']};
+            }}
             QMessageBox QPushButton {{
                 min-width: 80px;
                 padding: 6px 12px;
@@ -613,6 +652,32 @@ class NotificationCenter(QDialog):
     def _label_tipo(self, tipo):
         base = (tipo or "sistema").lower()
         return self.mapa_tipos.get(base, base.replace("_", " ").title())
+
+    def _create_quick_filter_button(self, text, mode):
+        button = QPushButton(text)
+        button.setObjectName("quickFilterButton")
+        button.setCheckable(True)
+        button.clicked.connect(lambda checked=False, selected_mode=mode: self._set_quick_filter_mode(selected_mode))
+        return button
+
+    def _set_quick_filter_mode(self, mode):
+        self._quick_filter_mode = mode
+        self._update_quick_filter_buttons()
+        self.filtrar_notificacoes()
+
+    def _update_quick_filter_buttons(self):
+        buttons = {
+            "todas": getattr(self, "btn_quick_todas", None),
+            "nao_lidas": getattr(self, "btn_quick_nao_lidas", None),
+            "criticas": getattr(self, "btn_quick_criticas", None),
+            "acionaveis": getattr(self, "btn_quick_acionaveis", None),
+        }
+        for mode, button in buttons.items():
+            if button is None:
+                continue
+            button.blockSignals(True)
+            button.setChecked(self._quick_filter_mode == mode)
+            button.blockSignals(False)
 
     def _parse_created_at(self, value):
         raw = str(value or "").strip()
@@ -768,6 +833,13 @@ class NotificationCenter(QDialog):
                     continue
                 if acao_filtro == "sem acao" and possui_acao:
                     continue
+
+            if self._quick_filter_mode == "nao_lidas" and status != "nao_lida":
+                continue
+            if self._quick_filter_mode == "criticas" and prioridade != "alta":
+                continue
+            if self._quick_filter_mode == "acionaveis" and not notif.get("acao"):
+                continue
 
             if busca:
                 alvo_busca = " ".join(

@@ -91,19 +91,38 @@ class NotificationManager(QObject):
     def buscar_novas_notificacoes(self):
         """Busca as notificacoes nao lidas do backend."""
         try:
-            notificacoes = api_client.listar_notificacoes(status="nao_lida", limit=20)
+            notificacoes = api_client.listar_notificacoes(status="nao_lida", limit=100)
             ids_anteriores = [n.get("id") for n in self._ultimas_notificacoes]
+            novas = [notif for notif in notificacoes if notif.get("id") not in ids_anteriores]
+            novas.sort(key=lambda item: item.get("criado_em", ""))
 
-            for notif in notificacoes:
-                if notif.get("id") not in ids_anteriores:
-                    self._ultimas_notificacoes.insert(0, notif)
-                    self.nova_notificacao.emit(notif)
-                    self._mostrar_toast_notificacao(notif)
+            for notif in novas:
+                self._ultimas_notificacoes.insert(0, notif)
+                self.nova_notificacao.emit(notif)
+                self._mostrar_toast_notificacao(notif)
 
             self._ultimas_notificacoes = self._ultimas_notificacoes[:50]
             self.notificacoes_atualizadas.emit()
         except Exception as e:
             print(f"Erro ao buscar notificacoes: {e}")
+
+    def registrar_notificacoes_recebidas(self, notificacoes):
+        """Registra um lote novo vindo do backend e coloca os toasts na fila."""
+        if not notificacoes:
+            return
+
+        ids_anteriores = {n.get("id") for n in self._ultimas_notificacoes}
+        novas = [notif for notif in notificacoes if notif.get("id") not in ids_anteriores]
+        novas.sort(key=lambda item: item.get("criado_em", ""))
+
+        for notif in novas:
+            self._ultimas_notificacoes.insert(0, notif)
+            self.nova_notificacao.emit(notif)
+            self._mostrar_toast_notificacao(notif)
+
+        if novas:
+            self._ultimas_notificacoes = self._ultimas_notificacoes[:50]
+            self.notificacoes_atualizadas.emit()
 
     def _mostrar_toast_notificacao(self, notificacao):
         prioridade = notificacao.get("prioridade", "baixa")
